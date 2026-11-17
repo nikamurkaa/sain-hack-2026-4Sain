@@ -1,4 +1,4 @@
-# Team credentials and local configuration
+# Секреты команды и локальная конфигурация
 id_ed25519
 id_ed25519.*
 api.token
@@ -9,14 +9,14 @@ yandex_forms_secret.txt
 !.env.example
 *.pem
 *.key
-# Organizer kits and archives
+# Комплекты организаторов и архивы
 team25/
 team25*/
 *.zip
 *.tar
 *.tar.gz
 *.tgz
-# Local tools and runtime files
+# Локальные инструменты и служебные файлы
 .venv/
 venv/
 __pycache__/

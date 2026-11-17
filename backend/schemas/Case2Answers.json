@@ -1,0 +1,96 @@
+{
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "stays",
+    "requests"
+  ],
+  "properties": {
+    "stays": {
+      "type": "array",
+      "items": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "record_id",
+          "session_id"
+        ],
+        "properties": {
+          "record_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+            "type": "string"
+          },
+          "session_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+            "type": "string"
+          }
+        }
+      }
+    },
+    "requests": {
+      "type": "array",
+      "items": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "record_id",
+          "session_id",
+          "replies"
+        ],
+        "properties": {
+          "record_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+            "type": "string"
+          },
+          "session_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+            "type": "string"
+          },
+          "replies": {
+            "minItems": 1,
+            "maxItems": 2,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "role",
+                "at",
+                "text",
+                "response_class"
+              ],
+              "properties": {
+                "role": {
+                  "const": "agent",
+                  "type": "string"
+                },
+                "at": {
+                  "format": "date-time",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?[+-]\\d{2}:\\d{2}$",
+                  "description": "ISO 8601 с явным смещением; Z и время без смещения не допускаются.",
+                  "type": "string"
+                },
+                "text": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "response_class": {
+                  "anyOf": [
+                    {
+                      "const": "done",
+                      "type": "string"
+                    },
+                    {
+                      "const": "refused",
+                      "type": "string"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
