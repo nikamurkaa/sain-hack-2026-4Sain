@@ -1,0 +1,36 @@
+# Team credentials and local configuration
+id_ed25519
+id_ed25519.*
+api.token
+llm.key
+yandex_forms_secret.txt
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+# Organizer kits and archives
+team25/
+team25*/
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+# Local tools and runtime files
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.log
+*.pid
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.stand-access/
+.local/
