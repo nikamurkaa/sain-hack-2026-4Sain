@@ -52,3 +52,57 @@ jobs:
             -o BatchMode=yes -o StrictHostKeyChecking=yes -o IdentitiesOnly=yes \
             -o ServerAliveInterval=30 \
             "deploy@$STAND_HOST" "deploy $GITHUB_SHA"
+
+      - name: Проверить SHA и HTTP-контракт стартового сервера
+        env:
+          STAND_HOST: ${{ secrets.STAND_HOST || 'hack.be-healthy.tech' }}
+        run: |
+          python - <<'PYTHON'
+          import json
+          import os
+          import subprocess
+          import time
+          import urllib.error
+          import urllib.request
+
+          sha = os.environ["GITHUB_SHA"]
+          status = subprocess.run(
+              ["ssh", "-i", os.path.expanduser("~/.ssh/stand_key"),
+               "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes",
+               "-o", "IdentitiesOnly=yes", "-o", "ConnectTimeout=15",
+               "deploy@" + os.environ["STAND_HOST"], "status"],
+              check=True, capture_output=True, text=True, timeout=30,
+          )
+          assert sha in status.stdout, "SSH status does not confirm expected SHA"
+          print("SSH status confirms deployed SHA:", sha)
+
+          base = "https://team25.hack.be-healthy.tech"
+          for path, bearer, expected_code, expected_body in [
+              ("/", False, 200, {"team": "team25", "status": "ok"}),
+              ("/health", False, 200, {"team": "team25", "status": "ok"}),
+              ("/run", False, 401, {"status": "error", "error": "нет Authorization: Bearer"}),
+              ("/run", True, 501, {"status": "not_implemented", "case": 2}),
+          ]:
+              for attempt in range(5):
+                  try:
+                      headers = {"Content-Type": "application/json"}
+                      if bearer:
+                          headers["Authorization"] = "Bearer smoke-test"
+                      body = json.dumps({"case": 2, "dataset_code": "case2-dev-v1"}).encode() if path == "/run" else None
+                      request = urllib.request.Request(base + path, data=body, headers=headers)
+                      try:
+                          response = urllib.request.urlopen(request, timeout=20)
+                      except urllib.error.HTTPError as error:
+                          response = error
+                      with response:
+                          code = response.status
+                          result = json.load(response)
+                      assert code == expected_code, f"Unexpected HTTP {code} for {path}"
+                      assert result == expected_body, f"Unexpected JSON for {path}"
+                      print(path, "with Bearer" if bearer else "without Bearer", code, json.dumps(expected_body, ensure_ascii=False))
+                      break
+                  except (OSError, ValueError, AssertionError):
+                      if attempt == 4:
+                          raise
+                      time.sleep(3)
+          PYTHON
