@@ -1,44 +1,44 @@
-# Case 2 backend implementation plan
+# План реализации бэкенда для кейса № 2
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **Для агента-разработчика:** ОБЯЗАТЕЛЬНЫЙ ПОДНАВЫК: используйте superpowers:executing-plans для последовательного выполнения задач этого плана.
 
-**Goal:** Implement the nine backend tasks approved in chat, verify against the organizer simulator, and provide a client contract.
-**Architecture:** FastAPI entry point; separate data client, preference resolver, deterministic scheduler, LLM intent parser, command executor and run coordinator. Client sessions are isolated from evaluation sessions.
-**Tech Stack:** Python 3.11, FastAPI, httpx, Pydantic, jsonschema, pytest; organizer LLM proxy.
-**Spec:** User's nine-task request; attached organizer README and current https://hack-api.be-healthy.tech/openapi.json.
+**Цель:** реализовать девять задач бэкенда, согласованных в чате, проверить решение на симуляторе организаторов и подготовить контракт API для фронтенда.
+**Архитектура:** входная точка FastAPI; отдельные модули для получения данных, определения предпочтений, детерминированного планирования, распознавания намерений через LLM, выполнения команд и координации прогонов. Клиентские сеансы изолированы от проверочных.
+**Стек:** Python 3.11, FastAPI, httpx, Pydantic, jsonschema, pytest; LLM-прокси организаторов.
+**Основание:** девять задач из запроса пользователя, приложенный README организаторов и актуальная спецификация https://hack-api.be-healthy.tech/openapi.json.
 
-## Global constraints
-512 MB RAM, 1 CPU; runtime network limited to organizer API and LLM proxy. Root start.sh and requirements.txt remain. Credentials never enter source, logs or client responses. Read LLM model from environment. 45-minute online budget. Datetimes include explicit UTC offsets; no Z. Evaluation input token is used for dataset and room access. Reference answers are test-only.
+## Общие ограничения
+512 МБ RAM, 1 CPU; во время работы приложения доступ в сеть ограничен API организаторов и LLM-прокси. Файлы start.sh и requirements.txt остаются в корне проекта. Секреты не должны попадать в исходный код, логи и ответы клиенту. Модель LLM задаётся переменной окружения. На онлайн-прогон отведено 45 минут. Дата и время содержат явное смещение относительно UTC; обозначение Z не используется. Для получения набора данных и доступа к комнате используется токен входящего проверочного запроса. Эталонные ответы используются только в тестах.
 
-## Architecture decisions
-- backend/clients.py: bounded HTTP timeouts/retries, no credential logging; mutation timeouts reconciled via state/log before retry.
-- backend/preferences.py: user-scoped history bounded by record time; provenance and temporary versus persistent preferences.
-- backend/scheduler.py: compile exact dataset R1–R8 into room scenario; device schemas authoritative.
-- backend/intents.py: validated structured LLM output for 19 intents; deterministic validation and arithmetic.
-- backend/room.py: session creation, scenario/action execution, state confirmation.
-- backend/runner.py: load dataset once; separate stay/request sessions; ordered utterances; Case2Answers validation.
-- backend/app_api.py: separate client session token, guest/scenario/state/message endpoints; no raw upstream secrets.
-- main.py: health, evaluation route, app routes and dependency wiring.
-- docs/client-api.md: versioned request/response examples for Alexey and Pavel.
-- tests/: unit tests and mocked transport; opt-in live dev verification.
+## Архитектурные решения
+- backend/clients.py: HTTP-запросы с ограниченными таймаутами и повторами, без записи секретов в логи; после таймаута изменяющей операции перед повтором проверяется состояние или журнал.
+- backend/preferences.py: история только нужного пользователя и только до времени обрабатываемой записи; сохранение источников предпочтений и различение временных и постоянных настроек.
+- backend/scheduler.py: преобразование правил R1–R8 из набора данных в сценарий комнаты; схемы устройств определяют допустимые параметры.
+- backend/intents.py: проверяемый структурированный ответ LLM для 19 намерений; валидация и арифметика выполняются кодом.
+- backend/room.py: создание сеансов, загрузка сценариев, выполнение действий и подтверждение состояния.
+- backend/runner.py: однократная загрузка набора данных; отдельные сеансы для проживаний и просьб; обработка реплик по порядку; проверка результата по схеме Case2Answers.
+- backend/app_api.py: отдельный токен клиентского сеанса, эндпоинты гостя, сценария, состояния и сообщений; секреты внешнего API не возвращаются клиенту.
+- main.py: проверка доступности, проверочный маршрут, клиентские маршруты и подключение зависимостей.
+- docs/client-api.md: версионируемый контракт с примерами запросов и ответов для Алексея и Павла.
+- tests/: модульные тесты и имитация HTTP-ответов; проверка на реальном dev-наборе запускается отдельно.
 
-## Tasks
-- [ ] 1. Capture current schemas and inspect dev data privately. Confirm final client-session lifecycle: current /runs description says final has persistent access and no batch submission, unlike README. Record the discrepancy; do not invent permissions.
-- [ ] 2. Write tests for single dataset fetch, authorization forwarding, user/time isolation, reference exclusion, transient errors. Implement clients and preference resolver. Run pytest tests/test_data.py tests/test_preferences.py.
-- [ ] 3. Write boundary tests for R1–R8, midnight, timezone shift of exactly one hour where applicable, late arrivals, sounds absent and explicit sound shutdown. Implement build_scenario(user, history, stay, catalog, rules). Run pytest tests/test_scheduler.py.
-- [ ] 4. Write tests for 19 intents, two utterances, invalid temperature, unrelated fields preserved, malformed LLM JSON, future-history exclusion and medical/out-of-scope refusal. Implement parse_intent and validated command planning. Run pytest tests/test_intents.py tests/test_commands.py.
-- [ ] 5. Write transport tests for initial state, session kinds, successful execution, partial/ambiguous failures and no false done. Implement simulator adapter. Run pytest tests/test_room.py.
-- [ ] 6. Write integration tests for complete /run with incoming token, all records and output schema; health stays responsive during work. Implement coordinator with bounded concurrency and independent request states. Run pytest tests/test_run.py.
-- [ ] 7. Write client-session isolation and idempotency tests. Implement create-session, guest, scenario, state and messages endpoints; derive exact upstream lifecycle from step 1. Publish OpenAPI/examples. Run pytest tests/test_app_api.py.
-- [ ] 8. Replace deployment assertions requiring 501 and exact root JSON with stable health and cheap validation checks. Add Python 3.11 CI for unit tests; live LLM runs remain opt-in.
-- [ ] 9. Run full unit suite and a real dev run; validate references/schema and independently compare states/sleep rules against dev reference. Report measured results, request/token usage and unresolved failures. Publish branch and reviewable PR; never claim validate proves semantic quality.
+## Задачи
+- [ ] 1. Зафиксировать актуальные схемы и изучить dev-данные без публикации закрытого содержимого. Уточнить жизненный цикл клиентского сеанса в final: текущее описание /runs говорит о постоянном доступе и отсутствии пакетной отправки, что отличается от README. Зафиксировать расхождение; не предполагать наличие недокументированных разрешений.
+- [ ] 2. Написать тесты однократной загрузки набора данных, передачи авторизации, изоляции пользователей и истории по времени, исключения эталонных ответов и обработки временных ошибок. Реализовать HTTP-клиенты и определение предпочтений. Запустить pytest tests/test_data.py tests/test_preferences.py.
+- [ ] 3. Написать граничные тесты правил R1–R8, перехода через полночь, сдвига времени ровно на один час в предусмотренных случаях, позднего заселения, отсутствия предпочтительных звуков и явного выключения звука. Реализовать build_scenario(user, history, stay, catalog, rules). Запустить pytest tests/test_scheduler.py.
+- [ ] 4. Написать тесты 19 намерений, двух последовательных реплик, недопустимой температуры, сохранения незатронутых полей, некорректного JSON от LLM, исключения будущей истории и отказа в медицинских просьбах и запросах вне возможностей системы. Реализовать parse_intent и планирование команд с проверкой параметров. Запустить pytest tests/test_intents.py tests/test_commands.py.
+- [ ] 5. Написать тесты взаимодействия с API: начальное состояние, виды сеансов, успешное выполнение, частичные сбои, неоднозначный результат операции и отсутствие ложного подтверждения выполнения. Реализовать адаптер симулятора. Запустить pytest tests/test_room.py.
+- [ ] 6. Написать интеграционные тесты полного /run с входящим токеном, обработкой всех записей и проверкой схемы результата; проверка доступности должна отвечать и во время прогона. Реализовать координатор с ограниченным параллелизмом и независимым состоянием просьб. Запустить pytest tests/test_run.py.
+- [ ] 7. Написать тесты изоляции клиентских сеансов и идемпотентности. Реализовать эндпоинты создания сеанса, гостя, сценария, состояния и сообщений; точный жизненный цикл сеансов внешнего API определить по результатам шага 1. Опубликовать OpenAPI и примеры. Запустить pytest tests/test_app_api.py.
+- [ ] 8. Заменить проверки деплоя, требующие ответа 501 и точного JSON корневого маршрута, на стабильную проверку доступности и лёгкие проверки валидации. Добавить CI для модульных тестов под Python 3.11; реальные прогоны с LLM запускать только явно.
+- [ ] 9. Запустить весь набор модульных тестов и реальный dev-прогон; проверить ссылки на сеансы и схему ответа, отдельно сравнить состояния и выполнение правил сна с dev-эталоном. Указать измеренные результаты, расход запросов и токенов, оставшиеся ошибки. Опубликовать рабочую ветку и PR для проверки; не считать успешную валидацию схемы доказательством правильности поведения.
 
-## Review focus
-- Two guests and overlapping stays must not share state, tokens or history.
-- Relative command retries must not apply twice.
-- LLM failures must not fabricate successful mutations.
-- Evaluation session freezing must not break live demo.
-- Inconsistent/missing preference and time data need documented fallback or explicit failure.
+## На что обратить внимание при проверке
+- Два гостя и пересекающиеся проживания не должны использовать общее состояние, токены или историю.
+- Повтор относительной команды не должен применять изменение дважды.
+- При ошибке LLM нельзя сообщать об успешном изменении состояния.
+- Заморозка проверочного сеанса не должна ломать живую демонстрацию.
+- Для противоречивых или отсутствующих предпочтений и данных о времени нужно документированное поведение по умолчанию либо явная ошибка.
 
-## Delivery
-Working feature branch, test evidence, API contract, limitations and deployment smoke-check update. Existing main stays runnable until replacement is verified.
+## Результат работы
+Рабочая ветка с реализацией, результаты тестов, контракт API, описание ограничений и обновлённые проверки после деплоя. Текущая main остаётся работоспособной до проверки новой реализации.
