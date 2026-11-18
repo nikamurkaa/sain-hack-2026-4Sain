@@ -38,6 +38,14 @@ curtains: открыть value=100, закрыть=0. do_not_disturb: enabled=tr
 
 
 async def parse_intent(model, texts, catalog, tracks):
+    # Простые самостоятельные просьбы. Составные фразы и уточнения разбираются целиком ниже.
+    if len(texts) == 1:
+        phrase = " ".join(texts[0].lower().strip().rstrip(".!?").split())
+        common = {"попрохладнее": "cooler", "потеплее": "warmer", "потише": "quieter",
+                  "поярче": "brighter", "потемнее": "dimmer"}
+        name = common.get(phrase.removeprefix("сделай "))
+        if name:
+            return Intent(intent=name)
     raw = await model.json(PROMPT, {"utterances": texts, "intents": catalog, "tracks": tracks}, 1700)
     # Названия режимов из описаний каталога приводим к значениям устройства.
     # Неизвестные режимы по-прежнему отклоняет строгая схема.

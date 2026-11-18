@@ -4,6 +4,8 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 import hashlib
 import hmac
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
 import logging
 import os
 import secrets
@@ -230,3 +232,6 @@ async def message(body: MessageInput, idempotency_key: str = Header(min_length=8
 @app.delete('/api/v1/session', status_code=204)
 async def close_session(token=Depends(bearer)):
     app.state.sessions.pop(hashlib.sha256(token.encode()).hexdigest(), None)
+
+
+app.mount('/voice', StaticFiles(directory=Path(__file__).parent / 'frontend' / 'voice', html=True), name='voice')

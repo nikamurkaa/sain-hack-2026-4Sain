@@ -1,0 +1,7 @@
+<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Управление номером</title>
+<style>body{max-width:34rem;margin:8vh auto;padding:0 1rem;font:1.08rem/1.5 system-ui;color:#193734;background:#f6f8f5}input,textarea,button{box-sizing:border-box;font:inherit;padding:.55rem;border:1px solid #788d86;border-radius:.4rem}input,textarea{display:block;width:100%;margin:.4rem 0 1rem}button{cursor:pointer}button[type=submit]{background:#20594d;color:white}output{display:block;margin:1rem 0}</style>
+<main><h1>Управление номером</h1>
+<form id="connect"><label>Временный токен сеанса<input required type="password" autocomplete="off" id="token"></label><button type="submit">Открыть номер</button></form>
+<form id="chat" hidden><p id="climate"></p><label>Ваша просьба<textarea required maxlength="2000" id="message" placeholder="Сделай попрохладнее"></textarea></label>
+<button type="button" id="mic">Микрофон</button> <button type="submit" id="send">Отправить</button><output id="speech" aria-live="polite"></output></form>
+<output id="status" aria-live="polite"></output></main><script type="module" src="./chat.mjs"></script></html>
