@@ -236,3 +236,24 @@ def test_openapi_contains_client_response_contract():
     schema=app.openapi()
     assert schema['paths']['/api/v1/messages']['post']['responses']['200']['content']['application/json']['schema']['$ref'].endswith('/MessageResult')
     assert schema['paths']['/run']['post']['responses']['200']['content']['application/json']['schema']['$ref'].endswith('/RunAnswer')
+
+
+def test_runner_parallelism_is_bounded_and_order_preserved():
+    async def check():
+        sim=Simulator();original=sim.data['requests'][0]
+        sim.data['requests']=[dict(deepcopy(original),record_id='request_'+str(i)) for i in range(8)]
+        async with httpx.AsyncClient(transport=httpx.MockTransport(sim),trust_env=False) as http:
+            sol=await open_solution('eval','case2-dev-v1',http,FakeModel())
+            active=0;peak=0;real=sol.message
+            async def wrapped(*args,**kwargs):
+                nonlocal active,peak
+                active+=1;peak=max(peak,active)
+                try:
+                    await asyncio.sleep(0.01)
+                    return await real(*args,**kwargs)
+                finally:active-=1
+            sol.message=wrapped
+            result=await sol.run()
+            assert peak==3
+            assert [r['record_id'] for r in result['requests']]==['request_'+str(i) for i in range(8)]
+    asyncio.run(check())

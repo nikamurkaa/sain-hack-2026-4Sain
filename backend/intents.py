@@ -39,6 +39,10 @@ curtains: открыть value=100, закрыть=0. do_not_disturb: enabled=tr
 
 async def parse_intent(model, texts, catalog, tracks):
     raw = await model.json(PROMPT, {"utterances": texts, "intents": catalog, "tracks": tracks}, 1700)
+    # Названия режимов из описаний каталога приводим к значениям устройства.
+    # Неизвестные режимы по-прежнему отклоняет строгая схема.
+    if isinstance(raw, dict) and isinstance(raw.get("mode"), str):
+        raw = {**raw, "mode": {"light_only": "light", "sound_only": "sound"}.get(raw["mode"], raw["mode"])}
     try:
         return Intent.model_validate(raw)
     except ValueError:

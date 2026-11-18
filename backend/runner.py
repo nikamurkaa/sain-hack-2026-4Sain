@@ -1,6 +1,6 @@
 """Общий сервис для проверки и пользовательского интерфейса."""
+import asyncio
 from datetime import timedelta
-from zoneinfo import ZoneInfo
 
 from backend.clients import HackClient
 from backend.commands import Refusal, plan_commands, success_text
@@ -23,8 +23,8 @@ class Solution:
         return next(s for s in self.data['stays'] if s['record_id'] == stay_id)
 
     async def prefs(self, user_id, at):
-        zone = ZoneInfo(self.user(user_id).get('timezone') or 'UTC')
-        previous_date = (moment(at).astimezone(zone).date() - timedelta(days=1)).isoformat()
+        # «Вчера» относится к местному времени текущего проживания.
+        previous_date = (moment(at).date() - timedelta(days=1)).isoformat()
         return await self.preferences.resolve(user_id, at, previous_date)
 
     async def prepare(self, stay):
@@ -46,16 +46,33 @@ class Solution:
         return {'role': 'agent', 'at': at, 'text': success_text(commands), 'response_class': 'done'}, state
 
     async def run(self):
-        answer = {'stays': [], 'requests': []}
-        for stay in self.data['stays']:
+        async def bounded_map(items, operation):
+            semaphore = asyncio.Semaphore(3)
+            async def work(item):
+                async with semaphore:
+                    return await operation(item)
+            tasks = [asyncio.create_task(work(item)) for item in items]
+            try:
+                return await asyncio.gather(*tasks)
+            except BaseException:
+                for task in tasks:
+                    task.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
+                raise
+
+        async def prepare_stay(stay):
             room, _, _ = await self.prepare(stay)
-            answer['stays'].append({'record_id': stay['record_id'], 'session_id': room.session['session_id']})
-        for request in self.data['requests']:
+            return {'record_id': stay['record_id'], 'session_id': room.session['session_id']}
+
+        async def handle_request(request):
             room = await Room.create(self.client, request['record_id'], 'request', self.run_id)
             texts = [u['text'] for u in sorted(request['utterances'], key=lambda u: moment(u['at']))
                      if u['role'] == 'user' and moment(u['at']) <= moment(request['at'])]
             reply, _ = await self.message(room, request['user_id'], texts, request['at'], room.session['initial_state'])
-            answer['requests'].append({'record_id': request['record_id'], 'session_id': room.session['session_id'], 'replies': [reply]})
+            return {'record_id': request['record_id'], 'session_id': room.session['session_id'], 'replies': [reply]}
+
+        answer = {'stays': await bounded_map(self.data['stays'], prepare_stay),
+                  'requests': await bounded_map(self.data['requests'], handle_request)}
         validate_schema('Case2Answers', answer)
         return answer
 

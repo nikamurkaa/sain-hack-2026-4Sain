@@ -209,3 +209,59 @@ def test_short_sound_timer_still_meets_rule_at_plus_five():
     expected={'resolved_bedtime_at':'2026-11-12T23:00:00+03:00','resolved_preferences':{'temperature':'normal','favorite_track_ids':['track_04'],'gentle_alarm':False}}
     steps=build_scenario(d['users'][0],d['stays'][0],p,d['devices'],d['sleep_rules'])
     assert audit(d['stays'][0],expected,steps,d['devices'])==[]
+
+
+def test_yesterday_uses_hotel_date_not_home_date():
+    from backend.runner import Solution
+    class Model:
+        async def json(self,instruction,payload,output_tokens=3500):
+            assert payload['yesterday']=='2026-11-11'
+            return {'facts':[{'key':'yesterday.climate.temperature_c','value':20,'source_id':'chat:yesterday','quote':'Поставь 20 градусов'}]}
+    async def check():
+        d=dataset();d['users'][0]['timezone']='Asia/Novosibirsk'
+        d['chat_history']=[{'user_id':'guest_test','role':'user','at':'2026-11-11T23:00:00+07:00','message_id':'yesterday','text':'Поставь 20 градусов'}]
+        sol=Solution(d,None,Model())
+        p=await sol.prefs('guest_test','2026-11-12T21:00:00+03:00')
+        assert p['yesterday']['climate']['temperature_c']==20
+    asyncio.run(check())
+
+
+def test_unique_exact_quote_repairs_wrong_source_id():
+    hist=[{'id':'correct','at':AT,'text':'Люблю тепло.'},{'id':'wrong','at':AT,'text':'Другая заметка'}]
+    got=parse_facts({'facts':[{'key':'temperature','value':'warm','source_id':'wrong','quote':'Люблю тепло.'}]},hist,CATALOG['devices'],CATALOG['tracks'])
+    assert got['temperature']['source']=='correct' and got['temperature']['source_repaired']
+
+
+def test_ambiguous_quote_does_not_repair_id():
+    hist=[{'id':x,'at':AT,'text':'Люблю тепло.'} for x in ['first','second']]
+    with pytest.raises(ValueError):
+        parse_facts({'facts':[{'key':'temperature','value':'warm','source_id':'missing','quote':'Люблю тепло.'}]},hist,CATALOG['devices'],CATALOG['tracks'])
+
+
+def test_parallel_preferences_fetch_same_snapshot_once():
+    class Model(FakeModel):
+        async def json(self,*args,**kwargs):
+            await asyncio.sleep(0.01)
+            return await super().json(*args,**kwargs)
+    async def check():
+        model=Model();resolver=PreferenceResolver(dataset(),model)
+        values=await asyncio.gather(*[resolver.resolve('guest_test',AT,'2026-11-11') for _ in range(3)])
+        assert model.calls==1 and values[0]==values[1]==values[2]
+    asyncio.run(check())
+
+@pytest.mark.parametrize('mode,expected',[('light_only','light'),('sound_only','sound'),('both','both')])
+def test_model_alarm_mode_aliases(mode,expected):
+    from backend.intents import parse_intent
+    class Model:
+        async def json(self,*args):return {'intent':'alarm_set','time':'07:30','mode':mode}
+    result=asyncio.run(parse_intent(Model(),['Разбуди в 7:30'],[],[]))
+    assert result.mode==expected
+
+
+def test_unknown_model_alarm_mode_rejected():
+    from backend.intents import parse_intent
+    from backend.core import ServiceError
+    class Model:
+        async def json(self,*args):return {'intent':'alarm_set','time':'07:30','mode':'unknown'}
+    with pytest.raises(ServiceError,match='Уточните'):
+        asyncio.run(parse_intent(Model(),['Разбуди в 7:30'],[],[]))

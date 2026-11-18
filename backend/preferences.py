@@ -1,9 +1,9 @@
 """Предпочтения с проверяемыми ссылками на историю."""
 import json
+import asyncio
 import re
 from copy import deepcopy
 from typing import Any
-from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, ConfigDict, Field
 from jsonschema.exceptions import ValidationError as SchemaError
@@ -46,8 +46,14 @@ def parse_facts(raw: dict, history: list, devices: list, tracks: list) -> dict:
     track_ids = {t["track_id"] for t in tracks}
     result = {}
     for fact in parsed.facts:
-        if fact.key in result or fact.source_id not in sources or fact.quote not in sources[fact.source_id]["text"]:
+        if fact.key in result:
             raise ValueError("Неподтверждённый источник предпочтения")
+        source_id = fact.source_id
+        if source_id not in sources or fact.quote not in sources[source_id]["text"]:
+            candidates = [s for s in history if fact.quote in s["text"]]
+            if len(candidates) != 1:
+                raise ValueError("Неподтверждённый источник предпочтения")
+            source_id = candidates[0]["id"]
         k, v = fact.key, fact.value
         if k == "temperature":
             valid = v in ("cool", "neutral", "warm")
@@ -64,7 +70,9 @@ def parse_facts(raw: dict, history: list, devices: list, tracks: list) -> dict:
                 check_values(devices, parts[1], {parts[2]: v})
         if not valid:
             raise ValueError("Недопустимое предпочтение")
-        result[k] = {"value": v, "source": fact.source_id, "at": sources[fact.source_id]["at"], "quote": fact.quote}
+        result[k] = {"value": v, "source": source_id, "at": sources[source_id]["at"], "quote": fact.quote}
+        if source_id != fact.source_id:
+            result[k]["source_repaired"] = True
     # Перевод качественного описания света в параметры каталога.
     # Берём только источник уже подтверждённой настройки света, не случайное
     # упоминание тепла/холода в остальной истории.
@@ -95,11 +103,19 @@ class PreferenceResolver:
     def __init__(self, dataset, model):
         self.data, self.model = dataset, model
         self.cache = {}
+        self.locks = {}
 
     async def resolve(self, user_id: str, cutoff: str, yesterday: str):
         history = evidence(self.data, user_id, cutoff)
+        key = (user_id, yesterday, moment(cutoff).utcoffset(), tuple((e["id"], e["at"]) for e in history))
+        lock = self.locks.setdefault(key, asyncio.Lock())
+        async with lock:
+            return await self._resolve(user_id, cutoff, yesterday)
+
+    async def _resolve(self, user_id: str, cutoff: str, yesterday: str):
+        history = evidence(self.data, user_id, cutoff)
         user = next(u for u in self.data["users"] if u["user_id"] == user_id)
-        cache_key = (user_id, yesterday, tuple((e["id"], e["at"]) for e in history))
+        cache_key = (user_id, yesterday, moment(cutoff).utcoffset(), tuple((e["id"], e["at"]) for e in history))
         if cache_key in self.cache:
             return deepcopy(self.cache[cache_key])
         raw = await self.model.json(PROMPT, {"profile": user, "history": history, "yesterday": yesterday,
@@ -121,7 +137,7 @@ class PreferenceResolver:
         for k, f in facts.items():
             if "." in k:
                 group, device, field = k.split(".")
-                if group == "yesterday" and moment(f["at"]).astimezone(ZoneInfo(user.get("timezone") or "UTC")).date().isoformat() != yesterday:
+                if group == "yesterday" and moment(f["at"]).astimezone(moment(cutoff).tzinfo).date().isoformat() != yesterday:
                     continue
                 prefs[group].setdefault(device, {})[field] = f["value"]
             elif k not in prefs["sources"]:
