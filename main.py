@@ -11,12 +11,12 @@ import time
 from typing import Literal
 
 import httpx
-from fastapi import Depends, FastAPI, Header
+from fastapi import Depends, FastAPI, Header, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.clients import ModelClient
-from backend.api_models import RunAnswer, SessionCreated, Guest, Scenario, Catalog, State, MessageResult
+from backend.api_models import RunAnswer, SessionCreated, Guest, Scenario, Catalog, State, MessageResult, Transcription
 from backend.core import ServiceError, moment
 from backend.runner import open_solution
 
@@ -34,6 +34,7 @@ async def lifespan(app):
         app.state.sessions = {}
         app.state.create_lock = asyncio.Lock()
         app.state.final_session = None
+        app.state.speech_lock = asyncio.Lock()
         yield
 
 
@@ -122,6 +123,14 @@ class MessageInput(BaseModel):
     model_config = ConfigDict(extra='forbid')
     text: str = Field(min_length=1, max_length=2000)
     at: str
+
+    @field_validator('text')
+    @classmethod
+    def validate_text(cls, value):
+        value = value.strip()
+        if not value:
+            raise ValueError('Введите просьбу.')
+        return value
 
     @field_validator('at')
     @classmethod
@@ -257,3 +266,40 @@ async def message(body: MessageInput, idempotency_key: str = Header(min_length=8
 async def close_session(token=Depends(bearer)):
     app.state.sessions.pop(hashlib.sha256(token.encode()).hexdigest(), None)
 
+
+
+AUDIO_TYPES = {
+    'audio/webm': 'webm', 'audio/mp4': 'mp4', 'audio/m4a': 'm4a',
+    'audio/x-m4a': 'm4a', 'audio/mpeg': 'mp3', 'audio/mp3': 'mp3',
+    'audio/wav': 'wav', 'audio/x-wav': 'wav', 'audio/ogg': 'ogg',
+}
+MAX_AUDIO_BYTES = 19_000_000  # Запас под multipart при лимите стенда 20 МБ.
+
+
+@app.post('/api/v1/transcriptions', response_model=Transcription, openapi_extra={
+    'requestBody': {'required': True, 'content': {
+        media_type: {'schema': {'type': 'string', 'format': 'binary'}}
+        for media_type in AUDIO_TYPES
+    }}
+})
+async def transcribe(request: Request, session=Depends(client_session)):
+    media_type = request.headers.get('content-type', '').split(';', 1)[0].strip().lower()
+    if media_type not in AUDIO_TYPES:
+        raise ServiceError('AUDIO_TYPE', 'Нужна запись WebM, MP4, M4A, MP3, WAV или OGG.', 415)
+    if app.state.speech_lock.locked():
+        raise ServiceError('SPEECH_BUSY', 'Распознаётся другая запись. Попробуйте через несколько секунд.', 429)
+    async with app.state.speech_lock:
+        try:
+            async with asyncio.timeout(180):
+                body = bytearray()
+                async for chunk in request.stream():
+                    if len(body) + len(chunk) > MAX_AUDIO_BYTES:
+                        raise ServiceError('AUDIO_TOO_LARGE', 'Запись превышает 19 МБ. Отправьте более короткую просьбу.', 413)
+                    body.extend(chunk)
+                if not body:
+                    raise ServiceError('AUDIO_EMPTY', 'Запись пустая. Повторите запись или введите текст.', 422)
+                # Распознавание заполняет поле чата. Команда выполняется обычным /messages.
+                text = await app.state.model.transcribe(bytes(body), media_type, AUDIO_TYPES[media_type])
+                return {'text': text}
+        except TimeoutError:
+            raise ServiceError('SPEECH_TIMEOUT', 'Распознавание заняло слишком много времени. Повторите запись.', 504) from None

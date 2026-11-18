@@ -13,10 +13,19 @@ class Room:
         if run_id:
             body["run_id"] = run_id
         session = await client.request("POST", "/room/session", body=body, retry=True)
+        if not isinstance(session.get("session_id"), str) or not isinstance(session.get("initial_state"), dict):
+            raise ServiceError("UPSTREAM_FORMAT", "Симулятор вернул некорректный сеанс.")
         return cls(client, session)
 
     async def state(self, at):
-        return (await self.client.request("GET", self.path + "/state", params={"at": at}, retry=True))["state"]
+        result = await self.client.request("GET", self.path + "/state", params={"at": at}, retry=True)
+        state = result.get("state")
+        if not isinstance(state, dict) or not all(isinstance(fields, dict) for fields in state.values()):
+            raise ServiceError("UPSTREAM_FORMAT", "Симулятор вернул некорректное состояние.")
+        initial = self.session.get("initial_state", {})
+        if any(device not in state or fields.keys() - state[device].keys() for device, fields in initial.items()):
+            raise ServiceError("UPSTREAM_FORMAT", "Состояние номера содержит не все настройки.")
+        return state
 
     async def scenario(self, steps):
         try:
@@ -25,8 +34,11 @@ class Room:
             if exc.code != "UPSTREAM_UNCERTAIN":
                 raise
         log = await self.client.request("GET", self.path + "/log", retry=True)
-        scenarios = [e for e in log["entries"] if e["kind"] == "scenario"]
-        if not scenarios or scenarios[-1]["steps"] != steps:
+        entries = log.get("entries")
+        if not isinstance(entries, list) or not all(isinstance(entry, dict) for entry in entries):
+            raise ServiceError("UPSTREAM_FORMAT", "Симулятор вернул некорректный журнал.")
+        scenarios = [entry for entry in entries if entry.get("kind") == "scenario"]
+        if not scenarios or scenarios[-1].get("steps") != steps:
             raise ServiceError("SCENARIO_UNCONFIRMED", "Симулятор не подтвердил сохранение расписания.")
 
     async def execute(self, commands, at):
@@ -42,3 +54,4 @@ class Room:
             if any(actual[command["device_id"]].get(k) != v for k, v in command["values"].items()):
                 raise ServiceError("ACTION_UNCONFIRMED", "Изменения подтверждены не полностью. Проверьте состояние комнаты.")
         return await self.state(at)
+

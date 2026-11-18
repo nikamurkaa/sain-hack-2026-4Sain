@@ -34,7 +34,8 @@ class HackClient:
                 if method != "GET" and response.status_code >= 500:
                     raise ServiceError("UPSTREAM_UNCERTAIN", "Внешний сервис не подтвердил результат операции.")
                 try:
-                    code = response.json().get("code", "UPSTREAM_ERROR")
+                    error_body = response.json()
+                    code = error_body.get("code", "UPSTREAM_ERROR") if isinstance(error_body, dict) else "UPSTREAM_ERROR"
                 except ValueError:
                     code = "UPSTREAM_ERROR"
                 # Не возвращаем текст внешнего сервиса: в нём могут быть закрытые данные.
@@ -43,7 +44,10 @@ class HackClient:
                 raise ServiceError(code if code in allowed else "UPSTREAM_ERROR",
                                    "Сервис организаторов отклонил запрос (HTTP %s)." % response.status_code, status)
             try:
-                return response.json()
+                value = response.json()
+                if not isinstance(value, dict):
+                    raise ValueError("object required")
+                return value
             except ValueError:
                 raise ServiceError("UPSTREAM_FORMAT", "Сервис вернул некорректный ответ.") from None
 
@@ -67,15 +71,52 @@ class ModelClient:
         self.calls = 0
         self.tokens = 0
 
+    async def wait_for_slot(self):
+        async with self.lock:
+            await asyncio.sleep(max(0, self.next_call - time.monotonic()))
+            self.next_call = time.monotonic() + 2.2
+
+    async def transcribe(self, audio: bytes, media_type: str, extension: str):
+        key = os.getenv("LLM_API_KEY")
+        if not key:
+            raise ServiceError("MODEL_NOT_CONFIGURED", "Не настроен сервис распознавания речи.", 503)
+        base = os.getenv("LLM_BASE_URL", "https://bifrost.be-healthy.tech/v1").rstrip("/")
+        model = os.getenv("LLM_TRANSCRIBE_MODEL", "gpt-transcribe")
+        await self.wait_for_slot()
+        self.calls += 1
+        try:
+            response = await self.http.post(
+                base + "/audio/transcriptions",
+                headers={"Authorization": "Bearer " + key},
+                data={"model": model, "language": "ru"},
+                files={"file": ("request." + extension, audio, media_type)},
+                timeout=httpx.Timeout(120, connect=10),
+            )
+        except httpx.TransportError:
+            raise ServiceError("SPEECH_UNAVAILABLE", "Не удалось распознать речь. Попробуйте ещё раз.", 503) from None
+        if response.status_code == 429:
+            raise ServiceError("SPEECH_LIMIT", "Достигнут лимит распознавания. Попробуйте позже.", 429)
+        if response.status_code in (400, 413, 415, 422):
+            raise ServiceError("INVALID_AUDIO", "Не удалось прочитать запись. Запишите просьбу ещё раз.", 422)
+        if response.is_error:
+            raise ServiceError("SPEECH_UNAVAILABLE", "Распознавание речи временно недоступно.", 503)
+        try:
+            raw = response.json()
+            text = raw["text"]
+            if not isinstance(text, str) or not text.strip() or len(text.strip()) > 2000:
+                raise ValueError("invalid transcription")
+            self.tokens += raw.get("usage", {}).get("total_tokens", 0)
+            return text.strip()
+        except (ValueError, KeyError, TypeError):
+            raise ServiceError("SPEECH_FORMAT", "Речь не распознана. Повторите запись или введите текст.", 502) from None
+
     async def json(self, instruction: str, payload: dict, output_tokens=3500):
         key, model = os.getenv("LLM_API_KEY"), os.getenv("LLM_MODEL")
         if not key or not model:
             raise ServiceError("MODEL_NOT_CONFIGURED", "Не настроены LLM_API_KEY и LLM_MODEL.", 503)
         base = os.getenv("LLM_BASE_URL", "https://bifrost.be-healthy.tech/v1").rstrip("/")
         for attempt in range(3):
-            async with self.lock:
-                await asyncio.sleep(max(0, self.next_call - time.monotonic()))
-                self.next_call = time.monotonic() + 2.2
+            await self.wait_for_slot()
             self.calls += 1
             try:
                 response = await self.http.post(base + "/chat/completions", headers={"Authorization": "Bearer " + key},
@@ -104,3 +145,4 @@ class ModelClient:
                 return value
             except (ValueError, KeyError, IndexError, TypeError):
                 raise ServiceError("MODEL_FORMAT", "Не удалось надёжно разобрать сообщение. Уточните просьбу.", 503) from None
+

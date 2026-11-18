@@ -46,7 +46,7 @@ class Solution:
         except Refusal as exc:
             return {'role': 'agent', 'at': at, 'text': str(exc), 'response_class': 'refused'}, await room.state(at)
         state = await room.execute(commands, at)
-        return {'role': 'agent', 'at': at, 'text': success_text(commands), 'response_class': 'done'}, state
+        return {'role': 'agent', 'at': at, 'text': success_text(commands, self.data['tracks']), 'response_class': 'done'}, state
 
     async def run(self):
         async def bounded_map(items, operation):
@@ -76,13 +76,16 @@ class Solution:
             history = []
             answers = []
             for request in sorted(requests, key=lambda item: moment(item['at'])):
+                texts = [u['text'] for u in sorted(request['utterances'], key=lambda u: moment(u['at']))
+                         if u['role'] == 'user' and moment(u['at']) <= moment(request['at'])]
                 try:
                     room = await Room.create(self.client, request['record_id'], 'request', self.run_id)
                 except ServiceError:
                     logging.getLogger(__name__).warning('Не удалось создать сеанс одной просьбы')
+                    history.append({'at': request['at'], 'utterances': texts,
+                                    'reply': {'role': 'agent', 'at': request['at'], 'response_class': 'refused',
+                                              'text': 'Не удалось открыть сеанс номера.'}})
                     continue
-                texts = [u['text'] for u in sorted(request['utterances'], key=lambda u: moment(u['at']))
-                         if u['role'] == 'user' and moment(u['at']) <= moment(request['at'])]
                 try:
                     reply, _ = await self.message(room, request['user_id'], texts, request['at'],
                                                  room.session['initial_state'], history=history)
