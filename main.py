@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.clients import ModelClient
+from backend.api_models import RunAnswer, SessionCreated, Guest, Scenario, Catalog, State, MessageResult
 from backend.core import ServiceError, moment
 from backend.runner import open_solution
 
@@ -69,7 +70,7 @@ async def health():
     return {'team': os.getenv('TEAM', 'team25'), 'status': 'ok'}
 
 
-@app.post('/run')
+@app.post('/run', response_model=RunAnswer)
 async def run(body: RunInput, token=Depends(bearer)):
     key = hashlib.sha256((token + '\0' + body.dataset_code).encode()).hexdigest()
     if app.state.run_lock.locked():
@@ -140,7 +141,7 @@ def client_session(token=Depends(bearer)):
     return session
 
 
-@app.post('/api/v1/sessions', status_code=201)
+@app.post('/api/v1/sessions', status_code=201, response_model=SessionCreated)
 async def create_session(body: SessionInput, token=Depends(bearer)):
     # Служебный маршрут: upstream-токен не нужен браузеру.
     expected = os.getenv('HACK_TEAM_TOKEN', '')
@@ -163,17 +164,17 @@ async def create_session(body: SessionInput, token=Depends(bearer)):
                 'at': stay['check_in_at'], 'until': room.session['until'], 'mode': 'simulator'}
 
 
-@app.get('/api/v1/guest')
+@app.get('/api/v1/guest', response_model=Guest)
 async def guest(session=Depends(client_session)):
     return {'user_id': session.stay['user_id'], 'stay': session.stay, 'preferences': session.prefs}
 
 
-@app.get('/api/v1/scenario')
+@app.get('/api/v1/scenario', response_model=Scenario)
 async def scenario(session=Depends(client_session)):
     return {'steps': session.steps}
 
 
-@app.get('/api/v1/catalog')
+@app.get('/api/v1/catalog', response_model=Catalog)
 async def catalog(session=Depends(client_session)):
     return {'devices': session.solution.data['devices'], 'tracks': session.solution.data['tracks']}
 
@@ -184,7 +185,7 @@ def check_time(session, at):
         raise ServiceError('TIME_OUTSIDE_SESSION', 'Время выходит за пределы проживания.', 422)
 
 
-@app.get('/api/v1/state')
+@app.get('/api/v1/state', response_model=State)
 async def state(at: str | None = None, session=Depends(client_session)):
     at = at or session.at
     try:
@@ -195,7 +196,7 @@ async def state(at: str | None = None, session=Depends(client_session)):
         return {'at': at, 'state': await session.room.state(at)}
 
 
-@app.post('/api/v1/messages')
+@app.post('/api/v1/messages', response_model=MessageResult)
 async def message(body: MessageInput, idempotency_key: str = Header(min_length=8, max_length=128), session=Depends(client_session)):
     fingerprint = hashlib.sha256(body.model_dump_json().encode()).hexdigest()
     async with session.lock:

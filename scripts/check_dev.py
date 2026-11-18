@@ -14,6 +14,7 @@ from backend.clients import HackClient, ModelClient
 from backend.core import iso, moment, validate_schema
 from backend.runner import Solution
 from backend.scheduler import bedtime
+from scripts.sleep_audit import audit
 
 
 def compare(initial, actual, expected):
@@ -67,6 +68,13 @@ async def check():
             else: passed += 1
         stays = {s['record_id']:s for s in data['stays']}
         timing_matches = sum(iso(bedtime(solution.user(stays[r['record_id']]['user_id']), stays[r['record_id']])) == r['resolved_bedtime_at'] for r in reference['stays'])
+        sleep_failures = []
+        stay_refs = {s['record_id']:s for s in reference['stays']}
+        for item in answer['stays']:
+            log = await client.request('GET', '/room/'+item['session_id']+'/log', retry=True)
+            entries = [e for e in log['entries'] if e['kind']=='scenario']
+            broken = audit(stays[item['record_id']], stay_refs[item['record_id']], entries[-1]['steps'], data['devices'])
+            if broken: sleep_failures.append({'record_id':item['record_id'],'rules':broken})
         profile_matches = 0
         for expected in reference['stays']:
             stay = stays[expected['record_id']]
@@ -76,11 +84,11 @@ async def check():
             profile_matches += actual == expected['resolved_preferences']
         report = {'format_valid':validation.get('valid',False), 'requests_passed':passed,
                   'requests_total':len(answer['requests']), 'bedtime_matches':timing_matches,
-                  'profile_matches':profile_matches, 'stays_total':len(data['stays']), 'failures':failures,
+                  'sleep_failures':sleep_failures, 'profile_matches':profile_matches, 'stays_total':len(data['stays']), 'failures':failures,
                   'llm_calls':model.calls,'llm_tokens':model.tokens,'api_calls':client.calls,
                   'seconds':round(time.monotonic()-started,2)}
         print(json.dumps(report, ensure_ascii=False, indent=2))
-        return report['format_valid'] and not failures and profile_matches == len(data['stays']) and timing_matches == len(data['stays'])
+        return report['format_valid'] and not failures and not sleep_failures and profile_matches == len(data['stays']) and timing_matches == len(data['stays'])
 
 
 if __name__ == '__main__':

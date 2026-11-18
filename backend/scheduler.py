@@ -55,9 +55,10 @@ def build_scenario(user, stay, prefs, devices, rules):
     add(night, "climate", {"temperature_c": sleep_temperature(prefs)})
     add(night, "dnd", {"enabled": True})
     sound = sleep_sound(prefs)
-    add(night, "sound", sound)
+    sound_start = max(start, bed + timedelta(minutes=5))
+    add(sound_start, "sound", sound)
     if sound["volume"]:
-        add(night + timedelta(minutes=sound["timer_minutes"]), "sound", {"volume": 0, "timer_minutes": 0})
+        add(sound_start + timedelta(minutes=sound["timer_minutes"]), "sound", {"volume": 0, "timer_minutes": 0})
     add(start, "alarm", {"at": iso(wake), "mode": prefs["alarm_mode"], "window_minutes": 0})
     for minutes, brightness in [(30, 10), (20, 30), (10, 60)]:
         dawn = wake - timedelta(minutes=minutes)

@@ -1,5 +1,6 @@
 """Предпочтения с проверяемыми ссылками на историю."""
 import json
+import re
 from copy import deepcopy
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -64,6 +65,29 @@ def parse_facts(raw: dict, history: list, devices: list, tracks: list) -> dict:
         if not valid:
             raise ValueError("Недопустимое предпочтение")
         result[k] = {"value": v, "source": fact.source_id, "at": sources[fact.source_id]["at"], "quote": fact.quote}
+    # Перевод качественного описания света в параметры каталога.
+    # Берём только источник уже подтверждённой настройки света, не случайное
+    # упоминание тепла/холода в остальной истории.
+    lamp = r"(?:свет[а-яё]*|ламп[а-яё]*|ночник[а-яё]*|торшер[а-яё]*)"
+    adjective = r"(?:т[её]пл(?:ый|ая|ую|ым|ое|ого|ом)|холодн(?:ый|ая|ую|ым|ое|ого|ом))"
+    pattern = re.compile(lamp + r"[^.!?;\n]{0,60}?" + adjective + "|" + adjective + r"\s+" + lamp, re.I)
+    for group in ("home", "morning", "yesterday"):
+        key = group + ".light.color_temperature_k"
+        brightness = result.get(group + ".light.brightness")
+        if key in result or not brightness:
+            continue
+        source = sources[brightness["source"]]
+        matches = list(pattern.finditer(source["text"]))
+        if len(matches) != 1:
+            continue
+        match = matches[0]
+        quote = match.group()
+        if re.search(r"\bне\b", source["text"][max(0, match.start()-4):match.end()], re.I):
+            continue
+        value = 5000 if "холодн" in quote.lower() else 2700
+        check_values(devices, "light", {"color_temperature_k": value})
+        result[key] = {"value": value, "source": brightness["source"], "at": source["at"],
+                       "quote": quote, "interpretation": "Качественное описание цвета света"}
     return result
 
 

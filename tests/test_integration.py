@@ -230,3 +230,9 @@ def test_invalid_json_from_upstream_not_leaked():
             with pytest.raises(ServiceError) as exc:await HackClient('secret',http).dataset('x')
             assert exc.value.code=='UPSTREAM_FORMAT' and 'secret' not in str(exc.value)
     asyncio.run(check())
+
+
+def test_openapi_contains_client_response_contract():
+    schema=app.openapi()
+    assert schema['paths']['/api/v1/messages']['post']['responses']['200']['content']['application/json']['schema']['$ref'].endswith('/MessageResult')
+    assert schema['paths']['/run']['post']['responses']['200']['content']['application/json']['schema']['$ref'].endswith('/RunAnswer')

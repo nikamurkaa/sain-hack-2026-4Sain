@@ -70,7 +70,7 @@ def test_night_and_dawn_rules(temp,expected):
     assert night['light']['brightness']==0 and night['curtains']['position']<=10
     assert night['climate']['temperature_c']==expected and night['dnd']['enabled']
     assert night['sound']['volume']>0 and night['sound']['track_id']=='track_04'
-    assert state_at(steps,'2026-11-12T23:31:00+03:00')['sound']['volume']==0
+    assert state_at(steps,'2026-11-12T23:36:00+03:00')['sound']['volume']==0
     alarm=state_at(steps,'2026-11-13T06:29:00+03:00')['alarm']
     assert alarm['mode']=='light' and alarm['at']==WAKE
     rises=[s for s in steps if s['device_id']=='light' and s['values'].get('brightness',0)>0 and moment(s['at'])>moment('2026-11-12T23:00:00+03:00')]
@@ -171,3 +171,41 @@ def test_profile_temperature_overrides_missing_history():
         p=await PreferenceResolver(d,FakeModel()).resolve('guest_test',AT,'2026-11-11')
         assert p['temperature']=='neutral' and p['sources']['temperature']['source']=='profile'
     asyncio.run(check())
+
+
+def test_independent_sleep_audit_finds_broken_rules():
+    from scripts.sleep_audit import audit
+    d=dataset();stay=d['stays'][0];p=prefs()
+    expected={'resolved_bedtime_at':'2026-11-12T23:00:00+03:00','resolved_preferences':{'temperature':'normal','favorite_track_ids':[],'gentle_alarm':False}}
+    steps=build_scenario(d['users'][0],stay,p,d['devices'],d['sleep_rules'])
+    assert audit(stay,expected,steps,d['devices'])==[]
+    broken=deepcopy(steps)
+    broken.append({'at':'2026-11-13T02:00:00+03:00','device_id':'light','values':{'brightness':100}})
+    assert 'R6' in audit(stay,expected,broken,d['devices'])
+    broken=deepcopy(steps)
+    broken.append({'at':'2026-11-13T02:00:00+03:00','device_id':'climate','values':{'temperature_c':26}})
+    assert 'R3' in audit(stay,expected,broken,d['devices'])
+
+
+@pytest.mark.parametrize('text,expected',[
+ ('Поменяла лампу в торшере на тёплую и убавила до трети.',2700),
+ ('В спальне ночник, тёплый, процентов на десять.',2700),
+ ('Холодный свет на полную яркость.',5000),
+ ('Не тёплый свет, а обычный.',None),
+ ('В комнате холодно. Свет на треть.',None),
+])
+def test_qualitative_light_has_source(text,expected):
+    fact={'key':'home.light.brightness','value':30,'source_id':'e1','quote':text}
+    got=parse_facts({'facts':[fact]},[{'id':'e1','at':AT,'text':text}],CATALOG['devices'],CATALOG['tracks'])
+    key='home.light.color_temperature_k'
+    if expected is None:assert key not in got
+    else:
+        assert got[key]['value']==expected and got[key]['quote'] in text
+
+
+def test_short_sound_timer_still_meets_rule_at_plus_five():
+    from scripts.sleep_audit import audit
+    d=dataset();p=prefs();p.update(tracks=['track_04'],timer=1)
+    expected={'resolved_bedtime_at':'2026-11-12T23:00:00+03:00','resolved_preferences':{'temperature':'normal','favorite_track_ids':['track_04'],'gentle_alarm':False}}
+    steps=build_scenario(d['users'][0],d['stays'][0],p,d['devices'],d['sleep_rules'])
+    assert audit(d['stays'][0],expected,steps,d['devices'])==[]
