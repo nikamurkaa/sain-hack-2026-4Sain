@@ -1,0 +1,33 @@
+{
+  "reply": {
+    "role": "agent",
+    "at": "2026-11-12T20:00:00+03:00",
+    "text": "Готово. Климат — температура 21 °C.",
+    "response_class": "done"
+  },
+  "state": {
+    "light": {
+      "brightness": 70,
+      "color_temperature_k": 4000
+    },
+    "climate": {
+      "temperature_c": 21
+    },
+    "sound": {
+      "track_id": "track_01",
+      "volume": 20,
+      "timer_minutes": 0
+    },
+    "curtains": {
+      "position": 100
+    },
+    "alarm": {
+      "at": null,
+      "mode": "both",
+      "window_minutes": 0
+    },
+    "dnd": {
+      "enabled": false
+    }
+  }
+}

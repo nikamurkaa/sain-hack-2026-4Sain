@@ -1,0 +1,22 @@
+{
+  "user_id": "guest_demo",
+  "stay": {
+    "record_id": "stay_demo",
+    "user_id": "guest_demo",
+    "check_in_at": "2026-11-12T20:00:00+03:00",
+    "target_wake_at": "2026-11-13T07:00:00+03:00",
+    "hotel_timezone": "Europe/Moscow"
+  },
+  "preferences": {
+    "temperature": "neutral",
+    "tracks": [],
+    "volume": 15,
+    "timer": 30,
+    "alarm_mode": "both",
+    "home": {},
+    "morning": {},
+    "yesterday": {},
+    "sources": {},
+    "defaults": []
+  }
+}

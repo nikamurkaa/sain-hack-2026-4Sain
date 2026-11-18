@@ -1,0 +1,87 @@
+{
+  "steps": [
+    {
+      "at": "2026-11-12T20:00:00+03:00",
+      "device_id": "alarm",
+      "values": {
+        "at": "2026-11-13T07:00:00+03:00",
+        "mode": "both",
+        "window_minutes": 0
+      }
+    },
+    {
+      "at": "2026-11-12T22:00:00+03:00",
+      "device_id": "light",
+      "values": {
+        "brightness": 20,
+        "color_temperature_k": 2700
+      }
+    },
+    {
+      "at": "2026-11-12T23:00:00+03:00",
+      "device_id": "light",
+      "values": {
+        "brightness": 0
+      }
+    },
+    {
+      "at": "2026-11-12T23:00:00+03:00",
+      "device_id": "curtains",
+      "values": {
+        "position": 0
+      }
+    },
+    {
+      "at": "2026-11-12T23:00:00+03:00",
+      "device_id": "climate",
+      "values": {
+        "temperature_c": 19.5
+      }
+    },
+    {
+      "at": "2026-11-12T23:00:00+03:00",
+      "device_id": "dnd",
+      "values": {
+        "enabled": true
+      }
+    },
+    {
+      "at": "2026-11-12T23:05:00+03:00",
+      "device_id": "sound",
+      "values": {
+        "volume": 0
+      }
+    },
+    {
+      "at": "2026-11-13T06:30:00+03:00",
+      "device_id": "light",
+      "values": {
+        "brightness": 10,
+        "color_temperature_k": 2700
+      }
+    },
+    {
+      "at": "2026-11-13T06:40:00+03:00",
+      "device_id": "light",
+      "values": {
+        "brightness": 30,
+        "color_temperature_k": 2700
+      }
+    },
+    {
+      "at": "2026-11-13T06:50:00+03:00",
+      "device_id": "light",
+      "values": {
+        "brightness": 60,
+        "color_temperature_k": 2700
+      }
+    },
+    {
+      "at": "2026-11-13T07:00:00+03:00",
+      "device_id": "dnd",
+      "values": {
+        "enabled": false
+      }
+    }
+  ]
+}
