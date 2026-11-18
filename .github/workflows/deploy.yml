@@ -15,7 +15,19 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements-dev.txt
+      - run: python -m pytest -q
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -53,7 +65,7 @@ jobs:
             -o ServerAliveInterval=30 \
             "deploy@$STAND_HOST" "deploy $GITHUB_SHA"
 
-      - name: Проверить SHA и HTTP-контракт стартового сервера
+      - name: Проверить SHA, доступность и валидацию запросов
         env:
           STAND_HOST: ${{ secrets.STAND_HOST || 'hack.be-healthy.tech' }}
         run: |
@@ -80,15 +92,15 @@ jobs:
           for path, bearer, expected_code, expected_body in [
               ("/", False, 200, {"team": "team25", "status": "ok"}),
               ("/health", False, 200, {"team": "team25", "status": "ok"}),
-              ("/run", False, 401, {"status": "error", "error": "нет Authorization: Bearer"}),
-              ("/run", True, 501, {"status": "not_implemented", "case": 2}),
+              ("/run", False, 401, None),
+              ("/run", True, 422, None),
           ]:
               for attempt in range(5):
                   try:
                       headers = {"Content-Type": "application/json"}
                       if bearer:
                           headers["Authorization"] = "Bearer smoke-test"
-                      body = json.dumps({"case": 2, "dataset_code": "case2-dev-v1"}).encode() if path == "/run" else None
+                      body = json.dumps({"case": 1 if bearer else 2, "dataset_code": "smoke-test"}).encode() if path == "/run" else None
                       request = urllib.request.Request(base + path, data=body, headers=headers)
                       try:
                           response = urllib.request.urlopen(request, timeout=20)
@@ -98,7 +110,8 @@ jobs:
                           code = response.status
                           result = json.load(response)
                       assert code == expected_code, f"Unexpected HTTP {code} for {path}"
-                      assert result == expected_body, f"Unexpected JSON for {path}"
+                      if expected_body is not None:
+                          assert result == expected_body, f"Unexpected JSON for {path}"
                       print(path, "with Bearer" if bearer else "without Bearer", code, json.dumps(expected_body, ensure_ascii=False))
                       break
                   except (OSError, ValueError, AssertionError):

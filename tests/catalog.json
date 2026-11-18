@@ -1,0 +1,351 @@
+{
+  "devices": [
+    {
+      "device_id": "light",
+      "title": "Свет: два светильника, управляются вместе",
+      "fields": [
+        {
+          "field_id": "brightness",
+          "description": "Яркость, 0 — выключен",
+          "value_schema": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "default_value": 70,
+          "unit": "%"
+        },
+        {
+          "field_id": "color_temperature_k",
+          "description": "Цветовая температура",
+          "value_schema": {
+            "type": "integer",
+            "minimum": 2200,
+            "maximum": 6500
+          },
+          "default_value": 4000,
+          "unit": "K"
+        }
+      ]
+    },
+    {
+      "device_id": "climate",
+      "title": "Климат",
+      "fields": [
+        {
+          "field_id": "temperature_c",
+          "description": "Целевая температура",
+          "value_schema": {
+            "type": "number",
+            "minimum": 16,
+            "maximum": 26
+          },
+          "default_value": 23,
+          "unit": "°C"
+        }
+      ]
+    },
+    {
+      "device_id": "sound",
+      "title": "Звук",
+      "fields": [
+        {
+          "field_id": "track_id",
+          "description": "Трек",
+          "value_schema": {
+            "type": "string",
+            "enum": [
+              "track_01",
+              "track_02",
+              "track_03",
+              "track_04",
+              "track_05",
+              "track_06",
+              "track_07",
+              "track_08",
+              "track_09",
+              "track_10",
+              "track_11",
+              "track_12"
+            ]
+          },
+          "default_value": "track_01",
+          "unit": null
+        },
+        {
+          "field_id": "volume",
+          "description": "Громкость, 0 — звук выключен",
+          "value_schema": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "default_value": 20,
+          "unit": "%"
+        },
+        {
+          "field_id": "timer_minutes",
+          "description": "Таймер выключения, 0 — без таймера",
+          "value_schema": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1440
+          },
+          "default_value": 0,
+          "unit": "мин"
+        }
+      ]
+    },
+    {
+      "device_id": "curtains",
+      "title": "Шторы",
+      "fields": [
+        {
+          "field_id": "position",
+          "description": "Положение, 0 — закрыты, 100 — открыты",
+          "value_schema": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "default_value": 100,
+          "unit": "%"
+        }
+      ]
+    },
+    {
+      "device_id": "alarm",
+      "title": "Будильник",
+      "fields": [
+        {
+          "field_id": "at",
+          "description": "Время срабатывания, null — будильник отменён",
+          "value_schema": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?[+-]\\d{2}:\\d{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "default_value": null,
+          "unit": null
+        },
+        {
+          "field_id": "mode",
+          "description": "Режим: свет, звук или оба",
+          "value_schema": {
+            "type": "string",
+            "enum": [
+              "light",
+              "sound",
+              "both"
+            ]
+          },
+          "default_value": "both",
+          "unit": null
+        },
+        {
+          "field_id": "window_minutes",
+          "description": "Окно до времени будильника, в которое он может сработать",
+          "value_schema": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 30
+          },
+          "default_value": 0,
+          "unit": "мин"
+        }
+      ]
+    },
+    {
+      "device_id": "dnd",
+      "title": "Не беспокоить",
+      "fields": [
+        {
+          "field_id": "enabled",
+          "description": "Режим включён",
+          "value_schema": {
+            "type": "boolean"
+          },
+          "default_value": false,
+          "unit": null
+        }
+      ]
+    }
+  ],
+  "tracks": [
+    {
+      "track_id": "track_01",
+      "title": "Приветствие отеля"
+    },
+    {
+      "track_id": "track_02",
+      "title": "Шум дождя"
+    },
+    {
+      "track_id": "track_03",
+      "title": "Морской прибой"
+    },
+    {
+      "track_id": "track_04",
+      "title": "Белый шум"
+    },
+    {
+      "track_id": "track_05",
+      "title": "Камин"
+    },
+    {
+      "track_id": "track_06",
+      "title": "Лесные птицы"
+    },
+    {
+      "track_id": "track_07",
+      "title": "Фортепиано для сна"
+    },
+    {
+      "track_id": "track_08",
+      "title": "Ветер в соснах"
+    },
+    {
+      "track_id": "track_09",
+      "title": "Розовый шум"
+    },
+    {
+      "track_id": "track_10",
+      "title": "Ручей"
+    },
+    {
+      "track_id": "track_11",
+      "title": "Поющие чаши"
+    },
+    {
+      "track_id": "track_12",
+      "title": "Ночной город"
+    }
+  ],
+  "intents": [
+    {
+      "intent_id": "brighter",
+      "description": "Ярче"
+    },
+    {
+      "intent_id": "dimmer",
+      "description": "Темнее"
+    },
+    {
+      "intent_id": "warmer",
+      "description": "Теплее"
+    },
+    {
+      "intent_id": "cooler",
+      "description": "Прохладнее"
+    },
+    {
+      "intent_id": "all_off",
+      "description": "Выключи всё"
+    },
+    {
+      "intent_id": "sound_on",
+      "description": "Включи звук"
+    },
+    {
+      "intent_id": "quieter",
+      "description": "Тише"
+    },
+    {
+      "intent_id": "curtains",
+      "description": "Открой или закрой шторы"
+    },
+    {
+      "intent_id": "alarm_set",
+      "description": "Разбуди в заданное время"
+    },
+    {
+      "intent_id": "alarm_shift",
+      "description": "Сдвинь будильник"
+    },
+    {
+      "intent_id": "alarm_cancel",
+      "description": "Отмени будильник"
+    },
+    {
+      "intent_id": "going_to_bed",
+      "description": "Я ложусь"
+    },
+    {
+      "intent_id": "woke_up",
+      "description": "Я проснулся"
+    },
+    {
+      "intent_id": "like_yesterday",
+      "description": "Как вчера"
+    },
+    {
+      "intent_id": "do_not_disturb",
+      "description": "Не беспокоить"
+    },
+    {
+      "intent_id": "like_home",
+      "description": "Как дома"
+    },
+    {
+      "intent_id": "out_of_scope",
+      "description": "Не относится к номеру"
+    },
+    {
+      "intent_id": "invalid_value",
+      "description": "Недопустимое значение"
+    },
+    {
+      "intent_id": "medical",
+      "description": "Медицинский вопрос"
+    }
+  ],
+  "sleep_rules": [
+    {
+      "rule_id": "R1",
+      "version": "gen-case2-draft-2026-11-14",
+      "description": "Вечерний свет. В течение 60 минут перед отбоем (до отбоя минус 5 минут) свет включён: яркость 10–30, цветовая температура не больше 2700 K. Если заселение позже чем за 60 минут до отбоя, правило действует с момента заселения и выполняется с первого шага."
+    },
+    {
+      "rule_id": "R2",
+      "version": "gen-case2-draft-2026-11-14",
+      "description": "Темнота. От отбоя плюс 5 минут до начала рассвета яркость 0, шторы не больше 10."
+    },
+    {
+      "rule_id": "R3",
+      "version": "gen-case2-draft-2026-11-14",
+      "description": "Температура. От отбоя плюс 5 минут до подъёма 19–20 °C; для гостя, который любит прохладу, 17–18 °C; для мерзлявого 21–22 °C."
+    },
+    {
+      "rule_id": "R4",
+      "version": "gen-case2-draft-2026-11-14",
+      "description": "Звук. Через 5 минут после отбоя: если у гостя есть любимые звуки, играет трек из них, громкость 1–30, таймер 1–45 минут; если любимых звуков нет, громкость 0."
+    },
+    {
+      "rule_id": "R5",
+      "version": "gen-case2-draft-2026-11-14",
+      "description": "Будильник. За 31 минуту до подъёма будильник стоит на целевое время подъёма с допуском 5 минут; если гость не любит резкие звуки, режим «свет»."
+    },
+    {
+      "rule_id": "R6",
+      "version": "gen-case2-draft-2026-11-14",
+      "description": "Рассвет. Первый шаг, который после отбоя повышает яркость или открывает шторы, стоит за 15–30 минут до подъёма; до подъёма яркость растёт не меньше чем в три шага или шторы открываются не меньше чем на 50."
+    },
+    {
+      "rule_id": "R7",
+      "version": "gen-case2-draft-2026-11-14",
+      "description": "Тишина. От отбоя плюс 5 минут до подъёма «Не беспокоить» включено."
+    },
+    {
+      "rule_id": "R8",
+      "version": "gen-case2-draft-2026-11-14",
+      "description": "Перелёт. Привычный отбой из профиля задан по домашнему поясу. Если пояс отеля сдвинут относительно домашнего на 3 часа и больше, отбой сдвигается ровно на 1 час в сторону местного времени. R8 — поправка к отбою, отдельно не оценивается."
+    }
+  ]
+}
