@@ -42,6 +42,12 @@ def compare(initial, actual, expected):
     return errors
 
 
+def missing_records(expected, actual):
+    """Пропуск записи — ошибка, даже если все возвращённые ответы верны."""
+    returned = {item["record_id"] for item in actual}
+    return [item["record_id"] for item in expected if item["record_id"] not in returned]
+
+
 async def check():
     started = time.monotonic()
     async with httpx.AsyncClient(follow_redirects=False) as http:
@@ -56,7 +62,9 @@ async def check():
         validation = await client.request('POST', '/case/2/validate', body=answer)
         refs = {r['record_id']:r for r in reference['requests']}
         requests = {r['record_id']:r for r in data['requests']}
-        failures = []
+        missing_requests = missing_records(data["requests"], answer["requests"])
+        missing_stays = missing_records(data["stays"], answer["stays"])
+        failures = [{"record_id": record_id, "errors": ["Ответ отсутствует"]} for record_id in missing_requests]
         passed = 0
         for item in answer['requests']:
             request, expected = requests[item['record_id']], refs[item['record_id']]
@@ -68,7 +76,7 @@ async def check():
             else: passed += 1
         stays = {s['record_id']:s for s in data['stays']}
         timing_matches = sum(iso(bedtime(solution.user(stays[r['record_id']]['user_id']), stays[r['record_id']])) == r['resolved_bedtime_at'] for r in reference['stays'])
-        sleep_failures = []
+        sleep_failures = [{"record_id": record_id, "rules": ["Сценарий отсутствует"]} for record_id in missing_stays]
         stay_refs = {s['record_id']:s for s in reference['stays']}
         for item in answer['stays']:
             log = await client.request('GET', '/room/'+item['session_id']+'/log', retry=True)
@@ -83,7 +91,7 @@ async def check():
                       'favorite_track_ids':pref['tracks'],'gentle_alarm':pref['alarm_mode']=='light'}
             profile_matches += actual == expected['resolved_preferences']
         report = {'format_valid':validation.get('valid',False), 'requests_passed':passed,
-                  'requests_total':len(answer['requests']), 'bedtime_matches':timing_matches,
+                  'requests_total':len(data['requests']), 'bedtime_matches':timing_matches,
                   'sleep_failures':sleep_failures, 'profile_matches':profile_matches, 'stays_total':len(data['stays']), 'failures':failures,
                   'llm_calls':model.calls,'llm_tokens':model.tokens,'api_calls':client.calls,
                   'seconds':round(time.monotonic()-started,2)}
@@ -97,3 +105,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
     if not args.with_model: parser.error('Для полного прогона явно укажите --with-model')
     raise SystemExit(0 if asyncio.run(check()) else 1)
+

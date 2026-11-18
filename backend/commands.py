@@ -30,6 +30,8 @@ def plan_commands(intent, state, prefs, at, devices, tracks):
         if intent.value is None and intent.delta is None:
             bounds = (16, 26) if dev == "climate" else (0, 100)
             value = max(bounds[0], min(bounds[1], value))
+        if value == state[dev][field] and intent.value is None and intent.delta is None:
+            raise Refusal("Достигнута граница настройки. Дальше изменить её в эту сторону нельзя.")
         changes = {dev: {field: value}}
     elif name == "curtains":
         if intent.value is None:
@@ -80,19 +82,42 @@ def plan_commands(intent, state, prefs, at, devices, tracks):
     try:
         for dev, fields in changes.items():
             check_values(devices, dev, fields)
-    except (ValueError, SchemaError):
-        raise Refusal("Указанное значение выходит за допустимые настройки устройства. Выберите другое значение.") from None
+    except SchemaError as exc:
+        if exc.validator in ("minimum", "maximum"):
+            low, high = exc.schema.get("minimum"), exc.schema.get("maximum")
+            if low is not None and high is not None:
+                raise Refusal(f"Значение {exc.instance} вне допустимого диапазона от {low} до {high}. Выберите значение в этих пределах.") from None
+        raise Refusal("Значение не соответствует допустимым настройкам устройства. Выберите другое значение.") from None
+    except ValueError:
+        raise Refusal("Указанное устройство или настройка недоступны.") from None
     return [{"device_id": dev, "values": fields, "at": at} for dev, fields in changes.items()]
 
 
-def success_text(commands):
-    labels = {"light": "Свет", "climate": "Температура", "sound": "Звук", "curtains": "Шторы", "alarm": "Будильник", "dnd": "Не беспокоить"}
-    fields = {"brightness": "яркость", "color_temperature_k": "цветовая температура", "temperature_c": "°C",
-              "track_id": "трек", "volume": "громкость", "timer_minutes": "таймер, мин", "position": "открытие, %",
-              "at": "время", "mode": "режим", "window_minutes": "окно, мин", "enabled": "включён"}
-    values = {"light": "свет", "sound": "звук", "both": "свет и звук"}
-    def human(v):
-        if v is None: return "отменён"
-        if type(v) is bool: return "да" if v else "нет"
-        return values.get(v, str(v))
-    return "Готово. " + "; ".join(labels[c["device_id"]] + ": " + ", ".join(fields[k] + " — " + human(v) for k, v in c["values"].items()) for c in commands) + "."
+def success_text(commands, tracks=()):
+    labels = {"light": "Свет", "climate": "Климат", "sound": "Звук", "curtains": "Шторы",
+              "alarm": "Будильник", "dnd": "Не беспокоить"}
+    fields = {"brightness": "яркость", "color_temperature_k": "цветовая температура", "temperature_c": "температура",
+              "track_id": "трек", "volume": "громкость", "timer_minutes": "таймер", "position": "открытие",
+              "at": "время", "mode": "режим", "window_minutes": "окно пробуждения", "enabled": "режим"}
+    units = {"brightness": "%", "color_temperature_k": " K", "temperature_c": " °C",
+             "volume": "%", "timer_minutes": " мин", "position": "%", "window_minutes": " мин"}
+    modes = {"light": "свет", "sound": "звук", "both": "свет и звук"}
+    track_names = {track["track_id"]: track["title"] for track in tracks}
+
+    def human(field, value):
+        if value is None:
+            return "не задано"
+        if type(value) is bool:
+            return "включён" if value else "выключен"
+        if field == "at":
+            return moment(value).strftime("%H:%M")
+        if field == "track_id":
+            return track_names.get(value, value)
+        return modes.get(value, str(value)) + units.get(field, "")
+
+    descriptions = []
+    for command in commands:
+        details = ", ".join(fields[field] + " " + human(field, value)
+                            for field, value in command["values"].items())
+        descriptions.append(labels[command["device_id"]] + " — " + details)
+    return "Готово. " + ". ".join(descriptions) + "."

@@ -66,3 +66,8 @@ class State(Output):
 class MessageResult(Output):
     reply: Reply
     state: dict[str, dict[str, JsonValue]]
+
+
+
+class Transcription(Output):
+    text: str

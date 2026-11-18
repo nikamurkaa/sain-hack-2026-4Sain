@@ -39,6 +39,12 @@ history — предыдущие просьбы этого же гостя и н
 
 
 async def parse_intent(model, texts, catalog, tracks, history=None):
+    if len(texts) == 1:
+        text = texts[0].strip().lower().rstrip('.!?').removeprefix('сделай ').strip()
+        common = {'попрохладнее': 'cooler', 'потеплее': 'warmer', 'потише': 'quieter',
+                  'поярче': 'brighter', 'потемнее': 'dimmer'}
+        if text in common:
+            return Intent(intent=common[text])
     raw = await model.json(PROMPT, {"utterances": texts, "history": history or [],
                                    "intents": catalog, "tracks": tracks}, 1700)
     # Названия режимов из описаний каталога приводим к значениям устройства.
