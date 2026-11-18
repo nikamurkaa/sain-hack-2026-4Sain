@@ -27,7 +27,7 @@ class FakeModel:
     tokens=0
     async def json(self, instruction, payload, output_tokens=3500):
         self.calls += 1
-        if 'history' in payload: return {'facts':[]}
+        if 'utterances' not in payload: return {'facts':[]}
         return {'intent':'warmer'}
 
 class FakeRoom:
@@ -40,3 +40,4 @@ class FakeRoom:
         self.executions+=1
         for c in commands:self.actual[c['device_id']].update(c['values'])
         return await self.state(at)
+
