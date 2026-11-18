@@ -30,6 +30,7 @@ time — HH:MM местного времени; полседьмого=06:30. al
 curtains: открыть value=100, закрыть=0. do_not_disturb: enabled=true/false. mode только при явной просьбе. track_id только из каталога, если гость назвал трек; "обычный" означает null, его выберет код по предпочтениям.
 "Холодно" означает warmer, "как в бане/душно/дышать нечем" cooler, "как в операционной" dimmer.
 Фразы с медицинским вопросом или просьбой о препарате классифицируй medical, даже если содержат "проснулся". Заказ еды, воздействие на соседей и поиск мест — out_of_scope.
+history — предыдущие просьбы этого же гостя и наши ответы, только для понимания контекста. Исполняй только текущие utterances. «Ещё немного» продолжает предыдущее действие, но не повторяет остальные старые команды.
 Если передано несколько реплик одной просьбы, последняя уточняет предыдущую: "разбуди завтра" + "в девять" = alarm_set 09:00. Исполняется одна итоговая просьба, без двойного увеличения.
 Если уточнений всё ещё недостаточно — needs_clarification=true. Неопределённый будильник без времени требует уточнения. Не пытайся обрезать недопустимые числа: верни точное число для проверки кодом.
 "Выключи всё" — all_off. "Ложусь/сплю/отбой" — going_to_bed; сообщение о завершённом пробуждении — woke_up.
@@ -37,8 +38,9 @@ curtains: открыть value=100, закрыть=0. do_not_disturb: enabled=tr
 """
 
 
-async def parse_intent(model, texts, catalog, tracks):
-    raw = await model.json(PROMPT, {"utterances": texts, "intents": catalog, "tracks": tracks}, 1700)
+async def parse_intent(model, texts, catalog, tracks, history=None):
+    raw = await model.json(PROMPT, {"utterances": texts, "history": history or [],
+                                   "intents": catalog, "tracks": tracks}, 1700)
     # Названия режимов из описаний каталога приводим к значениям устройства.
     # Неизвестные режимы по-прежнему отклоняет строгая схема.
     if isinstance(raw, dict) and isinstance(raw.get("mode"), str):
@@ -47,3 +49,4 @@ async def parse_intent(model, texts, catalog, tracks):
         return Intent.model_validate(raw)
     except ValueError:
         raise ServiceError("INTENT_FORMAT", "Не удалось однозначно понять просьбу. Уточните её.") from None
+

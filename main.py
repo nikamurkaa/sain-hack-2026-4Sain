@@ -33,6 +33,7 @@ async def lifespan(app):
         app.state.run_cache = {}
         app.state.sessions = {}
         app.state.create_lock = asyncio.Lock()
+        app.state.final_session = None
         yield
 
 
@@ -90,7 +91,17 @@ async def run(body: RunInput, token=Depends(bearer)):
         try:
             async with asyncio.timeout(2640):
                 solution = await open_solution(token, body.dataset_code, app.state.http, app.state.model, os.getenv('HACK_TEAM_TOKEN'))
+                if solution.data['meta']['phase'] == 'final':
+                    app.state.final_session = None
                 result = await solution.run()
+                if solution.data['meta']['phase'] == 'final' and len(solution.data['stays']) == 1:
+                    stay = solution.data['stays'][0]
+                    prepared = solution.prepared.get(stay['record_id'])
+                    app.state.final_session = None
+                    if prepared is not None:
+                        room, prefs, steps = prepared
+                        app.state.final_session = ClientSession(
+                            solution, room, prefs, steps, stay, 0, stay['check_in_at'])
         except TimeoutError:
             raise ServiceError('RUN_TIMEOUT', 'Превышено время обработки набора.', 504) from None
         except ServiceError as exc:
@@ -103,7 +114,8 @@ async def run(body: RunInput, token=Depends(bearer)):
 class SessionInput(BaseModel):
     model_config = ConfigDict(extra='forbid')
     dataset_code: str = Field(default='case2-dev-v1', pattern=r'^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$')
-    stay_id: str = Field(pattern=r'^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$')
+    stay_id: str | None = Field(default=None, pattern=r'^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$')
+    source: Literal['dev', 'final'] = 'dev'
 
 
 class MessageInput(BaseModel):
@@ -151,17 +163,30 @@ async def create_session(body: SessionInput, token=Depends(bearer)):
         app.state.sessions = {k: s for k, s in app.state.sessions.items() if s.expires > time.monotonic()}
         if len(app.state.sessions) >= 8:
             raise ServiceError('SESSION_LIMIT', 'Достигнут лимит активных сеансов.', 429)
-        solution = await open_solution(token, body.dataset_code, app.state.http, app.state.model, expected)
-        try:
-            stay = solution.stay(body.stay_id)
-        except StopIteration:
-            raise ServiceError('STAY_NOT_FOUND', 'Проживание не найдено.', 404) from None
-        room, prefs, steps = await solution.prepare(stay)
+        if body.source == 'final':
+            session = app.state.final_session
+            if session is None:
+                raise ServiceError('FINAL_NOT_READY', 'Финальный пользователь ещё не подготовлен.', 409)
+            if body.stay_id is not None and body.stay_id != session.stay['record_id']:
+                raise ServiceError('STAY_NOT_FOUND', 'Проживание не найдено.', 404)
+            # Повторное подключение использует общую комнату, историю и блокировку.
+            # Расписание и данные финального набора заново не загружаются.
+        else:
+            if body.stay_id is None:
+                raise ServiceError('STAY_REQUIRED', 'Для dev-сеанса укажите stay_id.', 422)
+            solution = await open_solution(token, body.dataset_code, app.state.http, app.state.model, expected)
+            try:
+                stay = solution.stay(body.stay_id)
+            except StopIteration:
+                raise ServiceError('STAY_NOT_FOUND', 'Проживание не найдено.', 404) from None
+            room, prefs, steps = await solution.prepare(stay)
+            session = ClientSession(solution, room, prefs, steps, stay, 0, stay['check_in_at'])
+        session.expires = time.monotonic() + 1800
         key = secrets.token_urlsafe(32)
-        app.state.sessions[hashlib.sha256(key.encode()).hexdigest()] = ClientSession(
-            solution, room, prefs, steps, stay, time.monotonic() + 1800, stay['check_in_at'])
-        return {'session_token': key, 'expires_in': 1800, 'stay_id': stay['record_id'],
-                'at': stay['check_in_at'], 'until': room.session['until'], 'mode': 'simulator'}
+        app.state.sessions[hashlib.sha256(key.encode()).hexdigest()] = session
+        return {'session_token': key, 'expires_in': 1800, 'stay_id': session.stay['record_id'],
+                'at': session.at, 'until': session.room.session['until'], 'mode': 'simulator'}
+
 
 
 @app.get('/api/v1/guest', response_model=Guest)
@@ -215,11 +240,12 @@ async def message(body: MessageInput, idempotency_key: str = Header(min_length=8
         uncertain = ServiceError('MESSAGE_UNCERTAIN', 'Результат не подтверждён. Проверьте состояние комнаты.', 409)
         session.messages[idempotency_key] = (fingerprint, uncertain)
         try:
-            texts = ([session.history[-1]['text']] if session.history and session.history[-1]['refused'] else []) + [body.text]
-            reply, actual = await session.solution.message(session.room, session.stay['user_id'], texts, body.at)
+            texts = [body.text]
+            reply, actual = await session.solution.message(session.room, session.stay['user_id'], texts, body.at,
+                                                           history=session.history)
             result = {'reply': reply, 'state': actual}
             session.at = body.at
-            session.history.append({'text': body.text, 'refused': reply['response_class'] == 'refused'})
+            session.history.append({'at': body.at, 'utterances': texts, 'reply': reply})
             session.messages[idempotency_key] = (fingerprint, result)
             return result
         except ServiceError as exc:
@@ -230,3 +256,4 @@ async def message(body: MessageInput, idempotency_key: str = Header(min_length=8
 @app.delete('/api/v1/session', status_code=204)
 async def close_session(token=Depends(bearer)):
     app.state.sessions.pop(hashlib.sha256(token.encode()).hexdigest(), None)
+

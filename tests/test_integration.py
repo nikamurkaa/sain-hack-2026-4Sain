@@ -238,10 +238,14 @@ def test_openapi_contains_client_response_contract():
     assert schema['paths']['/run']['post']['responses']['200']['content']['application/json']['schema']['$ref'].endswith('/RunAnswer')
 
 
-def test_runner_parallelism_is_bounded_and_order_preserved():
+@pytest.mark.parametrize('users,expected_peak', [(1,1),(4,3)])
+def test_runner_parallelism_is_bounded_and_order_preserved(users, expected_peak):
     async def check():
         sim=Simulator();original=sim.data['requests'][0]
-        sim.data['requests']=[dict(deepcopy(original),record_id='request_'+str(i)) for i in range(8)]
+        sim.data['requests']=[dict(deepcopy(original),record_id='request_'+str(i),
+                                   user_id='guest_'+str(i % users)) for i in range(8)]
+        user = sim.data['users'][0]
+        sim.data['users'].extend(dict(deepcopy(user), user_id='guest_'+str(i)) for i in range(users))
         async with httpx.AsyncClient(transport=httpx.MockTransport(sim),trust_env=False) as http:
             sol=await open_solution('eval','case2-dev-v1',http,FakeModel())
             active=0;peak=0;real=sol.message
@@ -254,6 +258,7 @@ def test_runner_parallelism_is_bounded_and_order_preserved():
                 finally:active-=1
             sol.message=wrapped
             result=await sol.run()
-            assert peak==3
+            assert peak==expected_peak
             assert [r['record_id'] for r in result['requests']]==['request_'+str(i) for i in range(8)]
     asyncio.run(check())
+

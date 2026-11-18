@@ -1,5 +1,6 @@
 """Общий сервис для проверки и пользовательского интерфейса."""
 import asyncio
+import logging
 from datetime import timedelta
 
 from backend.clients import HackClient
@@ -15,6 +16,7 @@ class Solution:
     def __init__(self, data, client, model, run_id=None):
         self.data, self.client, self.model, self.run_id = data, client, model, run_id
         self.preferences = PreferenceResolver(data, model)
+        self.prepared = {}
 
     def user(self, user_id):
         return next(u for u in self.data['users'] if u['user_id'] == user_id)
@@ -32,12 +34,13 @@ class Solution:
         steps = build_scenario(self.user(stay['user_id']), stay, prefs, self.data['devices'], self.data['sleep_rules'])
         room = await Room.create(self.client, stay['record_id'], 'stay', self.run_id)
         await room.scenario(steps)
+        self.prepared[stay['record_id']] = (room, prefs, steps)
         return room, prefs, steps
 
-    async def message(self, room, user_id, texts, at, base_state=None):
+    async def message(self, room, user_id, texts, at, base_state=None, history=None):
         try:
             prefs = await self.prefs(user_id, at)
-            intent = await parse_intent(self.model, texts, self.data['intents'], self.data['tracks'])
+            intent = await parse_intent(self.model, texts, self.data['intents'], self.data['tracks'], history)
             state = base_state if base_state is not None else await room.state(at)
             commands = plan_commands(intent, state, prefs, at, self.data['devices'], self.data['tracks'])
         except Refusal as exc:
@@ -61,18 +64,46 @@ class Solution:
                 raise
 
         async def prepare_stay(stay):
-            room, _, _ = await self.prepare(stay)
+            try:
+                room, _, _ = await self.prepare(stay)
+            except ServiceError:
+                # Без подтверждённого сценария запись нельзя считать выполненной.
+                logging.getLogger(__name__).warning('Не удалось подготовить один заезд')
+                return None
             return {'record_id': stay['record_id'], 'session_id': room.session['session_id']}
 
-        async def handle_request(request):
-            room = await Room.create(self.client, request['record_id'], 'request', self.run_id)
-            texts = [u['text'] for u in sorted(request['utterances'], key=lambda u: moment(u['at']))
-                     if u['role'] == 'user' and moment(u['at']) <= moment(request['at'])]
-            reply, _ = await self.message(room, request['user_id'], texts, request['at'], room.session['initial_state'])
-            return {'record_id': request['record_id'], 'session_id': room.session['session_id'], 'replies': [reply]}
+        async def handle_user(requests):
+            history = []
+            answers = []
+            for request in sorted(requests, key=lambda item: moment(item['at'])):
+                try:
+                    room = await Room.create(self.client, request['record_id'], 'request', self.run_id)
+                except ServiceError:
+                    logging.getLogger(__name__).warning('Не удалось создать сеанс одной просьбы')
+                    continue
+                texts = [u['text'] for u in sorted(request['utterances'], key=lambda u: moment(u['at']))
+                         if u['role'] == 'user' and moment(u['at']) <= moment(request['at'])]
+                try:
+                    reply, _ = await self.message(room, request['user_id'], texts, request['at'],
+                                                 room.session['initial_state'], history=history)
+                except ServiceError:
+                    reply = {'role': 'agent', 'at': request['at'], 'response_class': 'refused',
+                             'text': 'Не удалось подтвердить выполнение просьбы. Проверьте состояние номера.'}
+                history.append({'at': request['at'], 'utterances': texts, 'reply': reply})
+                answers.append({'record_id': request['record_id'],
+                                'session_id': room.session['session_id'], 'replies': [reply]})
+            return answers
 
-        answer = {'stays': await bounded_map(self.data['stays'], prepare_stay),
-                  'requests': await bounded_map(self.data['requests'], handle_request)}
+        # Параллельность остаётся между пользователями. Их разговоры изолированы.
+        conversations = {}
+        for request in self.data['requests']:
+            conversations.setdefault(request['user_id'], []).append(request)
+        stays = await bounded_map(self.data['stays'], prepare_stay)
+        groups = await bounded_map(conversations.values(), handle_user)
+        answers = {item['record_id']: item for group in groups for item in group}
+        answer = {'stays': [item for item in stays if item is not None],
+                  'requests': [answers[item['record_id']] for item in self.data['requests']
+                               if item['record_id'] in answers]}
         validate_schema('Case2Answers', answer)
         return answer
 
@@ -87,3 +118,4 @@ async def open_solution(token, code, http, model, team_token=None):
         run = await client.dev_run()
         run_id = run['run_id']
     return Solution(data, client, model, run_id)
+
