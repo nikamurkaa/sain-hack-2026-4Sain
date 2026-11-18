@@ -152,3 +152,27 @@ def test_profile_dislike_has_a_verifiable_source():
         assert prefs['alarm_mode'] == 'light'
         assert prefs['sources']['alarm_mode']['source'] == 'profile:dislikes'
     asyncio.run(check())
+
+
+
+def test_hotel_and_home_sources_remain_distinct():
+    from backend.preferences import PreferenceResolver
+    from tests.helpers import dataset
+
+    class SourceModel(FakeModel):
+        async def json(self, instruction, payload, output_tokens=3500):
+            hotel, = payload["hotel_notes"]
+            home, = payload["history"]
+            assert hotel["source"] == "hotel" and home["source"] == "app"
+            return {"facts": [
+                {"key": "temperature", "value": "warm", "source_id": hotel["id"], "quote": hotel["text"]},
+                {"key": "home.climate.temperature_c", "value": 19, "source_id": home["id"], "quote": home["text"]},
+            ]}
+
+    data = dataset()
+    for source, text in [("hotel", "Здесь всегда прошу 22 градуса."), ("app", "Дома ставлю 19 градусов.")]:
+        data["events"].append({"event_id": source, "source": source, "user_id": "guest_test",
+                               "started_at": AT, "payload": {"text": text}})
+    prefs = asyncio.run(PreferenceResolver(data, SourceModel()).resolve("guest_test", AT, "2026-11-11"))
+    assert prefs["temperature"] == "warm"
+    assert prefs["home"]["climate"]["temperature_c"] == 19

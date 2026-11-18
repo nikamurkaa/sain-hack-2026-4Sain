@@ -66,5 +66,5 @@ def evidence(dataset: dict, user_id: str, cutoff: str) -> list[dict]:
         if e.get("ended_at") and moment(e["ended_at"]) > bound:
             continue
         if e.get("payload", {}).get("text"):
-            items.append({"id": "event:" + e["event_id"], "at": e["started_at"], "text": e["payload"]["text"], "source": "note"})
+            items.append({"id": "event:" + e["event_id"], "at": e["started_at"], "text": e["payload"]["text"], "source": e.get("source", "note")})
     return sorted(items, key=lambda x: moment(x["at"]))
