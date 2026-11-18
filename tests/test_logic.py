@@ -265,3 +265,27 @@ def test_unknown_model_alarm_mode_rejected():
         async def json(self,*args):return {'intent':'alarm_set','time':'07:30','mode':'unknown'}
     with pytest.raises(ServiceError,match='Уточните'):
         asyncio.run(parse_intent(Model(),['Разбуди в 7:30'],[],[]))
+
+
+def test_missing_morning_settings_checked_separately():
+    from backend.preferences import MORNING_PROMPT
+    class Model:
+        async def json(self,instruction,payload,*args):
+            if instruction!=MORNING_PROMPT:return {'facts':[]}
+            assert [x['id'] for x in payload['history']]==['chat:morning']
+            return {'facts':[{'key':'morning.light.brightness','value':50,'source_id':'chat:morning','quote':'Утром свет на половину'}]}
+    d=dataset()
+    d['chat_history']=[{'user_id':'guest_test','role':'user','at':AT,'message_id':'morning','text':'Утром свет на половину'},
+                       {'user_id':'other','role':'user','at':AT,'message_id':'other','text':'Утром свет на максимум'}]
+    p=asyncio.run(PreferenceResolver(d,Model()).resolve('guest_test',AT,'2026-11-11'))
+    assert p['morning']['light']['brightness']==50
+
+
+def test_morning_fallback_rejects_other_preference_groups():
+    from backend.preferences import MORNING_PROMPT
+    from backend.core import ServiceError
+    class Model:
+        async def json(self,instruction,payload,*args):
+            return {'facts':[] if instruction!=MORNING_PROMPT else [{'key':'home.light.brightness','value':50,'source_id':'chat:morning','quote':'Утром свет на половину'}]}
+    d=dataset();d['chat_history']=[{'user_id':'guest_test','role':'user','at':AT,'message_id':'morning','text':'Утром свет на половину'}]
+    with pytest.raises(ServiceError):asyncio.run(PreferenceResolver(d,Model()).resolve('guest_test',AT,'2026-11-11'))
