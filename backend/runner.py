@@ -1,6 +1,7 @@
 """Общий сервис для проверки и пользовательского интерфейса."""
 import asyncio
 import logging
+import time
 from datetime import timedelta
 
 from backend.clients import HackClient
@@ -13,7 +14,8 @@ from backend.scheduler import build_scenario
 
 
 class Solution:
-    def __init__(self, data, client, model, run_id=None):
+    def __init__(self, data, client, model, run_id=None, run_deadline=None):
+        self.run_deadline = run_deadline
         self.data, self.client, self.model, self.run_id = data, client, model, run_id
         self.preferences = PreferenceResolver(data, model)
         self.prepared = {}
@@ -118,12 +120,22 @@ async def open_solution(token, code, http, model, team_token=None):
     client = HackClient(token, http)
     data = await client.dataset(code)
     run_id = None
+    deadline = None
     if team_token and token == team_token:
         if data['meta']['phase'] != 'dev':
             raise ServiceError('DEV_ONLY', 'Командный токен используется только для dev-прогона.', 403)
+        deadline = time.monotonic() + 2700
         run = await client.dev_run()
+        if run.get("expires_at") is not None:
+            try:
+                remaining = moment(run["expires_at"]).timestamp() - time.time()
+            except (ValueError, TypeError, OverflowError):
+                raise ServiceError("UPSTREAM_FORMAT", "Некорректный срок dev-прогона.") from None
+            deadline = min(deadline, time.monotonic() + remaining)
+            if remaining <= 0:
+                raise ServiceError("RUN_EXPIRED", "Dev-прогон уже истёк.", 409)
         run_id = run.get('run_id')
         if not isinstance(run_id, str) or not run_id:
             raise ServiceError('UPSTREAM_FORMAT', 'Отсутствует идентификатор dev-прогона.')
-    return Solution(data, client, model, run_id)
+    return Solution(data, client, model, run_id, deadline)
 

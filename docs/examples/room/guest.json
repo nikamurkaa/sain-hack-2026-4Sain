@@ -7,6 +7,14 @@
     "target_wake_at": "2026-11-13T07:00:00+03:00",
     "hotel_timezone": "Europe/Moscow"
   },
+  "profile": {
+    "timezone": "Europe/Moscow",
+    "chronotype": null,
+    "goal": null,
+    "weekday_bedtime": "23:00",
+    "weekday_wake_time": "07:00",
+    "sleep_preferences": null
+  },
   "preferences": {
     "temperature": "neutral",
     "tracks": [],

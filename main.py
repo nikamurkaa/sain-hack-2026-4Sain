@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.clients import ModelClient
-from backend.api_models import RunAnswer, SessionCreated, Guest, Scenario, Catalog, State, MessageResult, Transcription
+from backend.api_models import RunAnswer, SessionCreated, Conversation, PreparedView, Guest, Scenario, Catalog, State, MessageResult, Transcription
 from backend.core import ServiceError, moment
 from backend.runner import open_solution
 
@@ -101,8 +101,9 @@ async def run(body: RunInput, token=Depends(bearer)):
                     app.state.final_session = None
                     if prepared is not None:
                         room, prefs, steps = prepared
-                        app.state.final_session = ClientSession(
-                            solution, room, prefs, steps, stay, now + 2700, stay['check_in_at'], read_only=True)
+                        app.state.final_session = FinalPresentation(
+                            room, stay, prefs, steps, solution.user(stay['user_id']),
+                            {'devices': solution.data['devices'], 'tracks': solution.data['tracks']})
         except TimeoutError:
             raise ServiceError('RUN_TIMEOUT', 'Превышено время обработки набора.', 504) from None
         except ServiceError as exc:
@@ -139,6 +140,16 @@ class MessageInput(BaseModel):
         return value
 
 
+@dataclass(frozen=True)
+class FinalPresentation:
+    room: object
+    stay: dict
+    prefs: dict
+    steps: list
+    profile: dict
+    catalog: dict
+
+
 @dataclass
 class ClientSession:
     solution: object
@@ -149,6 +160,9 @@ class ClientSession:
     expires: float
     at: str
     read_only: bool = False
+    presentation: FinalPresentation | None = None
+    connection_status: str = 'unchecked'
+    last_confirmed: dict | None = None
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     messages: dict = field(default_factory=dict)
     history: list = field(default_factory=list)
@@ -157,7 +171,8 @@ class ClientSession:
 def client_session(token=Depends(bearer)):
     key = hashlib.sha256(token.encode()).hexdigest()
     session = app.state.sessions.get(key)
-    if not session or session.expires <= time.monotonic():
+    outdated = session and session.presentation and session.presentation is not app.state.final_session
+    if not session or outdated or session.expires <= time.monotonic():
         app.state.sessions.pop(key, None)
         raise ServiceError('SESSION_EXPIRED', 'Сеанс не найден или истёк. Создайте новый.', 401)
     return session
@@ -174,37 +189,72 @@ async def create_session(body: SessionInput, token=Depends(bearer)):
         if len(app.state.sessions) >= 8:
             raise ServiceError('SESSION_LIMIT', 'Достигнут лимит активных сеансов.', 429)
         if body.source == 'final':
-            session = app.state.final_session
-            if session is None or session.expires <= time.monotonic():
+            view = app.state.final_session
+            if view is None:
                 raise ServiceError('FINAL_NOT_READY', 'Финальный пользователь ещё не подготовлен.', 409)
-            if body.stay_id is not None and body.stay_id != session.stay['record_id']:
+            if body.stay_id is not None and body.stay_id != view.stay['record_id']:
                 raise ServiceError('STAY_NOT_FOUND', 'Проживание не найдено.', 404)
-            # Повторное подключение использует общую комнату, историю и блокировку.
-            # Расписание и данные финального набора заново не загружаются.
+            session = ClientSession(None, view.room, view.prefs, view.steps, view.stay,
+                                    time.monotonic() + 1800, view.stay['check_in_at'],
+                                    read_only=True, presentation=view)
         else:
             if body.stay_id is None:
                 raise ServiceError('STAY_REQUIRED', 'Для dev-сеанса укажите stay_id.', 422)
-            started = time.monotonic()
             solution = await open_solution(token, body.dataset_code, app.state.http, app.state.model, expected)
             try:
                 stay = solution.stay(body.stay_id)
             except StopIteration:
                 raise ServiceError('STAY_NOT_FOUND', 'Проживание не найдено.', 404) from None
+            if not solution.run_id or solution.run_deadline is None:
+                raise ServiceError('DEV_RUN_REQUIRED', 'Не подтверждён отдельный dev-прогон.', 502)
             room, prefs, steps = await solution.prepare(stay)
-            session = ClientSession(solution, room, prefs, steps, stay, min(started + 2700, time.monotonic() + 1800), stay['check_in_at'])
+            session = ClientSession(solution, room, prefs, steps, stay, solution.run_deadline, stay['check_in_at'])
         remaining = int(session.expires - time.monotonic())
         if remaining <= 0:
             raise ServiceError('SESSION_EXPIRED', 'Прогон истёк во время подготовки номера.', 409)
         key = secrets.token_urlsafe(32)
         app.state.sessions[hashlib.sha256(key.encode()).hexdigest()] = session
-        return {'session_token': key, 'expires_in': remaining, 'read_only': session.read_only, 'stay_id': session.stay['record_id'],
-                'at': session.at, 'until': session.room.session['until'], 'mode': 'simulator'}
+        return {'session_token': key, **session_info(session)}
 
+
+def session_info(session):
+    actions = ['guest', 'scenario', 'catalog', 'prepared']
+    if session.connection_status != 'access_ended':
+        actions.append('state')
+    can_send = not session.read_only and session.connection_status != 'access_ended'
+    if can_send:
+        actions.extend(['message', 'transcription'])
+    return {'source': 'final' if session.presentation else 'dev',
+            'connection_status': session.connection_status, 'can_send_requests': can_send,
+            'actions': actions, 'expires_in': max(0, int(session.expires - time.monotonic())),
+            'read_only': not can_send, 'stay_id': session.stay['record_id'],
+            'mode': 'simulator', 'at': session.at, 'until': session.room.session['until']}
+
+
+@app.get('/api/v1/session', response_model=Conversation)
+async def conversation(session=Depends(client_session)):
+    async with session.lock:
+        return {**session_info(session), 'history': list(session.history)}
+
+
+def guest_data(session):
+    uid = session.stay['user_id']
+    profile = session.presentation.profile if session.presentation else session.solution.user(uid)
+    display_fields = ('timezone', 'chronotype', 'goal', 'weekday_bedtime', 'weekday_wake_time', 'sleep_preferences')
+    return {'user_id': uid, 'stay': session.stay, 'preferences': session.prefs,
+            'profile': {key: profile.get(key) for key in display_fields}}
 
 
 @app.get('/api/v1/guest', response_model=Guest)
 async def guest(session=Depends(client_session)):
-    return {'user_id': session.stay['user_id'], 'stay': session.stay, 'preferences': session.prefs}
+    return guest_data(session)
+
+
+@app.get('/api/v1/prepared', response_model=PreparedView)
+async def prepared_view(session=Depends(client_session)):
+    return {'source': 'final' if session.presentation else 'dev', 'provenance': 'prepared',
+            'guest': guest_data(session), 'scenario': {'steps': session.steps},
+            'last_confirmed': session.last_confirmed}
 
 
 @app.get('/api/v1/scenario', response_model=Scenario)
@@ -214,6 +264,8 @@ async def scenario(session=Depends(client_session)):
 
 @app.get('/api/v1/catalog', response_model=Catalog)
 async def catalog(session=Depends(client_session)):
+    if session.presentation:
+        return session.presentation.catalog
     return {'devices': session.solution.data['devices'], 'tracks': session.solution.data['tracks']}
 
 
@@ -231,13 +283,36 @@ async def state(at: str | None = None, session=Depends(client_session)):
     except ValueError:
         raise ServiceError('INVALID_TIME', 'Нужна дата с явным смещением UTC.', 422) from None
     async with session.lock:
-        return {'at': at, 'state': await session.room.state(at)}
+        if session.connection_status == 'access_ended':
+            raise ServiceError('LIVE_ACCESS_ENDED', 'Доступ к состоянию завершён.', 403)
+        try:
+            actual = await session.room.state(at)
+        except ServiceError as exc:
+            note_upstream_error(session, exc)
+            raise
+        session.connection_status = 'available'
+        session.last_confirmed = {'at': at, 'state': actual}
+        return session.last_confirmed
+
+
+def note_upstream_error(session, exc):
+    if exc.status in (401, 403) or exc.code in ('RUN_EXPIRED', 'RUN_REVOKED'):
+        session.connection_status = 'access_ended'
+    elif exc.status == 429:
+        session.connection_status = 'rate_limited'
+    else:
+        session.connection_status = 'unavailable'
+
+
+def require_writable(session):
+    if session.expires <= time.monotonic():
+        raise ServiceError('SESSION_EXPIRED', 'Срок сеанса истёк.', 401)
+    if session.read_only or session.connection_status == 'access_ended':
+        raise ServiceError('SESSION_READ_ONLY', 'В этом сеансе управление недоступно.', 409)
 
 
 @app.post('/api/v1/messages', response_model=MessageResult)
 async def message(body: MessageInput, idempotency_key: str = Header(min_length=8, max_length=128), session=Depends(client_session)):
-    if session.read_only:
-        raise ServiceError('SESSION_READ_ONLY', 'Оценочный сеанс закрыт для изменений.', 409)
     fingerprint = hashlib.sha256(body.model_dump_json().encode()).hexdigest()
     async with session.lock:
         if idempotency_key in session.messages:
@@ -248,6 +323,7 @@ async def message(body: MessageInput, idempotency_key: str = Header(min_length=8
                 error = old[1]
                 raise ServiceError(error.code, error.message, error.status)
             return old[1]
+        require_writable(session)
         if len(session.messages) >= 100:
             raise ServiceError('MESSAGE_LIMIT', 'Лимит сообщений сеанса исчерпан.', 429)
         check_time(session, body.at)
@@ -260,11 +336,17 @@ async def message(body: MessageInput, idempotency_key: str = Header(min_length=8
             reply, actual = await session.solution.message(session.room, session.stay['user_id'], texts, body.at,
                                                            history=session.history)
             result = {'reply': reply, 'state': actual}
+            session.connection_status = 'available'
+            session.last_confirmed = {'at': body.at, 'state': actual}
             session.at = body.at
             session.history.append({'at': body.at, 'utterances': texts, 'reply': reply})
             session.messages[idempotency_key] = (fingerprint, result)
             return result
         except ServiceError as exc:
+            if exc.code.startswith(('UPSTREAM_', 'RUN_')):
+                note_upstream_error(session, exc)
+                if exc.status == 409:
+                    session.read_only = True
             session.messages[idempotency_key] = (fingerprint, ServiceError(exc.code, exc.message, exc.status))
             raise
 
@@ -296,6 +378,7 @@ MAX_AUDIO_BYTES = 5_000_000  # Лимит байтов самого файла, 
     }}
 })
 async def transcribe(request: Request, session=Depends(client_session)):
+    require_writable(session)
     media_type = request.headers.get('content-type', '').split(';', 1)[0].strip().lower()
     if media_type not in AUDIO_TYPES:
         raise ServiceError('AUDIO_TYPE', 'Нужна запись WebM, M4A, MP3, WAV, OGG или FLAC.', 415)
