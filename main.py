@@ -276,14 +276,20 @@ async def close_session(token=Depends(bearer)):
 
 
 AUDIO_TYPES = {
-    'audio/webm': 'webm', 'audio/mp4': 'mp4', 'audio/m4a': 'm4a',
+    'audio/webm': 'webm', 'audio/mp4': 'm4a', 'audio/m4a': 'm4a',
     'audio/x-m4a': 'm4a', 'audio/mpeg': 'mp3', 'audio/mp3': 'mp3',
     'audio/wav': 'wav', 'audio/x-wav': 'wav', 'audio/ogg': 'ogg',
+    'audio/flac': 'flac', 'audio/x-flac': 'flac',
 }
-MAX_AUDIO_BYTES = 19_000_000  # Запас под multipart при лимите стенда 20 МБ.
+MAX_AUDIO_BYTES = 5_000_000  # Лимит байтов самого файла, без служебных полей multipart.
 
 
-@app.post('/api/v1/transcriptions', response_model=Transcription, openapi_extra={
+@app.post('/api/v1/transcriptions', response_model=Transcription, responses={
+    402: {'description': 'Дневной бюджет распознавания исчерпан до 00:00 МСК.'},
+    413: {'description': 'Аудиофайл превышает 5 000 000 байт.'},
+    415: {'description': 'Формат записи не поддерживается.'},
+    429: {'description': 'Распознавание занято или достигнут лимит частоты.'},
+}, openapi_extra={
     'requestBody': {'required': True, 'content': {
         media_type: {'schema': {'type': 'string', 'format': 'binary'}}
         for media_type in AUDIO_TYPES
@@ -292,7 +298,7 @@ MAX_AUDIO_BYTES = 19_000_000  # Запас под multipart при лимите 
 async def transcribe(request: Request, session=Depends(client_session)):
     media_type = request.headers.get('content-type', '').split(';', 1)[0].strip().lower()
     if media_type not in AUDIO_TYPES:
-        raise ServiceError('AUDIO_TYPE', 'Нужна запись WebM, MP4, M4A, MP3, WAV или OGG.', 415)
+        raise ServiceError('AUDIO_TYPE', 'Нужна запись WebM, M4A, MP3, WAV, OGG или FLAC.', 415)
     if app.state.speech_lock.locked():
         raise ServiceError('SPEECH_BUSY', 'Распознаётся другая запись. Попробуйте через несколько секунд.', 429)
     async with app.state.speech_lock:
@@ -301,7 +307,7 @@ async def transcribe(request: Request, session=Depends(client_session)):
                 body = bytearray()
                 async for chunk in request.stream():
                     if len(body) + len(chunk) > MAX_AUDIO_BYTES:
-                        raise ServiceError('AUDIO_TOO_LARGE', 'Запись превышает 19 МБ. Отправьте более короткую просьбу.', 413)
+                        raise ServiceError('AUDIO_TOO_LARGE', 'Запись превышает 5 МБ. Отправьте более короткую просьбу.', 413)
                     body.extend(chunk)
                 if not body:
                     raise ServiceError('AUDIO_EMPTY', 'Запись пустая. Повторите запись или введите текст.', 422)

@@ -1,5 +1,6 @@
 """Клиенты организаторов. Токены и тела ошибок не записываются в журнал."""
 import asyncio
+from collections import deque
 import json
 import os
 import time
@@ -68,6 +69,7 @@ class ModelClient:
         self.http = http
         self.lock = asyncio.Lock()
         self.next_call = 0.0
+        self.speech_starts: deque[float] = deque()
         self.calls = 0
         self.tokens = 0
 
@@ -78,32 +80,44 @@ class ModelClient:
         if isinstance(usage, dict) and type(usage.get("total_tokens")) is int:
             self.tokens += usage["total_tokens"]
 
-    async def wait_for_slot(self):
+    async def wait_for_slot(self, *, speech=False):
         async with self.lock:
-            await asyncio.sleep(max(0, self.next_call - time.monotonic()))
-            self.next_call = time.monotonic() + 2.2
+            now = time.monotonic()
+            if speech:
+                while self.speech_starts and self.speech_starts[0] <= now - 60:
+                    self.speech_starts.popleft()
+                if len(self.speech_starts) >= 10:
+                    raise ServiceError("SPEECH_LIMIT", "Лимит частоты распознавания. Повторите через минуту.", 429)
+            await asyncio.sleep(max(0, self.next_call - now))
+            started = time.monotonic()
+            self.next_call = started + 2.2
+            if speech:
+                self.speech_starts.append(started)
 
     async def transcribe(self, audio: bytes, media_type: str, extension: str):
         key = os.getenv("LLM_API_KEY")
         if not key:
             raise ServiceError("MODEL_NOT_CONFIGURED", "Не настроен сервис распознавания речи.", 503)
         base = os.getenv("LLM_BASE_URL", "https://bifrost.be-healthy.tech/v1").rstrip("/")
-        model = os.getenv("LLM_TRANSCRIBE_MODEL", "gpt-transcribe")
-        await self.wait_for_slot()
+        await self.wait_for_slot(speech=True)
         self.calls += 1
         try:
             response = await self.http.post(
                 base + "/audio/transcriptions",
                 headers={"Authorization": "Bearer " + key},
-                data={"model": model, "language": "ru"},
+                data={"model": "gpt-transcribe", "language": "ru", "response_format": "json"},
                 files={"file": ("request." + extension, audio, media_type)},
                 timeout=httpx.Timeout(120, connect=10),
             )
         except httpx.TransportError:
             raise ServiceError("SPEECH_UNAVAILABLE", "Не удалось распознать речь. Попробуйте ещё раз.", 503) from None
+        if response.status_code == 402:
+            raise ServiceError("SPEECH_BUDGET", "Дневной бюджет распознавания исчерпан. Он обновится в 00:00 МСК.", 402)
+        if response.status_code == 413:
+            raise ServiceError("AUDIO_TOO_LARGE", "Запись превышает 5 МБ. Отправьте более короткую запись.", 413)
         if response.status_code == 429:
-            raise ServiceError("SPEECH_LIMIT", "Достигнут лимит распознавания. Попробуйте позже.", 429)
-        if response.status_code in (400, 413, 415, 422):
+            raise ServiceError("SPEECH_LIMIT", "Лимит частоты распознавания. Повторите через минуту.", 429)
+        if response.status_code in (400, 415, 422):
             raise ServiceError("INVALID_AUDIO", "Не удалось прочитать запись. Запишите просьбу ещё раз.", 422)
         if response.is_error:
             raise ServiceError("SPEECH_UNAVAILABLE", "Распознавание речи временно недоступно.", 503)
