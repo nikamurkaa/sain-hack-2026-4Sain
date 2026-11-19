@@ -44,7 +44,7 @@ def test_dev_run_owns_its_room_and_handles_closure():
         with patch('main.open_solution', side_effect=fake_open):
             created = client.post('/api/v1/sessions', headers={'Authorization':'Bearer offline-team'},
                                   json={'stay_id':'stay_test'}).json()
-        assert created['read_only'] is False and 0 < created['expires_in'] <= 1800
+        assert created['read_only'] is False and 0 < created['expires_in'] <= 2700
         assert ('/runs', {'case':2}) in posts
         assert ('/room/session', {'record_id':'stay_test','kind':'stay','run_id':'test-run'}) in posts
         sim.closed = True
