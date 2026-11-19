@@ -40,8 +40,8 @@ class HackClient:
                     code = "UPSTREAM_ERROR"
                 # Не возвращаем текст внешнего сервиса: в нём могут быть закрытые данные.
                 allowed = {"RUN_EXPIRED", "RUN_REVOKED", "RUN_NOT_STARTED"}
-                status = 401 if response.status_code == 401 else 403 if response.status_code == 403 else 502
-                raise ServiceError(code if code in allowed else "UPSTREAM_ERROR",
+                status = response.status_code if response.status_code in (401, 403, 409, 429) else 502
+                raise ServiceError(code if isinstance(code, str) and code in allowed else "UPSTREAM_ERROR",
                                    "Сервис организаторов отклонил запрос (HTTP %s)." % response.status_code, status)
             try:
                 value = response.json()
@@ -70,6 +70,13 @@ class ModelClient:
         self.next_call = 0.0
         self.calls = 0
         self.tokens = 0
+
+    def record_usage(self, response):
+        if not isinstance(response, dict):
+            raise ValueError("object required")
+        usage = response.get("usage")
+        if isinstance(usage, dict) and type(usage.get("total_tokens")) is int:
+            self.tokens += usage["total_tokens"]
 
     async def wait_for_slot(self):
         async with self.lock:
@@ -105,7 +112,7 @@ class ModelClient:
             text = raw["text"]
             if not isinstance(text, str) or not text.strip() or len(text.strip()) > 2000:
                 raise ValueError("invalid transcription")
-            self.tokens += raw.get("usage", {}).get("total_tokens", 0)
+            self.record_usage(raw)
             return text.strip()
         except (ValueError, KeyError, TypeError):
             raise ServiceError("SPEECH_FORMAT", "Речь не распознана. Повторите запись или введите текст.", 502) from None
@@ -135,7 +142,7 @@ class ModelClient:
                 raise ServiceError("MODEL_UNAVAILABLE", "Сервис обработки сообщений временно недоступен.", 503)
             try:
                 raw = response.json()
-                self.tokens += raw.get("usage", {}).get("total_tokens", 0)
+                self.record_usage(raw)
                 choice = raw["choices"][0]
                 if choice["finish_reason"] != "stop":
                     raise ValueError("incomplete")

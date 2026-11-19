@@ -55,7 +55,10 @@ def plan_commands(intent, state, prefs, at, devices, tracks):
         else:
             if state["alarm"]["at"] is None or intent.delta is None:
                 raise Refusal("Укажите время будильника: сейчас нечего сдвигать или не указан интервал.")
-            alarm = moment(state["alarm"]["at"]) + timedelta(minutes=intent.delta)
+            try:
+                alarm = moment(state["alarm"]["at"]) + timedelta(minutes=intent.delta)
+            except OverflowError:
+                raise Refusal("Слишком большой интервал сдвига будильника.") from None
             if alarm <= moment(at):
                 raise Refusal("Новое время будильника уже прошло. Укажите будущее время.")
         changes = {"alarm": {"at": iso(alarm)}}

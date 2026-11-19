@@ -26,7 +26,7 @@ logging.getLogger('httpcore').setLevel(logging.WARNING)
 
 @asynccontextmanager
 async def lifespan(app):
-    async with httpx.AsyncClient(follow_redirects=False, limits=httpx.Limits(max_connections=10)) as http:
+    async with httpx.AsyncClient(trust_env=False, follow_redirects=False, limits=httpx.Limits(max_connections=10)) as http:
         app.state.http = http
         app.state.model = ModelClient(http)
         app.state.run_lock = asyncio.Lock()
@@ -83,7 +83,7 @@ async def run(body: RunInput, token=Depends(bearer)):
         if key in app.state.run_cache:
             cached = app.state.run_cache[key][1]
             if isinstance(cached, ServiceError):
-                raise cached
+                raise ServiceError(cached.code, cached.message, cached.status)
             return cached
         if len(app.state.run_cache) >= 4:
             del app.state.run_cache[next(iter(app.state.run_cache))]
@@ -102,11 +102,11 @@ async def run(body: RunInput, token=Depends(bearer)):
                     if prepared is not None:
                         room, prefs, steps = prepared
                         app.state.final_session = ClientSession(
-                            solution, room, prefs, steps, stay, 0, stay['check_in_at'])
+                            solution, room, prefs, steps, stay, now + 2700, stay['check_in_at'], read_only=True)
         except TimeoutError:
             raise ServiceError('RUN_TIMEOUT', 'Превышено время обработки набора.', 504) from None
         except ServiceError as exc:
-            app.state.run_cache[key] = (time.monotonic(), exc)
+            app.state.run_cache[key] = (time.monotonic(), ServiceError(exc.code, exc.message, exc.status))
             raise
         app.state.run_cache[key] = (time.monotonic(), result)
         return result
@@ -148,6 +148,7 @@ class ClientSession:
     stay: dict
     expires: float
     at: str
+    read_only: bool = False
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     messages: dict = field(default_factory=dict)
     history: list = field(default_factory=list)
@@ -174,7 +175,7 @@ async def create_session(body: SessionInput, token=Depends(bearer)):
             raise ServiceError('SESSION_LIMIT', 'Достигнут лимит активных сеансов.', 429)
         if body.source == 'final':
             session = app.state.final_session
-            if session is None:
+            if session is None or session.expires <= time.monotonic():
                 raise ServiceError('FINAL_NOT_READY', 'Финальный пользователь ещё не подготовлен.', 409)
             if body.stay_id is not None and body.stay_id != session.stay['record_id']:
                 raise ServiceError('STAY_NOT_FOUND', 'Проживание не найдено.', 404)
@@ -183,17 +184,20 @@ async def create_session(body: SessionInput, token=Depends(bearer)):
         else:
             if body.stay_id is None:
                 raise ServiceError('STAY_REQUIRED', 'Для dev-сеанса укажите stay_id.', 422)
+            started = time.monotonic()
             solution = await open_solution(token, body.dataset_code, app.state.http, app.state.model, expected)
             try:
                 stay = solution.stay(body.stay_id)
             except StopIteration:
                 raise ServiceError('STAY_NOT_FOUND', 'Проживание не найдено.', 404) from None
             room, prefs, steps = await solution.prepare(stay)
-            session = ClientSession(solution, room, prefs, steps, stay, 0, stay['check_in_at'])
-        session.expires = time.monotonic() + 1800
+            session = ClientSession(solution, room, prefs, steps, stay, min(started + 2700, time.monotonic() + 1800), stay['check_in_at'])
+        remaining = int(session.expires - time.monotonic())
+        if remaining <= 0:
+            raise ServiceError('SESSION_EXPIRED', 'Прогон истёк во время подготовки номера.', 409)
         key = secrets.token_urlsafe(32)
         app.state.sessions[hashlib.sha256(key.encode()).hexdigest()] = session
-        return {'session_token': key, 'expires_in': 1800, 'stay_id': session.stay['record_id'],
+        return {'session_token': key, 'expires_in': remaining, 'read_only': session.read_only, 'stay_id': session.stay['record_id'],
                 'at': session.at, 'until': session.room.session['until'], 'mode': 'simulator'}
 
 
@@ -232,6 +236,8 @@ async def state(at: str | None = None, session=Depends(client_session)):
 
 @app.post('/api/v1/messages', response_model=MessageResult)
 async def message(body: MessageInput, idempotency_key: str = Header(min_length=8, max_length=128), session=Depends(client_session)):
+    if session.read_only:
+        raise ServiceError('SESSION_READ_ONLY', 'Оценочный сеанс закрыт для изменений.', 409)
     fingerprint = hashlib.sha256(body.model_dump_json().encode()).hexdigest()
     async with session.lock:
         if idempotency_key in session.messages:
@@ -239,7 +245,8 @@ async def message(body: MessageInput, idempotency_key: str = Header(min_length=8
             if old[0] != fingerprint:
                 raise ServiceError('IDEMPOTENCY_CONFLICT', 'Этот ключ уже использован для другого сообщения.', 409)
             if isinstance(old[1], ServiceError):
-                raise old[1]
+                error = old[1]
+                raise ServiceError(error.code, error.message, error.status)
             return old[1]
         if len(session.messages) >= 100:
             raise ServiceError('MESSAGE_LIMIT', 'Лимит сообщений сеанса исчерпан.', 429)
@@ -258,7 +265,7 @@ async def message(body: MessageInput, idempotency_key: str = Header(min_length=8
             session.messages[idempotency_key] = (fingerprint, result)
             return result
         except ServiceError as exc:
-            session.messages[idempotency_key] = (fingerprint, exc)
+            session.messages[idempotency_key] = (fingerprint, ServiceError(exc.code, exc.message, exc.status))
             raise
 
 

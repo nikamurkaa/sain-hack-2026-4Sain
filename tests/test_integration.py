@@ -14,43 +14,8 @@ from backend.core import ServiceError, default_state, moment
 from backend.room import Room
 from backend.runner import Solution, open_solution
 from main import app, ClientSession
+from tests.simulator import Simulator
 from tests.helpers import AT, WAKE, CATALOG, dataset, prefs, FakeModel, FakeRoom
-
-
-class Simulator:
-    def __init__(self):
-        self.data=dataset(); self.sessions={};self.reads=0;self.auth=[];self.actions=0
-    def __call__(self, request):
-        self.auth.append(request.headers.get('Authorization'))
-        path=request.url.path
-        body=json.loads(request.content) if request.content else {}
-        if path=='/case/2/getData':
-            self.reads+=1
-            return httpx.Response(200,json={'dataset':self.data,'reference':{'never_pass_to_model':True}})
-        if path=='/runs':return httpx.Response(201,json={'run_id':'test-run'})
-        if path=='/room/session':
-            rid=body['record_id'];sid='session_'+rid
-            if sid not in self.sessions:
-                initial=default_state(CATALOG['devices'])
-                session={'session_id':sid,'kind':body['kind'],'initial_state':initial,'from':AT,'until':WAKE}
-                self.sessions[sid]={'session':session,'entries':[]}
-            return httpx.Response(201,json=self.sessions[sid]['session'])
-        sid=path.split('/')[2];saved=self.sessions[sid]
-        if path.endswith('/log'):return httpx.Response(200,json=saved)
-        if path.endswith('/scenario'):
-            saved['entries'].append({'kind':'scenario','steps':body['steps']})
-            return httpx.Response(200,json={})
-        if path.endswith('/action'):
-            self.actions+=1;saved['entries'].append({'kind':'action','steps':[body]})
-            return httpx.Response(200,json={})
-        if path.endswith('/state'):
-            current=deepcopy(saved['session']['initial_state'])
-            at=moment(request.url.params['at'])
-            for e in saved['entries']:
-                for s in e['steps']:
-                    if moment(s['at'])<=at:current[s['device_id']].update(s['values'])
-            return httpx.Response(200,json={'state':current})
-        return httpx.Response(404,json={})
 
 
 def test_complete_runner_fetches_once_and_forwards_token():
