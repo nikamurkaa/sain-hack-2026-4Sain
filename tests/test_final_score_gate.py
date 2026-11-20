@@ -338,7 +338,7 @@ def test_pacer_has_at_most_30_starts_in_any_virtual_minute():
     asyncio.run(check())
     assert len(starts) == 31
     assert all(starts[i+1]-starts[i] >= 2.2 - 1e-6 for i in range(30))
-    assert max(sum(t <= start + 60 for t in starts) for start in starts) <= 30
+    assert max(sum(start <= t < start + 60 for t in starts) for start in starts) <= 30
 
 
 def test_slow_model_and_large_context_through_mock_transport(monkeypatch):
