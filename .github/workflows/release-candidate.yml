@@ -1,0 +1,20 @@
+name: Release candidate source export
+on:
+  push:
+    branches:
+      - 'release/**'
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package tracked sources without credentials
+        run: git ls-files -z | tar --null -T - -czf sain-source.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sain-source
+          path: sain-source.tar.gz
+          retention-days: 7
