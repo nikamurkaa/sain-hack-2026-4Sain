@@ -306,10 +306,11 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
       setDraft(attempt.text);
       setStale(true);
       try {
-        const updated = await api<Session>("session");
+        const recovery = { signal: AbortSignal.timeout(4000) };
+        const updated = await api<Session>("session", recovery);
         setInfo({ ...updated, history: info.history });
         if (updated.actions.includes("state")) {
-          const live = await api<Snapshot>("state");
+          const live = await api<Snapshot>("state", recovery);
           setSnapshot(live);
           setStale(false);
         }
@@ -425,9 +426,23 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
         }
       : undefined;
   const navigationMenu = menu && (
-    <nav>
+    <nav
+      aria-label="Навигация по номеру"
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          setMenu(false);
+          document
+            .querySelector<HTMLButtonElement>('button[aria-label="Меню"]')
+            ?.focus();
+        }
+      }}
+    >
       {Object.entries(pageNames).map(([key, label]) => (
-        <button key={key} onClick={() => go(key as Page)}>
+        <button
+          key={key}
+          autoFocus={key === "welcome"}
+          onClick={() => go(key as Page)}
+        >
           {label}
         </button>
       ))}

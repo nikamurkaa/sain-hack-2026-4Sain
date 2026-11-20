@@ -340,7 +340,7 @@ export function MobileStay(p: Props) {
               placeholder="Попросить номер..."
               value={p.draft}
               maxLength={2000}
-              disabled={!!p.pending}
+              disabled={p.busy || !!p.pending}
               onChange={(e) => p.setDraft(e.target.value)}
             />
             <button
@@ -353,7 +353,7 @@ export function MobileStay(p: Props) {
             />
             <button
               aria-label="Отправить просьбу"
-              disabled={!!p.pending || !p.draft.trim()}
+              disabled={p.busy || !!p.pending || !p.draft.trim()}
             />
           </form>
         ),
@@ -389,7 +389,11 @@ export function MobileStay(p: Props) {
         <p className="read-caption">Сеанс доступен только для просмотра.</p>
       )}
       {p.page === "chat" && p.error && (
-        <button className="dismiss-message" onClick={p.dismiss}>
+        <button
+          className="dismiss-message"
+          disabled={p.busy}
+          onClick={p.dismiss}
+        >
           Закрыть
         </button>
       )}
