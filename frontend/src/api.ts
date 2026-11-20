@@ -37,7 +37,7 @@ export function client(token: string, signal: AbortSignal) {
       const explanation =
         body && typeof body === "object" && "message" in body &&
         typeof body.message === "string" && body.message.length <= 240 &&
-        !/[\\r\\n]|https?:\\/\\/|Bearer|sk-[a-z0-9]|traceback|api[_-]?key|token=/i.test(body.message)
+        !/[\r\n]|https?:\/\/|Bearer|sk-[a-z0-9]|traceback|api[_-]?key|token=/i.test(body.message)
           ? body.message.trim()
           : "";
       throw new ApiError(
