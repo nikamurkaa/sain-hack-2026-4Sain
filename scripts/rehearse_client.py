@@ -18,10 +18,29 @@ class RehearsalModel(FakeModel):
         if "utterances" not in payload:
             return {"facts": []}
         phrase = payload["utterances"][-1]
-        if phrase == "Ещё немного" and payload.get("history"):
-            previous = payload["history"][-1]["utterances"][-1].lower()
-            if "прохлад" in previous or previous == "душно":
-                return {"intent": "cooler"}
+        if phrase.casefold().strip(" .!?…") in ("ещё немного", "еще немного", "ещё", "еще"):
+            # Continue the last *successful* direction, including consecutive continuations.
+            # An unrelated/refused request breaks the chain to prevent unintended changes.
+            directions = {
+                "сделай попрохладнее": "cooler", "попрохладнее": "cooler",
+                "душно": "cooler", "сделай потеплее": "warmer",
+                "потеплее": "warmer", "холодно": "warmer",
+                "сделай потише": "quieter", "потише": "quieter",
+                "убавь звук": "quieter", "сделай поярче": "brighter",
+                "поярче": "brighter", "добавь света": "brighter",
+                "сделай потемнее": "dimmer", "потемнее": "dimmer",
+                "убавь свет": "dimmer",
+            }
+            for exchange in reversed(payload.get("history") or []):
+                if exchange.get("reply", {}).get("response_class") != "done":
+                    break
+                previous = exchange.get("utterances", [""])[-1].casefold().strip(" .!?…")
+                if previous in ("ещё немного", "еще немного", "ещё", "еще"):
+                    continue
+                if previous in directions:
+                    return {"intent": directions[previous]}
+                break
+            return {"intent": "out_of_scope"}
         if phrase.startswith("Установи температуру"):
             number = re.search(r"-?\d+(?:[.,]\d+)?", phrase)
             if number:
