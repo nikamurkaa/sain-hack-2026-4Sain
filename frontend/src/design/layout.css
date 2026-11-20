@@ -595,3 +595,24 @@
   line-height: 13px !important;
   font-family: Manrope, sans-serif !important;
 }
+
+/* Final responsive quality gate: keep a readable two-line track above the
+   live volume meter, including the shorter Figma chat card (screen 09). */
+.device .design-label:first-of-type {
+  width: calc(100% - 62px) !important;
+  height: auto !important;
+  font-size: 11.3px !important;
+  line-height: 13px !important;
+}
+.device-sound .design-label:last-of-type {
+  top: 32px !important;
+  width: calc(100% - 58px) !important;
+  max-height: 24px !important;
+  font-size: 11px !important;
+  line-height: 12px !important;
+  overflow-wrap: anywhere;
+}
+.design-frame .mode-caption {
+  font-size: 11px;
+  line-height: 14px;
+}

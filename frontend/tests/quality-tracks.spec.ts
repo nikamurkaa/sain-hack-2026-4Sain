@@ -85,8 +85,13 @@ test('V06: 12 real catalog tracks × 10 viewports, API confirmation and keyboard
       if(file&&([375,768].includes(width)||(index===6&&[320,1440,1920].includes(width))))
         await page.screenshot({path:file,animations:'disabled'});
     }
+    const checkpoint=evidence('tracks-progress.json');
+    if(checkpoint)writeFileSync(checkpoint,JSON.stringify({sha:process.env.GITHUB_SHA||'local',completed:index+1,metrics},null,2));
     await page.setViewportSize({width:375,height:812});
-    await card(page).focus(); await expect(card(page)).toBeFocused();
+    // Wait for ResponsiveWidget ResizeObserver before testing focus.
+    await page.waitForTimeout(120);
+    await card(page).focus();
+    await expect(card(page)).toBeFocused({ timeout: 2000 });
     await page.keyboard.press('Enter');
     await expect(page.getByLabel('Трек',{exact:true}).locator('option:checked')).toHaveText(t.title);
     await page.getByRole('button',{name:'Назад'}).click();
