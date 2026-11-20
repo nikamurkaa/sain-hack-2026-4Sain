@@ -26,3 +26,13 @@ jobs:
             frontend/dist
             frontend/serve.py
           retention-days: 7
+      - name: Package and verify portable Windows ZIP for this exact SHA
+        run: python scripts/build_windows_candidate.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sain-windows-candidate
+          path: |
+            SAIN-Smart-Room-Final-Candidate-Windows.zip
+            SAIN-Smart-Room-Final-Candidate-Windows.zip.sha256
+          if-no-files-found: error
+          retention-days: 7
