@@ -268,12 +268,14 @@ export function Settings({
   values,
   catalog,
   submit,
+  apply,
 }: {
   design?: DesignChrome;
   id: string;
   values: Values;
   catalog: Catalog;
   submit: (text: string) => void;
+  apply: (id: string, values: Values) => void;
 }) {
   const [val, set] = useState(
     String(
@@ -324,6 +326,14 @@ export function Settings({
           : "Включи звук " +
             catalog.tracks.find((t) => t.track_id === val)?.title,
     })[id]!;
+  const save = () => {
+    if (id === "climate") return apply(id, { temperature_c: Number(val) });
+    if (id === "light") return apply(id, { brightness: Number(val) });
+    if (id === "curtains") return apply(id, { position: Number(val) });
+    if (id === "sound") return apply(id, field === "volume" ? { volume: Number(val) } : { track_id: val });
+    if (id === "alarm") return apply(id, { at: val, mode: alarmMode });
+    if (id === "dnd") return apply(id, { enabled: val === "true" });
+  };
   if (design && ["climate", "alarm", "sound"].includes(id)) {
     const frame = id === "climate" ? 21 : id === "alarm" ? 22 : 23;
     const selectedTrack = catalog.tracks.find(
@@ -339,7 +349,7 @@ export function Settings({
           if (name === "Алина,") return { role: "heading" };
           if (name === "Сохранить")
             return {
-              onClick: () => submit(phrase()),
+              onClick: save,
               disabled: !val,
               text:
                 id === "sound"
@@ -401,7 +411,7 @@ export function Settings({
               if (w.box[1] > 420) return { hidden: true };
               return {
                 text: () => "Сохранить",
-                onClick: () => submit(phrase()),
+                onClick: save,
                 disabled:
                   !val ||
                   Number(val) < (range?.minimum ?? 16) ||
@@ -530,7 +540,7 @@ export function Settings({
       className="settings"
       onSubmit={(e) => {
         e.preventDefault();
-        submit(phrase());
+        save();
       }}
     >
       <h1>

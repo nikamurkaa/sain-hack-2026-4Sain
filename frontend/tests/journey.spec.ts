@@ -69,11 +69,11 @@ test("check-in, real API, contextual chat, refusal and unknown delivery", async 
     } else await route.continue();
   });
   await say(page, "Сделай попрохладнее");
-  await page.getByRole("button", { name: "Повторить", exact: true }).click();
+  // The server confirms delivery via authoritative history: no duplicate action.
   await expect(climate(page)).toContainText(initial - 4 + " °C");
   await expect(page.getByRole("alert")).toHaveCount(0);
-  expect(keys).toHaveLength(2);
-  expect(keys[0]).toBe(keys[1]);
+  await expect(page.getByRole("button", { name: "Повторить", exact: true })).toHaveCount(0);
+  expect(keys).toHaveLength(1);
   await page
     .getByRole("button", { name: "Диалог · История сообщений" })
     .click();
@@ -120,6 +120,7 @@ test("final snapshot, virtual reads, isolation and expiry", async ({
   await connect(page, request, "final");
   await expect(page.getByText("Финальный гость · просмотр")).toBeVisible();
   await go(page, "Профиль гостя");
+  await page.getByText("Технические сведения о проживании").click();
   await expect(page.getByText(/final_test/)).toBeVisible();
   await go(page, "Виртуальное время");
   await page.getByRole("button", { name: "Ночь", exact: true }).click();
@@ -237,7 +238,7 @@ test("all manual settings commit confirmed values and all four dev previews read
       await page.getByLabel("Время пробуждения").fill(value);
     else if (id === "dnd") await page.getByRole("combobox").selectOption(value);
     else await page.getByRole("spinbutton").fill(value);
-    const result = page.waitForResponse((r) => r.url().endsWith("/messages"));
+    const result = page.waitForResponse((r) => r.url().endsWith("/devices"));
     await page.getByRole("button", { name: /^Сохранить/ }).click();
     const data = await (await result).json();
     expect(data.reply.response_class).toBe("done");

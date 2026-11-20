@@ -330,6 +330,44 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
       setBusy(false);
     }
   }
+  async function applySetting(id: string, values: Record<string, string | number | boolean | null>) {
+    if (!allowed || !info || lock.current || pending) return;
+    lock.current = true;
+    liveRevision.current++;
+    setBusy(true);
+    setError("");
+    go("chat");
+    try {
+      const result = await api<{ reply: Reply; state: Room }>("devices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+        body: JSON.stringify({ at: info.at, device_id: id, values }),
+      });
+      if (result.reply.response_class !== "done" || !result.state) throw new Error("unconfirmed");
+      setSnapshot({ at: info.at, state: result.state });
+      setStale(false);
+      setInfo((prev) => prev && {
+        ...prev,
+        history: [...prev.history, {
+          at: info.at, utterances: ["Ручная настройка: " + id], reply: result.reply,
+        }],
+      });
+    } catch (e) {
+      // Do not blindly retry a possibly delivered operation.
+      setError(problem(e) + " Проверьте состояние номера перед повтором.");
+      setStale(true);
+      try {
+        const latest = await api<Snapshot>("state", { signal: AbortSignal.timeout(4000) });
+        setSnapshot(latest);
+        setStale(false);
+        const session = await api<Session>("session", { signal: AbortSignal.timeout(4000) });
+        setInfo(session);
+      } catch (_) { /* Keep last known state explicitly stale. */ }
+    } finally {
+      lock.current = false;
+      setBusy(false);
+    }
+  }
   if (mobile && expired)
     return (
       <DesignScreen
@@ -827,6 +865,7 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
           values={snapshot.state[device] ?? {}}
           catalog={catalog}
           submit={send}
+          apply={applySetting}
         />
       )}
       {page === "voice" && allowed && (
