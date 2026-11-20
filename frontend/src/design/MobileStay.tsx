@@ -238,7 +238,8 @@ export function MobileStay(p: Props) {
     if (id && p.page !== "virtual") {
       return {
         className: "device" + (id === "sound" ? " device-sound" : ""),
-        label: deviceNames[id] + ": " + describe(id, room?.[id], p.catalog),
+        label: deviceNames[id],
+        description: id === "sound" ? describe(id, room?.[id], p.catalog) : undefined,
         title: id === "sound" ? describe(id, room?.[id], p.catalog) : undefined,
         role: p.openSetting ? undefined : "group",
         onClick: p.openSetting ? () => p.openSetting!(id) : undefined,

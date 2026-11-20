@@ -34,6 +34,7 @@ export type Binding = {
   level?: number | null;
   onClick?: () => void;
   label?: string;
+  description?: string;
   title?: string;
   disabled?: boolean;
   className?: string;
@@ -109,6 +110,7 @@ export function DesignWidget({
     <Tag
       type={Tag === "button" ? "button" : undefined}
       aria-label={bind.label}
+      aria-description={bind.description}
       title={bind.title}
       disabled={bind.disabled}
       role={bind.role}
