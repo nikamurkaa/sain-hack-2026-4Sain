@@ -371,7 +371,12 @@ test("virtual preview does not overwrite the authoritative live fallback", async
   const prepared = await request.get("http://127.0.0.1:8765/api/v1/prepared", { headers });
   expect(prepared.status()).toBe(200);
   expect((await prepared.json()).last_confirmed).toEqual(live);
+  // Guest tokens are intentionally kept in React memory, never browser storage.
+  // After refresh the user must re-enter the same still-valid guest token.
   await page.reload();
+  await expect(page.getByLabel("Временный токен гостя")).toBeVisible();
+  await page.getByLabel("Временный токен гостя").fill(token);
+  await page.getByRole("button", { name: "Подключиться", exact: true }).click();
   await expect(page.getByRole("button", { name: "Заселиться" })).toBeVisible();
 });
 
