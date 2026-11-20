@@ -85,7 +85,7 @@ def test_failed_request_does_not_discard_other_answers():
     asyncio.run(check())
 
 
-def test_final_session_reuses_prepared_user_without_reloading(monkeypatch):
+def test_final_session_allows_reads_and_rejects_mutations(monkeypatch):
     monkeypatch.setenv('HACK_TEAM_TOKEN', 'team')
     sim = Simulator()
     sim.data['meta']['phase'] = 'final'
@@ -104,13 +104,16 @@ def test_final_session_reuses_prepared_user_without_reloading(monkeypatch):
         assert first.status_code == 201, first.text
         token = first.json()['session_token']
         message_headers = {'Authorization':'Bearer '+token,'Idempotency-Key':'final-message'}
+        assert first.json()['read_only'] is True
+        assert client.get('/api/v1/state', headers=message_headers).status_code == 200
         assert client.post('/api/v1/messages', headers=message_headers,
-                           json={'text':'Теплее','at':AT}).status_code == 200
+                           json={'text':'Теплее','at':AT}).status_code == 409
+        assert sim.actions == 0
         second = client.post('/api/v1/sessions', headers=headers, json={'source':'final'})
         assert second.status_code == 201
         assert sim.reads == reads
         assert len(sim.sessions) == 1
-        assert len(app.state.final_session.history) == 1
+        assert len(app.state.final_session.history) == 0
         assert set(sim.auth) == {'Bearer final-eval'}
         assert client.post('/api/v1/sessions', headers={'Authorization':'Bearer stranger'},
                            json={'source':'final'}).status_code == 403

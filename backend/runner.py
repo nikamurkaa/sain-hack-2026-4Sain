@@ -34,13 +34,16 @@ class Solution:
         steps = build_scenario(self.user(stay['user_id']), stay, prefs, self.data['devices'], self.data['sleep_rules'])
         room = await Room.create(self.client, stay['record_id'], 'stay', self.run_id)
         await room.scenario(steps)
-        self.prepared[stay['record_id']] = (room, prefs, steps)
+        if self.data['meta']['phase'] == 'final':
+            self.prepared[stay['record_id']] = (room, prefs, steps)
         return room, prefs, steps
 
     async def message(self, room, user_id, texts, at, base_state=None, history=None):
         try:
-            prefs = await self.prefs(user_id, at)
             intent = await parse_intent(self.model, texts, self.data['intents'], self.data['tracks'], history)
+            prefs = {}
+            if intent.intent in ('going_to_bed', 'woke_up', 'like_home', 'like_yesterday', 'sound_on'):
+                prefs = await self.prefs(user_id, at)
             state = base_state if base_state is not None else await room.state(at)
             commands = plan_commands(intent, state, prefs, at, self.data['devices'], self.data['tracks'])
         except Refusal as exc:
@@ -119,6 +122,8 @@ async def open_solution(token, code, http, model, team_token=None):
         if data['meta']['phase'] != 'dev':
             raise ServiceError('DEV_ONLY', 'Командный токен используется только для dev-прогона.', 403)
         run = await client.dev_run()
-        run_id = run['run_id']
+        run_id = run.get('run_id')
+        if not isinstance(run_id, str) or not run_id:
+            raise ServiceError('UPSTREAM_FORMAT', 'Отсутствует идентификатор dev-прогона.')
     return Solution(data, client, model, run_id)
 

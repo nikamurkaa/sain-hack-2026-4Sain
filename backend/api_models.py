@@ -31,6 +31,7 @@ class RunAnswer(Output):
 class SessionCreated(Output):
     session_token: str
     expires_in: int
+    read_only: bool
     stay_id: str
     at: str
     until: str
