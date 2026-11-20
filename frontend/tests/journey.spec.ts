@@ -55,9 +55,11 @@ test("check-in, real API, contextual chat, refusal and unknown delivery", async 
   await expect(climate(page)).toContainText(initial - 1 + " °C");
   await say(page, "Ещё немного");
   await expect(climate(page)).toContainText(initial - 2 + " °C");
+  await say(page, "Ещё немного");
+  await expect(climate(page)).toContainText(initial - 3 + " °C");
   await say(page, "Поставь 35 градусов");
   await expect(page.locator(".refused")).toBeVisible();
-  await expect(climate(page)).toContainText(initial - 2 + " °C");
+  await expect(climate(page)).toContainText(initial - 3 + " °C");
   const keys: string[] = [];
   await page.route("**/api/v1/messages", async (route) => {
     keys.push(route.request().headers()["idempotency-key"]);
@@ -68,14 +70,14 @@ test("check-in, real API, contextual chat, refusal and unknown delivery", async 
   });
   await say(page, "Сделай попрохладнее");
   await page.getByRole("button", { name: "Повторить", exact: true }).click();
-  await expect(climate(page)).toContainText(initial - 3 + " °C");
+  await expect(climate(page)).toContainText(initial - 4 + " °C");
   await expect(page.getByRole("alert")).toHaveCount(0);
   expect(keys).toHaveLength(2);
   expect(keys[0]).toBe(keys[1]);
   await page
     .getByRole("button", { name: "Диалог · История сообщений" })
     .click();
-  await expect(page.locator(".exchange")).toHaveCount(4);
+  await expect(page.locator(".exchange")).toHaveCount(5);
 });
 test("confirmed voice with browser capture and fake STT", async ({
   page,
