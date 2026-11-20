@@ -95,6 +95,9 @@ def parse_facts(raw: dict, history: list, devices: list, tracks: list) -> dict:
             # A single corrupted or unsupported fact does not erase verified
             # facts; nothing is fabricated to replace a rejected item.
             continue
+    if raw["facts"] and not result:
+        # Preserve strict failure when not a single fact has verifiable support.
+        raise ValueError("Все извлечённые факты неподтверждены")
     # Перевод качественного описания света в параметры каталога.
     # Берём только источник уже подтверждённой настройки света, не случайное
     # упоминание тепла/холода в остальной истории.

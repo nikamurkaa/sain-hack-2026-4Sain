@@ -23,12 +23,13 @@ def test_A01_done_requires_unchanged_fields():
     initial["light"].update(brightness=70, color_temperature_k=3300)
     modified = deepcopy(initial)
     modified["light"].update(brightness=0, color_temperature_k=6500)
-    calls = []
+    applied = False
     async def fake_request(method, path, **kwargs):
-        calls.append((method, path))
+        nonlocal applied
         if method == "POST":
+            applied = True
             return {}
-        return {"state": deepcopy(initial if sum(m == "GET" for m, _ in calls) == 1 else modified)}
+        return {"state": deepcopy(modified if applied else initial)}
     room = Room(SimpleNamespace(request=fake_request), {"session_id":"isolated", "initial_state": initial})
     with pytest.raises(ServiceError, match="подтверждены"):
         asyncio.run(room.execute([{"device_id":"light", "values":{"brightness":0}, "at":AT}], AT))
