@@ -234,8 +234,9 @@ def test_all_off_preserves_every_other_field_not_just_named_examples():
 def _independent_state(steps, at):
     """No call to production bedtime(), sleep audit(), or state helper."""
     state = default_state(CATALOG["devices"])
+    target = moment(at) if isinstance(at, str) else at
     for action in sorted(steps, key=lambda item: moment(item["at"])):
-        if moment(action["at"]) <= moment(at):
+        if moment(action["at"]) <= target:
             state[action["device_id"]].update(action["values"])
     return state
 
