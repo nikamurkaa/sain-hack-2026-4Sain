@@ -1,3 +1,11 @@
+import {
+  DesignScreen,
+  Shapes,
+  ResponsiveWidget,
+  layouts,
+} from "./design/Layout";
+import { chrome, Hit, deviceId, deviceLevel } from "./design/MobileStay";
+import type { DesignChrome } from "./design/MobileStay";
 import { useState } from "react";
 import {
   describe,
@@ -26,25 +34,25 @@ export function Hero({
   title: string;
   detail: string;
 }) {
+  const screen = { morning: 2, day: 4, evening: 6, night: 8 }[period];
+  const widget = layouts[screen - 1].blocks.find((w) =>
+    w.texts.some((t) => t.value === "Уже настроен"),
+  )!;
   return (
-    <div
-      className="hero"
-      style={{
-        backgroundImage:
-          "linear-gradient(0deg,#211916 0%,transparent 80%),url(/media/" +
-          period +
-          ".webp)",
-      }}
-    >
-      <Icon
-        name={
-          period === "morning" ? "sunrise" : period === "day" ? "sun" : "moon"
-        }
+    <div className="desktop-hero">
+      <Shapes screen={screen} />
+      <ResponsiveWidget
+        screen={screen}
+        widget={widget}
+        bind={{
+          text: (s, i) =>
+            i === 0
+              ? Object.values(titles).includes(title)
+                ? s
+                : title
+              : detail,
+        }}
       />
-      <div>
-        <strong>{title}</strong>
-        <small>{detail}</small>
-      </div>
     </div>
   );
 }
@@ -61,6 +69,33 @@ export function Devices({
   open?: (key: string) => void;
   list?: boolean;
 }) {
+  if (!list) {
+    const screen = 9,
+      cards = layouts[screen - 1].blocks.filter((w) => deviceId(w));
+    return (
+      <div className="devices desktop-devices">
+        <Shapes screen={screen} />
+        {cards.map((w) => {
+          const id = deviceId(w)!;
+          return (
+            <ResponsiveWidget
+              key={id}
+              screen={screen}
+              widget={w}
+              bind={{
+                className: "device",
+                label: deviceNames[id],
+                onClick: open && room ? () => open(id) : undefined,
+                level: deviceLevel(id, room),
+                text: (s) =>
+                  s === deviceNames[id] ? s : describe(id, room?.[id], catalog),
+              }}
+            />
+          );
+        })}
+      </div>
+    );
+  }
   return (
     <div className={list ? "rows" : "devices"}>
       {ids.map((id) => {
@@ -219,11 +254,13 @@ export function Plan({ steps, period }: { steps: Step[]; period: Period }) {
   );
 }
 export function Settings({
+  design,
   id,
   values,
   catalog,
   submit,
 }: {
+  design?: DesignChrome;
   id: string;
   values: Values;
   catalog: Catalog;
@@ -278,6 +315,195 @@ export function Settings({
           : "Включи звук " +
             catalog.tracks.find((t) => t.track_id === val)?.title,
     })[id]!;
+  if (design && ["climate", "alarm", "sound"].includes(id)) {
+    const frame = id === "climate" ? 21 : id === "alarm" ? 22 : 23;
+    const selectedTrack = catalog.tracks.find(
+      (t) => t.track_id === (field === "track_id" ? val : values.track_id),
+    );
+    return (
+      <DesignScreen
+        screen={frame}
+        bind={(w) => {
+          const common = chrome(w, design.nav, design.clock);
+          if (common) return common;
+          const name = w.name;
+          if (name === "Алина,") return { role: "heading" };
+          if (name === "Сохранить")
+            return { onClick: () => submit(phrase()), disabled: !val };
+          if (id === "climate") {
+            if (name === "22 °C")
+              return {
+                className: "degree-reading",
+                text: () => describe(id, values, catalog).replace(" °C", "°C"),
+              };
+            if (name.startsWith("утро-ночь"))
+              return {
+                text: (v, i) => (i === 0 ? "" : v),
+                children: (
+                  <>
+                    <input
+                      className="degree-value"
+                      aria-label="Температура"
+                      type="number"
+                      step="0.5"
+                      min={range?.minimum ?? 16}
+                      max={range?.maximum ?? 26}
+                      value={val}
+                      onChange={(e) => set(e.target.value)}
+                    />
+                    <Hit
+                      label="Уменьшить температуру"
+                      box={[0, 0, 64, 62]}
+                      disabled={Number(val) <= (range?.minimum ?? 16)}
+                      onClick={() =>
+                        set(
+                          String(
+                            Math.max(range?.minimum ?? 16, Number(val) - 0.5),
+                          ),
+                        )
+                      }
+                    />
+                    <Hit
+                      label="Увеличить температуру"
+                      box={[193, 0, 64, 62]}
+                      disabled={Number(val) >= (range?.maximum ?? 26)}
+                      onClick={() =>
+                        set(
+                          String(
+                            Math.min(range?.maximum ?? 26, Number(val) + 0.5),
+                          ),
+                        )
+                      }
+                    />
+                  </>
+                ),
+              };
+            if (name === "Ответ") {
+              if (w.box[1] > 420) return { hidden: true };
+              return {
+                text: () => "Сохранить",
+                onClick: () => submit(phrase()),
+                disabled:
+                  !val ||
+                  Number(val) < (range?.minimum ?? 16) ||
+                  Number(val) > (range?.maximum ?? 26),
+              };
+            }
+          }
+          if (id === "alarm") {
+            if (name.startsWith("утро-ночь"))
+              return {
+                content: (
+                  <input
+                    aria-label="Время пробуждения"
+                    className="alarm-value"
+                    type="time"
+                    value={val}
+                    onChange={(e) => set(e.target.value)}
+                  />
+                ),
+              };
+            if (name.startsWith("Timeline Card")) {
+              if (w.texts[0].value === "Повтор")
+                return { text: () => "Повтор недоступен", level: null };
+              if (w.texts[0].value === "Звук")
+                return {
+                  text: (v, i) => (i === 0 ? "Сигнал" : ""),
+                  children: (
+                    <select
+                      className="choice-value"
+                      aria-label="Сигнал"
+                      value={alarmMode}
+                      onChange={(e) => setAlarmMode(e.target.value)}
+                    >
+                      {Object.entries(modes).map(([k, v]) => (
+                        <option key={k} value={k}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
+                  ),
+                };
+              return {
+                text: (_, i) =>
+                  i === 0
+                    ? "Окно пробуждения"
+                    : String(values.window_minutes ?? "—") + " мин",
+              };
+            }
+          }
+          if (id === "sound") {
+            if (name.startsWith("утро-ночь"))
+              return {
+                content: (
+                  <select
+                    className="track-value"
+                    aria-label="Трек"
+                    value={selectedTrack?.track_id ?? ""}
+                    onChange={(e) => {
+                      choose("track_id");
+                      set(e.target.value);
+                    }}
+                  >
+                    {catalog.tracks.map((t) => (
+                      <option key={t.track_id} value={t.track_id}>
+                        {t.title}
+                      </option>
+                    ))}
+                  </select>
+                ),
+              };
+            if (name.startsWith("image "))
+              return {
+                hidden: !selectedTrack?.title
+                  .toLowerCase()
+                  .includes("перфоратор"),
+              };
+            if (name === "Component 12")
+              return {
+                level: Number(field === "volume" ? val : values.volume) / 100,
+                children: (
+                  <input
+                    className="volume-range"
+                    aria-label="Громкость"
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={Number(field === "volume" ? val : values.volume)}
+                    onChange={(e) => {
+                      choose("volume");
+                      set(e.target.value);
+                    }}
+                  />
+                ),
+              };
+            if (name === "22 °C")
+              return {
+                text: () =>
+                  String(field === "volume" ? val : (values.volume ?? "—")) +
+                  "%",
+              };
+            if (name.startsWith("Timeline Card"))
+              return {
+                text: (v, i) =>
+                  i === 0 ? v : String(values.timer_minutes ?? "—") + " мин",
+              };
+          }
+        }}
+      >
+        <small className="mode-caption">{design.badge}</small>
+        {id === "alarm" && values.at && (
+          <button
+            className="alarm-cancel"
+            onClick={() => submit("Отмени будильник")}
+          >
+            Выключить будильник
+          </button>
+        )}
+        {design.overlay}
+      </DesignScreen>
+    );
+  }
   return (
     <form
       className="settings"

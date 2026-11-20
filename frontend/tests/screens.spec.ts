@@ -11,6 +11,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 async function fixture(page: Page, hour: string) {
   let state = sample("state").state;
   const guest = sample("guest");
+  guest.profile.display_name = "Алиса";
   guest.stay.check_in_at = stamp("00:00");
   const controls = { fail: false, expire: false, delay: 0, stt: 0, loading: 0 };
   await page.route("**/api/v1/**", async (r) => {
@@ -29,7 +30,7 @@ async function fixture(page: Page, hour: string) {
         at: stamp(hour),
         until: stamp("23:59"),
         history: [],
-        stay_id: "stay_demo",
+        stay_id: "Номер 412",
         connection_status: "available",
       };
     }
@@ -80,12 +81,25 @@ async function go(page: Page, name: string) {
   await page.getByRole("navigation").getByText(name, { exact: true }).click();
 }
 async function shot(page: Page, name: string | number) {
+  if (typeof name === "number") {
+    await expect(page.locator(".design-frame")).toHaveAttribute(
+      "data-frame",
+      String(name),
+    );
+  }
   if (!process.env.SAIN_SCREENSHOTS) return;
   const dir = process.env.SAIN_SCREENSHOTS;
   mkdirSync(dir, { recursive: true });
   await page.evaluate(async () => {
     await document.fonts.ready;
     const images = Array.from(document.images);
+    for (const node of document.querySelectorAll<SVGImageElement>(
+      ".design-defs image",
+    )) {
+      const img = new Image();
+      img.src = node.href.baseVal;
+      images.push(img);
+    }
     for (const el of document.querySelectorAll(".hero,.wave,.ended")) {
       for (const match of getComputedStyle(el).backgroundImage.matchAll(
         /url\("([^"]+)"\)/g,
@@ -96,6 +110,8 @@ async function shot(page: Page, name: string | number) {
       }
     }
     await Promise.all(images.map((i) => i.decode()));
+    await new Promise(requestAnimationFrame);
+    await new Promise(requestAnimationFrame);
   });
   await page.screenshot({
     path: dir + "/" + String(name).padStart(2, "0") + ".png",
@@ -107,10 +123,14 @@ for (let i = 0; i < 4; i++)
     await fixture(page, hours[i]);
     await start(page);
     await page.getByText("Заселиться").click();
-    await expect(page.getByRole("heading", { name: /Ваш план/ })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /Ваш план/i }),
+    ).toBeVisible();
     await shot(page, i * 2 + 1);
     await page.getByText("В номер", { exact: true }).click();
-    await expect(page.locator(".hero strong")).toHaveText(names[i]);
+    await expect(page.locator(".hero-card")).toContainText(
+      ["Утренний режим", "Дневной режим", "Вечерний режим", "Ночной режим"][i],
+    );
     await shot(page, i * 2 + 2);
     await go(page, "Виртуальное время");
     await page.getByRole("button", { name: names[i], exact: true }).click();
@@ -143,17 +163,17 @@ test("connection, device settings, chat lifecycle, voice review and expiry", asy
   await shot(page, 25);
   await expect(page.locator(".reply.done")).toBeVisible();
   await shot(page, 10);
+  await page.getByLabel("Просьба", { exact: true }).fill("Ещё немного");
+  await page.getByLabel("Отправить просьбу").click();
   await shot(page, 26);
   await page.getByLabel("Просьба", { exact: true }).fill("Поставь 35 градусов");
   await page.getByLabel("Отправить просьбу").click();
   await expect(page.locator(".refused")).toBeVisible();
-  await shot(page, 15);
   await shot(page, 27);
   c.fail = true;
   await page.getByLabel("Просьба", { exact: true }).fill("Сделай попрохладнее");
   await page.getByLabel("Отправить просьбу").click();
   await expect(page.getByRole("alert")).toBeVisible();
-  await shot(page, 16);
   await shot(page, 28);
   await page.getByRole("button", { name: "Закрыть", exact: true }).click();
   c.fail = false;
@@ -182,4 +202,22 @@ test("connection, device settings, chat lifecycle, voice review and expiry", asy
   await page.getByLabel("Отправить просьбу").click();
   await expect(page.getByText("Сеанс завершён")).toBeVisible();
   await shot(page, 29);
+});
+
+test("first refusal and unknown delivery have their own layouts", async ({
+  page,
+}) => {
+  const c = await fixture(page, hours[0]);
+  await start(page);
+  await expect(page.getByText("Заселиться")).toBeVisible();
+  await go(page, "Диалог");
+  c.fail = true;
+  await page.getByLabel("Просьба", { exact: true }).fill("Сделай прохладнее");
+  await page.getByLabel("Отправить просьбу").click();
+  await shot(page, 16);
+  await page.getByRole("button", { name: "Закрыть", exact: true }).click();
+  c.fail = false;
+  await page.getByLabel("Просьба", { exact: true }).fill("Поставь 35 градусов");
+  await page.getByLabel("Отправить просьбу").click();
+  await shot(page, 15);
 });
