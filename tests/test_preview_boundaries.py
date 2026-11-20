@@ -16,8 +16,9 @@ def test_local_dnd_state_at_scheduled_event_and_neighbours():
             moment = datetime.fromisoformat(step["at"])
             for offset, expected in ((-1, not step["values"]["enabled"]),
                                       (0, step["values"]["enabled"]),
-                                      (1, step["values"]["enabled"])):
+                                      (1, step["values"]["enabled"]),
+                                      (5, step["values"]["enabled"])):
                 when = (moment + timedelta(minutes=offset)).isoformat()
                 response = api.get("/api/v1/state",headers=auth,params={"at":when})
-                if response.status_code == 200:
-                    assert response.json()["state"]["dnd"]["enabled"] is expected
+                assert response.status_code == 200, (when, response.text)
+                assert response.json()["state"]["dnd"]["enabled"] is expected, when

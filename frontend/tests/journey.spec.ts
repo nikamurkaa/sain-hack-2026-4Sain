@@ -180,6 +180,12 @@ test("responsive layouts and confirmed manual climate", async ({
       ),
     ).toBeTruthy();
   }
+  for (const [width, height] of [[375, 812], [1440, 900], [1920, 1080]] as const) {
+    await page.setViewportSize({ width, height });
+    expect(await page.evaluate(() => [innerWidth, innerHeight])).toEqual([width, height]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
+  }
+  await page.setViewportSize({ width: 375, height: 812 });
   await climate(page).click();
   await page.getByRole("spinbutton").fill("21");
   await page.getByRole("button", { name: "Сохранить" }).click();

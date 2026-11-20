@@ -236,13 +236,25 @@ test("connection, device settings, chat lifecycle, voice review and expiry", asy
     await expect(page.getByRole("alert")).toContainText("Запись недоступна");
   }
   await page.getByRole("button", { name: "Отменить" }).click();
+  await go(page, "Профиль гостя");
+  await shot(page, "profile-375");
+  for (const [width, height] of [[1440, 900], [1920, 1080]] as const) {
+    await page.setViewportSize({ width, height });
+    await shot(page, "profile-" + width);
+  }
+  await page.setViewportSize({ width: 375, height: 812 });
   await go(page, "Мой номер");
-  for (const width of [768, 1440]) {
-    await page.setViewportSize({ width, height: 900 });
+  for (const [width, height] of [[768, 900], [1440, 900], [1920, 1080]] as const) {
+    await page.setViewportSize({ width, height });
     await shot(page, "room-" + width);
   }
   await page.setViewportSize({ width: 375, height: 812 });
   await go(page, "Диалог");
+  for (const [width, height] of [[1440, 900], [1920, 1080]] as const) {
+    await page.setViewportSize({ width, height });
+    await shot(page, "chat-" + width);
+  }
+  await page.setViewportSize({ width: 375, height: 812 });
   c.expire = true;
   await page.getByLabel("Просьба", { exact: true }).fill("Прохладнее");
   await page.getByLabel("Отправить просьбу").click();
