@@ -321,3 +321,44 @@ def test_model_http_errors_isolated_without_external_service(status, monkeypatch
                 with pytest.raises(ServiceError):
                     await ModelClient(http).json("prompt",{"utterances":["test"]})
     asyncio.run(check())
+
+
+def test_pacer_has_at_most_30_starts_in_any_virtual_minute():
+    clock = [100.0]
+    starts = []
+    async def virtual_sleep(seconds):
+        clock[0] += seconds
+    async def check():
+        model = ModelClient(http=None)
+        with patch("backend.clients.time.monotonic", side_effect=lambda: clock[0]), \
+             patch("backend.clients.asyncio.sleep", side_effect=virtual_sleep):
+            for _ in range(31):
+                await model.wait_for_slot()
+                starts.append(clock[0])
+    asyncio.run(check())
+    assert len(starts) == 31
+    assert all(starts[i+1]-starts[i] >= 2.2 - 1e-6 for i in range(30))
+    assert max(sum(t <= start + 60 for t in starts) for start in starts) <= 30
+
+
+def test_slow_model_and_large_context_through_mock_transport(monkeypatch):
+    monkeypatch.setenv("LLM_API_KEY","offline-key")
+    monkeypatch.setenv("LLM_MODEL","offline-model")
+    seen = []
+    async def handler(request):
+        await asyncio.sleep(0.01)  # simulated network latency; no external call
+        seen.append(len(request.content))
+        return httpx.Response(200, json={
+            "usage":{"total_tokens":40000},
+            "choices":[{"finish_reason":"stop","message":{"content":'{"intent":"all_off"}'}}]})
+    context = {"history":[{"text":"Только локальные данные "+("a"*2000)} for _ in range(200)]}
+    async def check():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler),trust_env=False) as client:
+            model = ModelClient(client)
+            result = await model.json("safe prompt", context)
+            assert result == {"intent":"all_off"}
+            assert model.tokens == 40000
+    asyncio.run(check())
+    assert len(seen) == 1 and seen[0] > 400000
+    # There is no production context-token limit; this test measures payload
+    # formation only and does not establish live model context acceptance.
