@@ -82,7 +82,15 @@ test('V06: 12 real catalog tracks × 10 viewports, API confirmation and keyboard
     for(const [width,height] of sizes){
       await page.setViewportSize({width,height});
       await expect(card(page)).toContainText(t.title);
-      const result=await measure(page,t.title);
+      // ResizeObserver may replace the Figma widget during a responsive switch.
+      // Reject transient detached nodes (empty computed font/zero glyph rects)
+      // and measure only the visible, settled React render.
+      let result: Awaited<ReturnType<typeof measure>> = await measure(page,t.title);
+      await expect.poll(async () => {
+        result=await measure(page,t.title);
+        return 'fontSize' in result && result.fontSize !== '' &&
+          'lines' in result && result.lines > 0;
+      }, { timeout: 4000, intervals: [50, 100, 150] }).toBe(true);
       metrics.push({track_id:t.track_id,...result});
       if(!('found' in result) || !result.found || ('clipped' in result && result.clipped) ||
          ('meterOverlap' in result && result.meterOverlap) ||
