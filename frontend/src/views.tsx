@@ -329,7 +329,17 @@ export function Settings({
           const name = w.name;
           if (name === "Алина,") return { role: "heading" };
           if (name === "Сохранить")
-            return { onClick: () => submit(phrase()), disabled: !val };
+            return {
+              onClick: () => submit(phrase()),
+              disabled: !val,
+              text:
+                id === "sound"
+                  ? () =>
+                      field === "volume"
+                        ? "Сохранить громкость"
+                        : "Сохранить трек"
+                  : undefined,
+            };
           if (id === "climate") {
             if (name === "22 °C")
               return {
@@ -486,7 +496,9 @@ export function Settings({
             if (name.startsWith("Timeline Card"))
               return {
                 text: (v, i) =>
-                  i === 0 ? v : String(values.timer_minutes ?? "—") + " мин",
+                  i === 0
+                    ? v
+                    : String(values.timer_minutes ?? "—") + " мин · просмотр",
               };
           }
         }}

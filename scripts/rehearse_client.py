@@ -58,6 +58,9 @@ def build_rehearsal():
     dev, final = Simulator(), Simulator()
     final.data["meta"]["phase"] = "final"
     final.data["requests"] = []
+    final.data["stays"][0]["record_id"] = "final_stay_test"
+    # Give the rehearsal dev guest an afternoon checkout for all four previews.
+    dev.until = "2026-11-13T15:00:00+03:00"
     final.data["stays"][0]["user_id"] = final.data["users"][0]["user_id"] = "final_test"
 
     def dispatch(request):

@@ -1,15 +1,23 @@
 import { expect, test } from "@playwright/test";
 import type { Page, APIRequestContext } from "@playwright/test";
+const issued = new Set<string>();
+test.afterEach(async ({ request }) => {
+  for (const token of issued)
+    await request.delete("http://127.0.0.1:8765/api/v1/session", {
+      headers: { Authorization: "Bearer " + token },
+    });
+  issued.clear();
+});
 async function connect(page: Page, request: APIRequestContext, source = "dev") {
   const res = await request.post("http://127.0.0.1:8765/api/v1/sessions", {
     headers: { Authorization: "Bearer offline-team" },
-    data: { source, stay_id: "stay_test" },
+    data: source === "final" ? { source } : { source, stay_id: "stay_test" },
   });
   expect(res.status()).toBe(201);
+  const token = (await res.json()).session_token;
+  issued.add(token);
   await page.goto("/");
-  await page
-    .getByLabel("Временный токен гостя")
-    .fill((await res.json()).session_token);
+  await page.getByLabel("Временный токен гостя").fill(token);
   await page.getByRole("button", { name: "Подключиться", exact: true }).click();
   await expect(page.getByRole("button", { name: "Заселиться" })).toBeVisible();
 }
@@ -90,6 +98,7 @@ test("confirmed voice with browser capture and fake STT", async ({
     "Сделай попрохладнее",
   );
   expect(commands).toBe(0);
+  await page.getByLabel("Распознанный текст").fill("Душно");
   await page.getByRole("button", { name: "Отправить", exact: true }).click();
   await expect(page.locator(".reply.done")).toBeVisible();
   expect(commands).toBe(1);
@@ -191,4 +200,112 @@ test("standalone server restricts privileged routes and keeps tokens out of brow
   expect(urls.every((url) => !/(token|Bearer|\/sessions)/i.test(url))).toBe(
     true,
   );
+});
+
+test("all manual settings commit confirmed values and all four dev previews read the API", async ({
+  page,
+  request,
+}) => {
+  await connect(page, request);
+  const settings = [
+    ["Климат", "21", "temperature_c", "climate"],
+    ["Свет", "38", "brightness", "light"],
+    ["Шторы", "65", "position", "curtains"],
+    ["Звук", "42", "volume", "sound"],
+    ["Звук", "track_04", "track_id", "sound"],
+    ["Будильник", "06:40", "at", "alarm"],
+    ["Не беспокоить", "true", "enabled", "dnd"],
+  ];
+  for (const [name, value, field, id] of settings) {
+    await go(page, "Мой номер");
+    await page.getByRole("button", { name, exact: true }).click();
+    if (field === "track_id")
+      await page.getByLabel("Трек", { exact: true }).selectOption(value);
+    else if (id === "sound")
+      await page.getByRole("slider", { name: "Громкость" }).fill(value);
+    else if (id === "alarm")
+      await page.getByLabel("Время пробуждения").fill(value);
+    else if (id === "dnd") await page.getByRole("combobox").selectOption(value);
+    else await page.getByRole("spinbutton").fill(value);
+    const result = page.waitForResponse((r) => r.url().endsWith("/messages"));
+    await page.getByRole("button", { name: /^Сохранить/ }).click();
+    const data = await (await result).json();
+    expect(data.reply.response_class).toBe("done");
+    expect(String(data.state[id][field])).toContain(value);
+    await expect(page.locator(".reply.done")).toBeVisible();
+  }
+  await go(page, "Виртуальное время");
+  await expect(page.locator(".rows")).toContainText("°C");
+  for (const name of ["Утро", "День", "Вечер", "Ночь"]) {
+    const read = page.waitForResponse((r) => r.url().includes("/state?at="));
+    await page.getByRole("button", { name, exact: true }).click();
+    const data = await (await read).json();
+    await expect(page.locator(".rows")).toContainText(
+      data.state.climate.temperature_c + " °C",
+    );
+  }
+});
+test("denied microphone gives an accessible message and keeps typed requests available", async ({
+  page,
+  request,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator.mediaDevices, "getUserMedia", {
+      value: async () => {
+        throw new DOMException("Denied", "NotAllowedError");
+      },
+    });
+  });
+  await connect(page, request);
+  await go(page, "Диалог");
+  await page.getByLabel("Голосовой ввод").click();
+  await expect(page.getByRole("alert")).toContainText("Разрешите доступ");
+  await page.getByRole("button", { name: "Отменить" }).click();
+  await say(page, "Сделай попрохладнее");
+  await expect(page.locator(".reply.done")).toBeVisible();
+});
+
+test("browser history, double submit, in-flight session switch, resize and refresh", async ({
+  page,
+  request,
+  context,
+}) => {
+  await connect(page, request);
+  await page.getByText("Заселиться", { exact: true }).click();
+  await page.getByText("В номер", { exact: true }).click();
+  await page.goBack();
+  await expect(page.locator(".personal-plan")).toBeVisible();
+  await page.goForward();
+  await expect(climate(page)).toBeVisible();
+  await go(page, "Диалог");
+  const input = page.getByLabel("Просьба", { exact: true });
+  await expect(page.getByLabel("Отправить просьбу")).toBeDisabled();
+  await input.fill("Сделай попрохладнее");
+  let count = 0;
+  let release!: () => void;
+  const paused = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/messages", async (r) => {
+    count++;
+    await paused;
+    await r.continue();
+  });
+  await input.press("Enter");
+  await input
+    .press("Enter", { noWaitAfter: true, timeout: 500 })
+    .catch(() => {});
+  await page.getByRole("button", { name: "Меню", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Сменить сеанс" }),
+  ).toBeDisabled();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  release();
+  await expect(page.locator(".reply.done")).toBeVisible();
+  expect(count).toBe(1);
+  const another = await context.newPage();
+  await another.goto("/");
+  await expect(another.getByLabel("Временный токен гостя")).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel("Временный токен гостя")).toBeVisible();
 });

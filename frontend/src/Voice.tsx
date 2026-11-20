@@ -143,7 +143,10 @@ export default function Voice({
             return {
               className: "record",
               label: "Завершить запись",
-              onClick: () => active.current?.stop(),
+              onClick: () => {
+                if (active.current?.state === "recording")
+                  active.current.stop();
+              },
               disabled: stage !== "record",
             };
         }}
@@ -179,7 +182,9 @@ export default function Voice({
         <button
           className="record"
           aria-label="Завершить запись"
-          onClick={() => active.current?.stop()}
+          onClick={() => {
+            if (active.current?.state === "recording") active.current.stop();
+          }}
         >
           <Icon name="microphone" />
         </button>
@@ -189,7 +194,11 @@ export default function Voice({
       <footer>
         <button onClick={close}>Отменить</button>
         {stage === "record" && (
-          <button onClick={() => active.current?.stop()}>
+          <button
+            onClick={() => {
+              if (active.current?.state === "recording") active.current.stop();
+            }}
+          >
             Завершить запись
           </button>
         )}

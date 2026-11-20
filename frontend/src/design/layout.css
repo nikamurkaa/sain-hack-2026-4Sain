@@ -432,3 +432,70 @@
   font-size: 10px;
   line-height: 14px;
 }
+.design-shell {
+  max-width: 430px;
+}
+.design-frame .history-panel[open] {
+  position: absolute;
+  inset: 92px 12px 82px;
+  margin: 0 auto;
+  width: calc(100% - 24px);
+  max-height: 75dvh;
+  color: #fcf9f7;
+  overflow: auto;
+}
+.history-panel::backdrop {
+  background: #0c0b0bb8;
+}
+.history-panel .exchange,
+.log,
+.shell dd,
+.shell aside,
+.timeline section {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.design-widget[role="heading"] .design-label:not(.original) {
+  width: calc(375px - 56px) !important;
+  overflow: hidden;
+}
+.design-widget button:focus-visible,
+.design-widget input:focus-visible,
+.design-widget select:focus-visible {
+  outline: 2px solid #ffccaa;
+  outline-offset: 2px;
+}
+@supports (padding: env(safe-area-inset-bottom)) {
+  .design-shell {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+@media (min-width: 650px) and (max-width: 1099px) {
+  .dashboard,
+  .page-chat .dashboard {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 650px) {
+  .shell .settings,
+  .shell .voice {
+    width: min(100%, 720px);
+    margin: 36px auto;
+    padding: clamp(20px, 3vw, 40px);
+    border: 1px solid #392e29;
+    border-radius: 24px;
+    background: linear-gradient(145deg, #211b18, #151110);
+  }
+  .settings .stepper,
+  .settings input,
+  .settings select,
+  .voice textarea {
+    max-width: 100%;
+  }
+}
+@media (forced-colors: active) {
+  .design-widget:focus-visible,
+  .design-hit:focus-visible {
+    outline: 2px solid Highlight;
+  }
+}

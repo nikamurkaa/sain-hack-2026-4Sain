@@ -156,7 +156,9 @@ export function MobileStay(p: Props) {
   const displayName = p.prepared.guest.profile.display_name;
   const guest =
     typeof displayName === "string" && displayName.trim()
-      ? displayName.trim() + ",\n"
+      ? displayName.trim().slice(0, 20) +
+        (displayName.trim().length > 20 ? "…" : "") +
+        ",\n"
       : "";
   const status = p.info.stay_id;
   const selectPeriod = (availability: boolean) => (
@@ -174,7 +176,14 @@ export function MobileStay(p: Props) {
     </div>
   );
   const history = (
-    <div className="history-panel" role="dialog" aria-label="История диалога">
+    <dialog
+      className="history-panel"
+      aria-label="История диалога"
+      ref={(node) => {
+        if (node && !node.open) node.showModal();
+      }}
+      onCancel={() => setHistoryOpen(false)}
+    >
       <button onClick={() => setHistoryOpen(false)}>Закрыть историю</button>
       <div role="log">
         {p.info.history.map((h, i) => (
@@ -184,7 +193,7 @@ export function MobileStay(p: Props) {
           </article>
         ))}
       </div>
-    </div>
+    </dialog>
   );
   function bind(w: Widget): Binding | undefined {
     const common = chrome(w, p.navigation, time(p.info.at));
@@ -303,6 +312,8 @@ export function MobileStay(p: Props) {
           ),
         };
       return {
+        onClick: !p.busy && last ? () => setHistoryOpen(true) : undefined,
+        label: !p.busy && last ? "Открыть полный ответ" : undefined,
         role: p.busy ? "status" : undefined,
         className: "reply " + (last?.reply.response_class ?? ""),
         text: () => (p.busy ? "Выполняю просьбу…" : (last?.reply.text ?? "")),
