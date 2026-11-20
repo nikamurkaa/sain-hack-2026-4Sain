@@ -366,10 +366,19 @@ test("virtual preview does not overwrite the authoritative live fallback", async
   const live = await baseline.json();
   await go(page, "Виртуальное время");
   await page.getByRole("button", { name: "Ночь", exact: true }).click();
-  await expect(page.getByText(/Виртуальный момент/)).toBeVisible();
+  await expect(page.locator(".read-failure")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Ночь", exact: true })).toHaveAttribute("aria-pressed", "true");
   const prepared = await request.get("http://127.0.0.1:8765/api/v1/prepared", { headers });
   expect(prepared.status()).toBe(200);
   expect((await prepared.json()).last_confirmed).toEqual(live);
   await page.reload();
   await expect(page.getByRole("button", { name: "Заселиться" })).toBeVisible();
+});
+
+test("profile translates known default preference identifiers", async ({ page, request }) => {
+  await connect(page, request);
+  await go(page, "Профиль гостя");
+  await expect(page.getByText("Значения по умолчанию")).toBeVisible();
+  await expect(page.locator(".shell")).not.toContainText("temperature, tracks, volume, timer, alarm_mode");
+  await expect(page.locator(".shell")).toContainText("Температура");
 });
