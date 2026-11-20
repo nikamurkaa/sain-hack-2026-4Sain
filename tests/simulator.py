@@ -11,6 +11,7 @@ from tests.helpers import AT, WAKE, CATALOG, dataset
 class Simulator:
     def __init__(self):
         self.closed = False
+        self.until = WAKE
         self.data = dataset()
         self.sessions = {}
         self.runs = []
@@ -42,7 +43,7 @@ class Simulator:
                 if body['kind'] == 'request':
                     record = next(r for r in self.data['requests'] if r['record_id'] == rid)
                     initial = deepcopy(record['initial_state'])
-                session = {'session_id':sid,'kind':body['kind'],'record_id':rid,'initial_state':initial,'from':AT,'until':WAKE}
+                session = {'session_id':sid,'kind':body['kind'],'record_id':rid,'initial_state':initial,'from':AT,'until':self.until}
                 self.sessions[sid] = {'session':session,'entries':[]}
             return httpx.Response(201,json=self.sessions[sid]['session'])
         parts = path.split('/')
