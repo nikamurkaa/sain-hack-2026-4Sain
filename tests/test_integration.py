@@ -227,3 +227,17 @@ def test_runner_parallelism_is_bounded_and_order_preserved(users, expected_peak)
             assert [r['record_id'] for r in result['requests']]==['request_'+str(i) for i in range(8)]
     asyncio.run(check())
 
+
+
+def test_later_action_must_preserve_already_confirmed_change():
+    request = AsyncMock(side_effect=[
+        {}, {"state": {"light": {"brightness": 0}, "sound": {"volume": 20}}},
+        {}, {"state": {"light": {"brightness": 70}, "sound": {"volume": 0}}},
+    ])
+    room = Room(SimpleNamespace(request=request), {"session_id": "offline"})
+    commands = [
+        {"device_id": "light", "values": {"brightness": 0}, "at": AT},
+        {"device_id": "sound", "values": {"volume": 0}, "at": AT},
+    ]
+    with pytest.raises(ServiceError, match="подтверждены"):
+        asyncio.run(room.execute(commands, AT))
