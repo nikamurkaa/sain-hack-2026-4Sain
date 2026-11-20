@@ -84,10 +84,10 @@ export function Devices({
               screen={screen}
               widget={w}
               bind={{
-                className: "device" + (id === "sound" ? " device-sound" : ""),
+                className: "device" + (id === "sound" ? " device-sound" : id === "alarm" ? " device-alarm" : ""),
                 label: deviceNames[id],
                 description: id === "sound" ? describe(id, room?.[id], catalog) : undefined,
-                title: id === "sound" ? describe(id, room?.[id], catalog) : undefined,
+                title: id === "sound" || id === "alarm" ? describe(id, room?.[id], catalog) : undefined,
                 onClick: open && room ? () => open(id) : undefined,
                 level: deviceLevel(id, room),
                 text: (s) =>

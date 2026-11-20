@@ -580,3 +580,18 @@
   outline: 2px solid #fdcfab;
   outline-offset: 2px;
 }
+
+
+/* P1 V06/C05: the alarm value must remain readable in both half-width cards.
+   Allow two lines instead of clipping the value behind the chevron. */
+.device-alarm .design-label:last-of-type {
+  white-space: normal !important;
+  text-overflow: clip !important;
+  overflow: visible !important;
+  overflow-wrap: anywhere;
+  height: auto !important;
+  max-height: 30px;
+  font-size: 12px !important;
+  line-height: 13px !important;
+  font-family: Manrope, sans-serif !important;
+}
