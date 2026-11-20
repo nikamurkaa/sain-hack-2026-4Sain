@@ -2,7 +2,7 @@
   "name": "sain-smart-room",
   "version": "1.0.0",
   "scripts": {
-    "test": "node --experimental-strip-types --test tests/model.test.ts",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
     "build": "tsc --noEmit && vite build",
     "dev": "vite",
     "preview": "vite preview",

@@ -32,12 +32,17 @@ export function client(token: string, signal: AbortSignal) {
       headers: { ...options.headers, Authorization: "Bearer " + token },
     });
     if (!response.ok) {
-      const body = await response.json().catch(() => ({}));
+      const body: unknown = await response.json().catch(() => ({}));
+      // Prefer the server's precise response, but never echo secrets or traces.
+      const explanation =
+        body && typeof body === "object" && "message" in body &&
+        typeof body.message === "string" && body.message.length <= 240 &&
+        !/[\\r\\n]|https?:\\/\\/|Bearer|sk-[a-z0-9]|traceback|api[_-]?key|token=/i.test(body.message)
+          ? body.message.trim()
+          : "";
       throw new ApiError(
         response.status,
-        errors[response.status] ??
-          body.message ??
-          "Сервис временно недоступен.",
+        explanation || errors[response.status] || "Сервис временно недоступен.",
       );
     }
     if (response.status === 204) return undefined as T;
