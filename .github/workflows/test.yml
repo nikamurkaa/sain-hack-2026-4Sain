@@ -15,3 +15,14 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - run: python -m pytest -q
       - run: python -m scripts.check_offline
+      - name: Offline /run under 1 CPU and 512 MiB
+        run: |
+          python - <<'PYTHON'
+          import os
+          import resource
+          os.sched_setaffinity(0, {min(os.sched_getaffinity(0))})
+          limit = 512 * 1024 * 1024
+          resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
+          from scripts.check_offline import main
+          raise SystemExit(main())
+          PYTHON
