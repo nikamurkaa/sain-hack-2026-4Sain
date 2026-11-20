@@ -217,14 +217,24 @@ test("connection, device settings, chat lifecycle, voice review and expiry", asy
   await page.getByLabel("Голосовой ввод").click();
   await expect(page.locator(".record")).toBeVisible();
   await shot(page, 12);
-  await page.waitForTimeout(550);
-  await page.locator(".record").click();
-  await expect(
-    page.getByRole("heading", { name: "Распознаём вашу команду" }),
-  ).toBeVisible();
-  await shot(page, 13);
-  await expect(page.getByLabel("Распознанный текст")).toBeVisible();
-  await shot(page, 14);
+  if (
+    await page.evaluate(
+      () =>
+        !!navigator.mediaDevices?.getUserMedia &&
+        typeof MediaRecorder !== "undefined",
+    )
+  ) {
+    await page.waitForTimeout(550);
+    await page.locator(".record").click();
+    await expect(
+      page.getByRole("heading", { name: "Распознаём вашу команду" }),
+    ).toBeVisible();
+    await shot(page, 13);
+    await expect(page.getByLabel("Распознанный текст")).toBeVisible();
+    await shot(page, 14);
+  } else {
+    await expect(page.getByRole("alert")).toContainText("Запись недоступна");
+  }
   await page.getByRole("button", { name: "Отменить" }).click();
   await go(page, "Мой номер");
   for (const width of [768, 1440]) {

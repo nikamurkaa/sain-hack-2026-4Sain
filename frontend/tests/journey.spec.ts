@@ -83,6 +83,14 @@ test("confirmed voice with browser capture and fake STT", async ({
 }) => {
   await connect(page, request);
   await go(page, "Диалог");
+  test.skip(
+    await page.evaluate(
+      () =>
+        !navigator.mediaDevices?.getUserMedia ||
+        typeof MediaRecorder === "undefined",
+    ),
+    "This browser build has no audio capture API.",
+  );
   let commands = 0;
   page.on("request", (r) => {
     if (r.url().endsWith("/messages")) commands++;
@@ -250,6 +258,7 @@ test("denied microphone gives an accessible message and keeps typed requests ava
   request,
 }) => {
   await page.addInitScript(() => {
+    if (!navigator.mediaDevices) return;
     Object.defineProperty(navigator.mediaDevices, "getUserMedia", {
       value: async () => {
         throw new DOMException("Denied", "NotAllowedError");
@@ -259,7 +268,14 @@ test("denied microphone gives an accessible message and keeps typed requests ava
   await connect(page, request);
   await go(page, "Диалог");
   await page.getByLabel("Голосовой ввод").click();
-  await expect(page.getByRole("alert")).toContainText("Разрешите доступ");
+  const supported = await page.evaluate(
+    () =>
+      !!navigator.mediaDevices?.getUserMedia &&
+      typeof MediaRecorder !== "undefined",
+  );
+  await expect(page.getByRole("alert")).toContainText(
+    supported ? "Разрешите доступ" : "Запись недоступна",
+  );
   await page.getByRole("button", { name: "Отменить" }).click();
   await say(page, "Сделай попрохладнее");
   await expect(page.locator(".reply.done")).toBeVisible();
