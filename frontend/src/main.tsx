@@ -13,6 +13,8 @@ import type {
 } from "./model";
 import { Hero, Icon, Devices, Plan, Settings, Detail } from "./views";
 import Voice from "./Voice";
+import { MobileStay, useMobile } from "./design/MobileStay";
+import { DesignScreen } from "./design/Layout";
 import "./style.css";
 
 type Page =
@@ -79,6 +81,7 @@ function App() {
   return <Stay key={token} token={token} leave={() => setToken("")} />;
 }
 function Stay({ token, leave }: { token: string; leave: () => void }) {
+  const mobile = useMobile();
   const controller = useMemo(() => new AbortController(), []),
     api = useMemo(() => client(token, controller.signal), [token, controller]);
   const [revision, reload] = useState(0),
@@ -283,6 +286,36 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
       setBusy(false);
     }
   }
+  if (mobile && expired)
+    return (
+      <DesignScreen
+        screen={29}
+        bind={(w) => {
+          if (w.name === "Переподключиться")
+            return { onClick: () => reload((n) => n + 1) };
+          if (w.name === "Отменить")
+            return { label: "Подключить новый сеанс", onClick: leave };
+          if (["menu-02", "notification-01", "arrow-back"].includes(w.name))
+            return { onClick: leave, label: "К подключению" };
+          if (w.texts[0]?.font === "Inter")
+            return { text: () => (info ? time(info.at) : "—") };
+          return;
+        }}
+      />
+    );
+  if (mobile && !error && (!info || !prepared))
+    return (
+      <DesignScreen
+        screen={24}
+        bind={(w) => {
+          if (w.name === "Алина,") return { text: () => "Ваш номер" };
+          if (w.box[1] < 30 && w.texts.length) return { text: () => "—" };
+          if (w.name === "Номер 413") return { role: "status" };
+          if (["menu-02", "notification-01", "arrow-back"].includes(w.name))
+            return { onClick: leave, label: "К подключению" };
+        }}
+      />
+    );
   if (expired)
     return (
       <main className="entry ended">
@@ -356,6 +389,86 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
           go("settings");
         }
       : undefined;
+  const navigationMenu = menu && (
+    <nav>
+      {Object.entries(pageNames).map(([key, label]) => (
+        <button key={key} onClick={() => go(key as Page)}>
+          {label}
+        </button>
+      ))}
+      <button
+        disabled={busy}
+        onClick={async () => {
+          try {
+            await api<void>("session", { method: "DELETE" });
+            leave();
+          } catch (e) {
+            if (expiredError(e)) leave();
+            else {
+              setError(problem(e));
+              go("chat");
+            }
+          }
+        }}
+      >
+        Сменить сеанс
+      </button>
+    </nav>
+  );
+  const nav = {
+    back: () =>
+      go(
+        page === "welcome"
+          ? "profile"
+          : page === "room"
+            ? "plan"
+            : page === "voice"
+              ? "chat"
+              : page === "plan"
+                ? "welcome"
+                : "room",
+      ),
+    menu: () => setMenu(!menu),
+    profile: () => go("profile"),
+  };
+  const design = { nav, overlay: navigationMenu, badge, clock: time(info.at) };
+  if (mobile && ["room", "welcome", "plan", "chat", "virtual"].includes(page))
+    return (
+      <MobileStay
+        page={page as "room" | "welcome" | "plan" | "chat" | "virtual"}
+        info={info}
+        prepared={prepared}
+        catalog={catalog}
+        snapshot={snapshot}
+        preview={preview}
+        period={period}
+        points={points}
+        select={selectPeriod}
+        go={go}
+        openSetting={openSetting}
+        navigation={nav}
+        overlay={navigationMenu}
+        badge={badge}
+        liveNote={liveNote}
+        previewError={previewError}
+        retryPreview={() => setPreviewVersion((v) => v + 1)}
+        allowed={allowed}
+        draft={draft}
+        setDraft={setDraft}
+        pending={pending}
+        busy={busy}
+        error={error}
+        send={send}
+        retry={() => {
+          if (pending) void send(pending.text, pending);
+        }}
+        dismiss={() => {
+          setError("");
+          setPending(null);
+          setDraft("");
+        }}
+      />
+    );
   const controls = (
     <Devices room={snapshot?.state} catalog={catalog} open={openSetting} />
   );
@@ -479,60 +592,47 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
       }
       className={"shell page-" + page + (error ? " has-error" : "")}
     >
-      <header>
-        <button
-          aria-label="Назад"
-          onClick={() =>
-            go(
-              page === "welcome"
-                ? "profile"
-                : page === "room"
-                  ? "plan"
-                  : page === "voice"
-                    ? "chat"
-                    : page === "plan"
-                      ? "welcome"
-                      : "room",
-            )
-          }
-        >
-          <Icon name="arrow-back" />
-        </button>
-        <small>{badge}</small>
-        <button
-          aria-label="Меню"
-          aria-expanded={menu}
-          onClick={() => setMenu(!menu)}
-        >
-          <Icon name="more" />
-        </button>
-      </header>
-      {menu && (
-        <nav>
-          {Object.entries(pageNames).map(([key, label]) => (
-            <button key={key} onClick={() => go(key as Page)}>
-              {label}
-            </button>
-          ))}
+      {!(
+        mobile &&
+        (page === "voice" ||
+          (page === "settings" &&
+            ["climate", "alarm", "sound"].includes(device)))
+      ) && (
+        <header>
           <button
-            disabled={busy}
-            onClick={async () => {
-              try {
-                await api<void>("session", { method: "DELETE" });
-                leave();
-              } catch (e) {
-                if (expiredError(e)) leave();
-                else {
-                  setError(problem(e));
-                  go("chat");
-                }
-              }
-            }}
+            aria-label="Назад"
+            onClick={() =>
+              go(
+                page === "welcome"
+                  ? "profile"
+                  : page === "room"
+                    ? "plan"
+                    : page === "voice"
+                      ? "chat"
+                      : page === "plan"
+                        ? "welcome"
+                        : "room",
+              )
+            }
           >
-            Сменить сеанс
+            <Icon name="arrow-back" />
           </button>
-        </nav>
+          <small>{badge}</small>
+          <button
+            aria-label="Меню"
+            aria-expanded={menu}
+            onClick={() => setMenu(!menu)}
+          >
+            <Icon name="more" />
+          </button>
+        </header>
       )}
+      {!(
+        mobile &&
+        (page === "voice" ||
+          (page === "settings" &&
+            ["climate", "alarm", "sound"].includes(device)))
+      ) && navigationMenu}
       {page === "welcome" && (
         <section className="welcome">
           <h1>
@@ -660,6 +760,7 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
       )}
       {page === "settings" && snapshot && (
         <Settings
+          design={mobile ? design : undefined}
           key={device}
           id={device}
           values={snapshot.state[device] ?? {}}
@@ -669,6 +770,7 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
       )}
       {page === "voice" && allowed && (
         <Voice
+          design={mobile ? design : undefined}
           close={() => go("chat")}
           send={send}
           transcribe={async (blob, signal) => {

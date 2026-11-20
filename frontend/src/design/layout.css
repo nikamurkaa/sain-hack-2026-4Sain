@@ -1,0 +1,434 @@
+@font-face {
+  font-family: Inter;
+  src: url(/media/figma/Inter.woff2) format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+.design-shell {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  margin: auto;
+  background: #100e0e;
+}
+.design-defs,
+.design-defs > svg {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.design-frame {
+  position: relative;
+  width: 375px;
+  height: 812px;
+  overflow: hidden;
+  transform-origin: top left;
+  background: linear-gradient(126deg, #100e0e, #0c0b0b);
+  font-family: Manrope, sans-serif;
+}
+.design-widget,
+.design-widget:is(button, div) {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  min-width: 0;
+  min-height: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
+}
+.widget-art {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+.design-label {
+  display: block;
+  padding: 0;
+  margin: 0;
+  white-space: pre-line;
+  overflow-wrap: break-word;
+  pointer-events: none;
+}
+.design-indicator {
+  display: block;
+  pointer-events: none;
+}
+.design-indicator.indicator-meter:before,
+.design-indicator.indicator-meter i {
+  position: absolute;
+  left: 0;
+  top: calc(50% - 2px);
+  height: 4px;
+  border-radius: 5px;
+  background: #55443c;
+}
+.design-indicator.indicator-meter:before {
+  content: "";
+  width: 100%;
+}
+.design-indicator.indicator-meter i {
+  background: #fabb91;
+}
+.design-indicator b {
+  border-radius: 100%;
+  background: #ffdbc4;
+}
+.design-indicator.indicator-switch {
+  border-radius: 100px;
+  background: #52443d;
+}
+.design-indicator.indicator-switch.on {
+  background: #f7c9ab;
+}
+.design-indicator.indicator-switch b {
+  background: #fcf9f7;
+}
+.design-hit {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  border-radius: 20px;
+}
+.design-widget:focus-visible,
+.design-hit:focus-visible {
+  outline: 2px solid #fdcfab;
+  outline-offset: 1px;
+}
+.design-widget input,
+.design-widget textarea,
+.design-widget select {
+  font:
+    14px Manrope,
+    sans-serif;
+  position: absolute;
+  background: transparent;
+  border: 0;
+  color: #fcf9f7;
+  margin: 0;
+  padding: 0;
+}
+.design-widget textarea {
+  resize: none;
+}
+.design-widget:disabled {
+  opacity: 1;
+}
+
+.design-label.original {
+  white-space: pre;
+  overflow-wrap: normal;
+}
+.design-frame .mode-caption {
+  position: absolute;
+  top: 59px;
+  left: 62px;
+  width: 203px;
+  text-align: center;
+  font:
+    9px/12px Manrope,
+    sans-serif;
+  color: #b6a59c;
+}
+.design-frame nav,
+.history-panel {
+  position: absolute;
+  inset: 80px 12px auto;
+  z-index: 10;
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid #685044;
+  border-radius: 20px;
+  background: #241d1a;
+  box-shadow: 0 12px 64px #000a;
+}
+.design-frame .personal-plan {
+  position: absolute;
+  inset: 326px 16px 128px;
+  overflow-y: auto;
+}
+.personal-plan .wave {
+  display: none;
+}
+.personal-plan .timeline {
+  margin-top: 14px;
+}
+.design-tabs {
+  display: flex;
+  height: 100%;
+  border-radius: 30px;
+  background: #29221e;
+  padding: 2px;
+}
+.personal-plan .design-tabs {
+  height: 38px;
+}
+.design-tabs button {
+  flex: 1;
+  border: 0;
+  font: 14px Manrope;
+  padding: 0;
+  background: transparent;
+}
+.design-tabs button[aria-pressed="true"] {
+  background: #f8c9ab;
+  color: #16100d;
+}
+.design-tabs button:disabled {
+  color: #93847e;
+}
+.read-failure,
+.read-caption,
+.last-reading,
+.dismiss-message,
+.alarm-cancel {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  top: 414px;
+  padding: 12px;
+  background: #28211e;
+  border-radius: 16px;
+  font: 14px/1.45 Manrope;
+}
+.read-caption {
+  top: 700px;
+}
+.last-reading {
+  top: 653px;
+  text-align: center;
+  padding: 5px;
+}
+.dismiss-message {
+  top: 664px;
+  left: 221px;
+}
+.alarm-cancel {
+  top: 520px;
+}
+.design-composer input {
+  left: 16px;
+  top: 0;
+  width: 69%;
+  height: 100%;
+  font: 14px Manrope;
+}
+.design-composer button {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 48px;
+  width: 40px;
+  background: transparent;
+  border: 0;
+}
+.design-composer button:last-child {
+  right: 0;
+  width: 48px;
+}
+.design-widget .transcript-edit,
+.design-widget .alarm-value,
+.design-widget .degree-value,
+.design-widget .track-value {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+}
+.design-widget .transcript-edit {
+  padding: 10px;
+  color: #21140c;
+}
+.design-widget .degree-value {
+  inset: 0 64px;
+  width: 129px;
+  font: 700 25px Unbounded;
+}
+.design-widget .alarm-value {
+  font: 700 36px Unbounded;
+}
+.design-widget .track-value {
+  left: 34%;
+  width: 63%;
+  font: 700 13px Unbounded;
+}
+.design-widget .volume-range {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.01;
+}
+.design-widget .choice-value {
+  inset: 0 12px 0 auto;
+  max-width: 61%;
+}
+.history-panel {
+  top: 110px;
+  bottom: 100px;
+  display: flex;
+  flex-direction: column;
+}
+.history-panel [role="log"] {
+  overflow: auto;
+}
+.design-widget .retry-message {
+  position: absolute;
+  bottom: 9%;
+  left: 12%;
+  width: 76%;
+  background: #f8c9ab;
+  color: #21140c;
+}
+.design-frame .design-widget.reply {
+  padding: 0;
+  background: none;
+  border: none;
+  max-width: none;
+}
+.design-frame .latest-request .design-label,
+.design-frame .reply .design-label {
+  width: calc(100% - 24px) !important;
+  max-height: 100%;
+  overflow: auto;
+  pointer-events: auto;
+}
+.shell.page-voice:has(.design-shell),
+.shell.page-settings:has(.design-shell) {
+  margin: 0;
+  padding: 0;
+  max-width: none;
+}
+.responsive-widget {
+  width: 100%;
+  position: relative;
+  min-width: 0;
+}
+.desktop-hero {
+  border-radius: 20px;
+  overflow: hidden;
+  margin: 18px 0;
+}
+@media (min-width: 650px) {
+  body {
+    background: linear-gradient(115deg, #14100f, #0c0b0b 80%);
+    font-family: Manrope, sans-serif;
+  }
+  .shell {
+    max-width: 1552px;
+    padding: 32px clamp(28px, 4vw, 72px) 42px;
+  }
+  header {
+    padding-bottom: 18px;
+    border-bottom: 1px solid #392d28;
+  }
+  header button:last-child {
+    box-shadow: none;
+  }
+  .dashboard .devices {
+    gap: 12px;
+  }
+  .desktop-devices .device {
+    min-height: 0;
+  }
+  .dashboard .chat,
+  .dashboard aside {
+    border: 1px solid #392e29;
+    border-radius: 24px;
+    background: linear-gradient(155deg, #201a18, #151110);
+    padding: 20px;
+  }
+  .dashboard .chat h2,
+  .dashboard aside h2 {
+    font:
+      700 18px/1.3 Unbounded,
+      sans-serif;
+  }
+  .dashboard .chat {
+    min-height: 420px;
+  }
+  .dashboard > .desktop-chat {
+    padding: 0;
+  }
+  .dashboard h1 {
+    font:
+      700 clamp(26px, 2.5vw, 42px)/1.12 Unbounded,
+      sans-serif;
+  }
+  .dashboard .log {
+    min-height: 220px;
+  }
+}
+.design-shell,
+.responsive-widget {
+  overflow: clip;
+}
+
+.independent-meter {
+  pointer-events: none;
+}
+.device .design-label:not(.original),
+.hero-card .design-label:not(.original),
+.desktop-hero .design-label:not(.original) {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+.personal-plan .timeline {
+  margin: 14px 0 0 5px;
+  border-color: #bd927b;
+  padding-left: 16px;
+}
+.personal-plan .timeline time {
+  font:
+    600 12px/18px Unbounded,
+    sans-serif;
+  color: #fcf9f7;
+}
+.personal-plan .timeline article > div {
+  border-radius: 17px;
+  background: linear-gradient(110deg, #28221f, #201b19);
+  min-height: 57px;
+  padding: 10px 16px;
+  gap: 18px;
+}
+.personal-plan .timeline article b {
+  font: 600 13px/1.3 Manrope;
+}
+.personal-plan .timeline article small {
+  font: 400 11px/1.35 Manrope;
+}
+
+.degree-reading .design-label {
+  white-space: nowrap;
+}
+.design-frame .dismiss-message {
+  left: auto;
+  right: 20px;
+  top: 75px;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.frame-paint {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.design-frame:is([data-frame="16"], [data-frame="28"]) .last-reading {
+  top: 154px;
+  left: 133px;
+  right: 16px;
+  margin: 0;
+  padding: 3px 6px;
+  font-size: 10px;
+  line-height: 14px;
+}

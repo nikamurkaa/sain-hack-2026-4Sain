@@ -1,10 +1,15 @@
 import { useEffect, useRef, useState } from "react";
+import { DesignScreen } from "./design/Layout";
+import { chrome } from "./design/MobileStay";
+import type { DesignChrome } from "./design/MobileStay";
 import { Icon } from "./views";
 export default function Voice({
+  design,
   transcribe,
   close,
   send,
 }: {
+  design?: DesignChrome;
   transcribe: (blob: Blob, signal: AbortSignal) => Promise<string>;
   close: () => void;
   send: (v: string) => void;
@@ -94,6 +99,59 @@ export default function Voice({
       release();
     };
   }, []);
+  if (design)
+    return (
+      <DesignScreen
+        screen={stage === "review" ? 14 : stage === "wait" ? 13 : 12}
+        bind={(w) => {
+          const common = chrome(w, design.nav, design.clock);
+          if (common) return common;
+          if (w.name === "Отменить") return { onClick: close };
+          if (w.name === "Отправить")
+            return {
+              onClick: () => send(value.trim()),
+              disabled: !value.trim(),
+            };
+          if (w.name === "Запрос")
+            return {
+              content: (
+                <textarea
+                  aria-label="Распознанный текст"
+                  className="transcript-edit"
+                  maxLength={2000}
+                  value={value}
+                  onChange={(e) => setValue(e.target.value)}
+                />
+              ),
+            };
+          if (w.name === "Алина,")
+            return {
+              role: "heading",
+              text: () =>
+                stage === "review"
+                  ? "Вы сказали:"
+                  : stage === "wait"
+                    ? "Распознаём вашу команду"
+                    : "Скажите,\nчто изменить",
+            };
+          if (w.name === "Попросить номер..." && stage !== "wait")
+            return {
+              text: () => error || "Например: «Сделай попрохладнее»",
+              role: error ? "alert" : undefined,
+            };
+          if (w.name.startsWith("Group "))
+            return {
+              className: "record",
+              label: "Завершить запись",
+              onClick: () => active.current?.stop(),
+              disabled: stage !== "record",
+            };
+        }}
+      >
+        <small className="mode-caption">{design.badge}</small>
+        {design.overlay}
+      </DesignScreen>
+    );
   return (
     <section className="voice">
       <h1>

@@ -25,7 +25,7 @@ async function say(page: Page, text: string) {
   await page.getByRole("button", { name: "Отправить просьбу" }).click();
 }
 const climate = (page: Page) =>
-  page.locator(".devices .device").filter({ hasText: "Климат" });
+  page.locator(".device").filter({ hasText: "Климат" });
 test("check-in, real API, contextual chat, refusal and unknown delivery", async ({
   page,
   request,
@@ -39,7 +39,9 @@ test("check-in, real API, contextual chat, refusal and unknown delivery", async 
   await page.getByText("В номер", { exact: true }).click();
   await go(page, "Диалог");
   const initial = Number(
-    (await climate(page).locator("strong").innerText()).split(" ")[0],
+    (await climate(page).locator(".design-label").last().innerText()).split(
+      " ",
+    )[0],
   );
   await page.getByRole("button", { name: "Сделай попрохладнее" }).click();
   await expect(climate(page)).toContainText(initial - 1 + " °C");
@@ -62,6 +64,9 @@ test("check-in, real API, contextual chat, refusal and unknown delivery", async 
   await expect(page.getByRole("alert")).toHaveCount(0);
   expect(keys).toHaveLength(2);
   expect(keys[0]).toBe(keys[1]);
+  await page
+    .getByRole("button", { name: "Диалог · История сообщений" })
+    .click();
   await expect(page.locator(".exchange")).toHaveCount(4);
 });
 test("confirmed voice with browser capture and fake STT", async ({
