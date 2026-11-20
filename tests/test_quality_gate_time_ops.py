@@ -57,8 +57,8 @@ def test_offline_frontend_can_cold_start_and_reject_double_bind():
 
 
 def test_windows_scripts_define_owned_process_shutdown_and_mode_guards():
-    launcher=(ROOT/'launcher.ps1').read_text(encoding='utf-8')
-    stop=(ROOT/'stop.ps1').read_text(encoding='utf-8')
+    launcher=(ROOT/'windows'/'launcher.ps1').read_text(encoding='utf-8')
+    stop=(ROOT/'windows'/'stop.ps1').read_text(encoding='utf-8')
     assert 'Open-Port 4173' in launcher and 'Open-Port 8765' in launcher
     assert 'REHEARSAL' in launcher and 'STAND' in launcher
     assert 'owned-pids.json' in launcher and 'owned-pids.json' in stop

@@ -1,5 +1,7 @@
 """Isolated loopback-only cold-start and busy-port smoke; no external network."""
 import socket
+import tempfile
+import shutil
 import subprocess
 import sys
 import time
@@ -13,7 +15,14 @@ def main():
     with socket.socket() as sock:
         sock.bind(('127.0.0.1', 0))
         port = sock.getsockname()[1]
-    cmd = [sys.executable, str(ROOT / 'frontend' / 'serve.py'),
+    # CI source checkout has no built dist yet. Run the shipped server against
+    # a harmless temporary HTML fixture to verify its actual socket lifecycle.
+    scratch = tempfile.TemporaryDirectory(prefix='sain-local-ops-')
+    frontend = Path(scratch.name)
+    shutil.copyfile(ROOT / 'frontend' / 'serve.py', frontend / 'serve.py')
+    (frontend / 'dist').mkdir()
+    (frontend / 'dist' / 'index.html').write_text('<title>SAIN synthetic test</title>', encoding='utf-8')
+    cmd = [sys.executable, str(frontend / 'serve.py'),
            '--mode', 'rehearsal', '--port', str(port)]
     first = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
     challenger = None
@@ -41,6 +50,7 @@ def main():
             first.terminate()
             first.wait(timeout=5)
     assert first.poll() is not None
+    scratch.cleanup()
     print('PASS: cold start, busy port refused, original server healthy, scoped shutdown')
     return 0
 
