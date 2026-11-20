@@ -231,6 +231,7 @@ def test_runner_parallelism_is_bounded_and_order_preserved(users, expected_peak)
 
 def test_later_action_must_preserve_already_confirmed_change():
     request = AsyncMock(side_effect=[
+        {"state": {"light": {"brightness": 70}, "sound": {"volume": 20}}},
         {}, {"state": {"light": {"brightness": 0}, "sound": {"volume": 20}}},
         {}, {"state": {"light": {"brightness": 70}, "sound": {"volume": 0}}},
     ])

@@ -40,7 +40,8 @@ def audit(stay, expected, steps, devices):
         failures.append('R2')
     lo,hi={'normal':(19,20),'cool':(17,18),'warm':(21,22)}[pref['temperature']]
     if not throughout(night,wake,lambda s:lo<=s['climate']['temperature_c']<=hi):failures.append('R3')
-    sound=state(night)['sound'];tracks=pref['favorite_track_ids']
+    # Official R4 requires the favorite sound at bedtime, not five minutes later.
+    sound=state(max(start,bed))['sound'];tracks=pref['favorite_track_ids']
     if tracks:
         sound_ok=sound['track_id'] in tracks and 1<=sound['volume']<=30 and 1<=sound['timer_minutes']<=45
     else:sound_ok=sound['volume']==0

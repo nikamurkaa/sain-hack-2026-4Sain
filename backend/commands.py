@@ -1,6 +1,7 @@
 """Допустимость, арифметика и формирование команд проверяются кодом."""
 from copy import deepcopy
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, timezone
+from zoneinfo import ZoneInfo
 from jsonschema.exceptions import ValidationError as SchemaError
 
 from backend.core import check_values, iso, moment
@@ -11,7 +12,20 @@ class Refusal(Exception):
     pass
 
 
-def plan_commands(intent, state, prefs, at, devices, tracks):
+def _local_alarm(date, clock, zone):
+    naive = datetime.combine(date, time.fromisoformat(clock))
+    first = naive.replace(tzinfo=zone, fold=0)
+    second = naive.replace(tzinfo=zone, fold=1)
+    valid_first = first.astimezone(timezone.utc).astimezone(zone).replace(tzinfo=None) == naive
+    valid_second = second.astimezone(timezone.utc).astimezone(zone).replace(tzinfo=None) == naive
+    if not valid_first and not valid_second:
+        raise Refusal("Это местное время не существует из-за перевода часов. Укажите другое время.")
+    if valid_first and valid_second and first.utcoffset() != second.utcoffset():
+        raise Refusal("Это время повторяется при переводе часов. Уточните другое время.")
+    return first if valid_first else second
+
+
+def plan_commands(intent, state, prefs, at, devices, tracks, hotel_timezone=None):
     name = intent.intent
     if name == "medical":
         raise Refusal("Я могу управлять настройками номера, но не определяю причины симптомов и не подбираю лекарства. Обратитесь к врачу.")
@@ -32,6 +46,11 @@ def plan_commands(intent, state, prefs, at, devices, tracks):
             value = max(bounds[0], min(bounds[1], value))
         if value == state[dev][field] and intent.value is None and intent.delta is None:
             raise Refusal("Достигнута граница настройки. Дальше изменить её в эту сторону нельзя.")
+        # The LLM may return a syntactically valid absolute value that
+        # reverses the user's requested direction. Never execute that.
+        before = state[dev][field]
+        if (sign > 0 and value <= before) or (sign < 0 and value >= before):
+            raise Refusal("Настройка не изменяется в нужную сторону. Уточните значение.")
         changes = {dev: {field: value}}
     elif name == "curtains":
         if intent.value is None:
@@ -45,21 +64,31 @@ def plan_commands(intent, state, prefs, at, devices, tracks):
             raise Refusal("Какой звук включить? Выберите трек из доступного списка.")
         changes = {"sound": {"track_id": track, "volume": min(100, max(state["sound"]["volume"] + 10, prefs["volume"]))}}
     elif name in ("alarm_set", "alarm_shift"):
+        zone = ZoneInfo(hotel_timezone) if hotel_timezone else moment(at).tzinfo
+        now = moment(at).astimezone(zone)
         if name == "alarm_set":
-            if intent.time is None:
-                raise Refusal("На какое время поставить будильник?")
-            now = moment(at)
-            alarm = datetime.combine(now.date(), time.fromisoformat(intent.time), now.tzinfo)
-            if alarm <= now:
-                alarm += timedelta(days=1)
+            if intent.after_minutes is not None:
+                if intent.time is not None or intent.day_offset is not None:
+                    raise Refusal("Укажите либо конкретное время, либо интервал.")
+                alarm = (now.astimezone(timezone.utc) + timedelta(minutes=intent.after_minutes)).astimezone(zone)
+            else:
+                if intent.time is None:
+                    raise Refusal("На какое время поставить будильник?")
+                offset = intent.day_offset or 0
+                alarm = _local_alarm(now.date() + timedelta(days=offset), intent.time, zone)
+                if intent.day_offset is None and alarm <= now:
+                    alarm = _local_alarm(now.date() + timedelta(days=1), intent.time, zone)
+                elif intent.day_offset is not None and alarm <= now:
+                    raise Refusal("Указанное время будильника уже прошло.")
         else:
             if state["alarm"]["at"] is None or intent.delta is None:
                 raise Refusal("Укажите время будильника: сейчас нечего сдвигать или не указан интервал.")
             try:
-                alarm = moment(state["alarm"]["at"]) + timedelta(minutes=intent.delta)
+                alarm = (moment(state["alarm"]["at"]).astimezone(timezone.utc)
+                         + timedelta(minutes=intent.delta)).astimezone(zone)
             except OverflowError:
                 raise Refusal("Слишком большой интервал сдвига будильника.") from None
-            if alarm <= moment(at):
+            if alarm <= now:
                 raise Refusal("Новое время будильника уже прошло. Укажите будущее время.")
         changes = {"alarm": {"at": iso(alarm)}}
         if intent.mode is not None:

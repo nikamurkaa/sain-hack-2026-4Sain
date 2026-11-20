@@ -55,12 +55,12 @@ def build_scenario(user, stay, prefs, devices, rules):
     add(night, "climate", {"temperature_c": sleep_temperature(prefs)})
     add(night, "dnd", {"enabled": True})
     sound = sleep_sound(prefs)
-    sound_start = max(start, bed + timedelta(minutes=5))
+    sound_start = max(start, bed)  # R4: любимый звук включается непосредственно при отбое.
     add(sound_start, "sound", sound)
     if sound["volume"]:
         add(sound_start + timedelta(minutes=sound["timer_minutes"]), "sound", {"volume": 0, "timer_minutes": 0})
     add(start, "alarm", {"at": iso(wake), "mode": prefs["alarm_mode"], "window_minutes": 0})
-    for minutes, brightness in [(30, 10), (20, 30), (10, 60)]:
+    for minutes, brightness in [(30, 10), (23, 30), (16, 60)]:
         dawn = wake - timedelta(minutes=minutes)
         if dawn > night:
             add(dawn, "light", {"brightness": brightness, "color_temperature_k": 2700})

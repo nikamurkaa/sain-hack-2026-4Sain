@@ -1,4 +1,5 @@
 """Подтверждение изменений по состоянию и журналу симулятора."""
+from copy import deepcopy
 from backend.core import ServiceError
 
 
@@ -46,7 +47,9 @@ class Room:
         # При неопределённом результате проверяем состояние, а не повторяем изменение.
         if not commands:
             return await self.state(at)
-        expected = {}
+        # Freeze the entire state at this request's timestamp; changes scheduled at
+        # other instants must not be mistaken for action side effects.
+        expected = deepcopy(await self.state(at))
         for command in commands:
             try:
                 await self.client.request("POST", self.path + "/action", body=command)
@@ -54,9 +57,12 @@ class Room:
                 if exc.code != "UPSTREAM_UNCERTAIN":
                     raise
             actual = await self.state(at)
-            expected.setdefault(command["device_id"], {}).update(command["values"])
-            if any(actual.get(device, {}).get(key) != value
-                   for device, fields in expected.items() for key, value in fields.items()):
+            device = command["device_id"]
+            if device not in expected:
+                raise ServiceError("ACTION_UNCONFIRMED", "Состояние номера не содержит устройство.")
+            expected[device].update(command["values"])
+            # Compare EVERY field, including the ones the command must preserve.
+            if actual != expected:
                 raise ServiceError("ACTION_UNCONFIRMED", "Изменения подтверждены не полностью. Проверьте состояние комнаты.")
         return actual
 

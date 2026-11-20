@@ -45,7 +45,10 @@ class Solution:
             if intent.intent in ('going_to_bed', 'woke_up', 'like_home', 'like_yesterday', 'sound_on'):
                 prefs = await self.prefs(user_id, at)
             state = base_state if base_state is not None else await room.state(at)
-            commands = plan_commands(intent, state, prefs, at, self.data['devices'], self.data['tracks'])
+            hotel_zone = next((s.get("hotel_timezone") for s in self.data["stays"]
+                               if s["user_id"] == user_id), None)
+            commands = plan_commands(intent, state, prefs, at, self.data['devices'], self.data['tracks'],
+                                     hotel_timezone=hotel_zone)
         except Refusal as exc:
             return {'role': 'agent', 'at': at, 'text': str(exc), 'response_class': 'refused'}, await room.state(at)
         state = await room.execute(commands, at)
@@ -69,7 +72,9 @@ class Solution:
         async def prepare_stay(stay):
             try:
                 room, _, _ = await self.prepare(stay)
-            except ServiceError:
+            except Exception:
+                # An individual malformed stay cannot invalidate the whole /run.
+                # No fictitious session ID or successful scenario is returned.
                 # Без подтверждённого сценария запись нельзя считать выполненной.
                 logging.getLogger(__name__).warning('Не удалось подготовить один заезд')
                 return None
@@ -83,7 +88,7 @@ class Solution:
                          if u['role'] == 'user' and moment(u['at']) <= moment(request['at'])]
                 try:
                     room = await Room.create(self.client, request['record_id'], 'request', self.run_id)
-                except ServiceError:
+                except Exception:
                     logging.getLogger(__name__).warning('Не удалось создать сеанс одной просьбы')
                     history.append({'at': request['at'], 'utterances': texts,
                                     'reply': {'role': 'agent', 'at': request['at'], 'response_class': 'refused',
@@ -92,7 +97,7 @@ class Solution:
                 try:
                     reply, _ = await self.message(room, request['user_id'], texts, request['at'],
                                                  room.session['initial_state'], history=history)
-                except ServiceError:
+                except Exception:
                     reply = {'role': 'agent', 'at': request['at'], 'response_class': 'refused',
                              'text': 'Не удалось подтвердить выполнение просьбы. Проверьте состояние номера.'}
                 history.append({'at': request['at'], 'utterances': texts, 'reply': reply})

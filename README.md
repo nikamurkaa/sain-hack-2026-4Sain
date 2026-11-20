@@ -16,7 +16,7 @@ python -m pytest -q
 python -m scripts.check_offline
 ```
 
-Клиент для финала находится в отдельной [версии клиента](https://github.com/nikamurkaa/sain-smart-room/tree/bc1b5e5e691135890ead148568c5385961b520d6/frontend). В её каталоге `frontend` выполните `npm ci`, `npm run build` и `python serve.py --mode stand`. Откройте `http://127.0.0.1:4173` и введите временный клиентский токен. Порядок выдачи доступа и автономной репетиции приведён в [инструкции клиента](https://github.com/nikamurkaa/sain-smart-room/blob/bc1b5e5e691135890ead148568c5385961b520d6/frontend/README.md). Серверный онлайн-коммит содержит API клиента.
+Клиент для финала находится в отдельной [версии клиента](https://github.com/nikamurkaa/sain-hack-2026-4Sain/tree/bc1b5e5e691135890ead148568c5385961b520d6/frontend). В её каталоге `frontend` выполните `npm ci`, `npm run build` и `python serve.py --mode stand`. Откройте `http://127.0.0.1:4173` и введите временный клиентский токен. Порядок выдачи доступа и автономной репетиции приведён в [инструкции клиента](https://github.com/nikamurkaa/sain-hack-2026-4Sain/blob/bc1b5e5e691135890ead148568c5385961b520d6/frontend/README.md). Серверный онлайн-коммит содержит API клиента.
 
 ## Роли
 

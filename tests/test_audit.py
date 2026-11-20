@@ -115,7 +115,7 @@ def test_llm_malformed_usage_does_not_lose_valid_intent():
     ('R1','light','brightness',90,'2026-11-12T22:15:00+03:00'),
     ('R2','curtains','position',80,'2026-11-12T23:00:00+03:00'),
     ('R3','climate','temperature_c',26,'2026-11-12T23:05:00+03:00'),
-    ('R4','sound','volume',95,'2026-11-12T23:05:00+03:00'),
+    ('R4','sound','volume',95,'2026-11-12T23:00:00+03:00'),
     ('R5','alarm','at',None,'2026-11-13T06:25:00+03:00'),
     ('R6','light','brightness',100,'2026-11-13T05:00:00+03:00'),
     ('R7','dnd','enabled',False,'2026-11-13T03:00:00+03:00'),
