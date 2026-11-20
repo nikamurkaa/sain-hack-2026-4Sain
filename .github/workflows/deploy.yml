@@ -25,6 +25,7 @@ jobs:
           python-version: '3.11'
       - run: pip install -r requirements-dev.txt
       - run: python -m pytest -q
+      - run: python -m scripts.check_offline
 
   deploy:
     needs: test
