@@ -559,3 +559,24 @@
   color: #ead9cc;
   white-space: nowrap;
 }
+
+/* P1 V06: expose the entire selected sound title on compact Figma cards.
+   The second line fits above the meter even on the shorter chat frame;
+   title and aria-label provide a full-text fallback for keyboard/AT users. */
+.device-sound .design-label:last-of-type {
+  white-space: normal !important;
+  text-overflow: clip !important;
+  overflow: visible !important;
+  overflow-wrap: normal;
+  word-break: normal;
+  height: auto !important;
+  max-height: 21px;
+  line-height: 10.5px !important;
+  font-family: Manrope, sans-serif !important;
+  font-size: 10px !important;
+  font-weight: 650 !important;
+}
+.device-sound:focus-visible {
+  outline: 2px solid #fdcfab;
+  outline-offset: 2px;
+}

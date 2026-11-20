@@ -237,8 +237,9 @@ export function MobileStay(p: Props) {
     const id = deviceId(w);
     if (id && p.page !== "virtual") {
       return {
-        className: "device",
-        label: deviceNames[id],
+        className: "device" + (id === "sound" ? " device-sound" : ""),
+        label: deviceNames[id] + ": " + describe(id, room?.[id], p.catalog),
+        title: id === "sound" ? describe(id, room?.[id], p.catalog) : undefined,
         role: p.openSetting ? undefined : "group",
         onClick: p.openSetting ? () => p.openSetting!(id) : undefined,
         text: (s) =>

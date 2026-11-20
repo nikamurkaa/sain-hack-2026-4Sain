@@ -441,7 +441,7 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
   const mode = titles[periodAt(info.at)],
     liveNote = stale
       ? snapshot
-        ? "Последнее подтверждение на " + time(snapshot.at)
+        ? "Последнее подтверждение: " + snapshot.at.slice(0, 16).replace("T", " · ")
         : "Живое состояние недоступно"
       : "";
   const selectPeriod = (v: Period) => {

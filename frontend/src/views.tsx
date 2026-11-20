@@ -11,6 +11,7 @@ import {
   describe,
   deviceNames,
   fieldNames,
+  preferenceItemLabel,
   periodAt,
   time,
   titles,
@@ -83,8 +84,9 @@ export function Devices({
               screen={screen}
               widget={w}
               bind={{
-                className: "device",
-                label: deviceNames[id],
+                className: "device" + (id === "sound" ? " device-sound" : ""),
+                label: deviceNames[id] + ": " + describe(id, room?.[id], catalog),
+                title: id === "sound" ? describe(id, room?.[id], catalog) : undefined,
                 onClick: open && room ? () => open(id) : undefined,
                 level: deviceLevel(id, room),
                 text: (s) =>
@@ -171,7 +173,9 @@ export function Detail({
       const track = catalog.tracks.find((item) => item.track_id === value);
       if (track) return track.title;
     }
-    return terms[String(value)] ?? String(value);
+    if (typeof value === "string")
+      return terms[value] ?? preferenceItemLabel(value);
+    return String(value);
   };
   return (
     <dl className="preferences">
@@ -184,8 +188,16 @@ export function Detail({
             <dd>
               {typeof v === "object" ? (
                 Array.isArray(v) ? (
-                  v.map((item) => typeof item === "object"
-                    ? "Источник предпочтения" : readable(k, item)).join(", ")
+                  v.map((item, index) => item !== null && typeof item === "object"
+                    ? depth < 3
+                      ? <div className="preference-entry" key={index}>
+                          <Detail data={item as Record<string, unknown>}
+                                  catalog={catalog} depth={depth + 1} />
+                        </div>
+                      : <span key={index}>Дополнительные сведения</span>
+                    : <span key={index}>
+                        {index > 0 ? ", " : ""}{readable(k, item)}
+                      </span>)
                 ) : depth < 3 ? (
                   <Detail data={v as Record<string, unknown>}
                           catalog={catalog} depth={depth + 1} />

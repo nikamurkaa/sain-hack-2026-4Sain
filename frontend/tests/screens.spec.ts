@@ -11,7 +11,6 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 async function fixture(page: Page, hour: string) {
   let state = sample("state").state;
   const guest = sample("guest");
-  guest.profile.display_name = "Алиса";
   guest.stay.check_in_at = stamp("00:00");
   const controls = { fail: false, expire: false, delay: 0, stt: 0, loading: 0 };
   await page.route("**/api/v1/**", async (r) => {

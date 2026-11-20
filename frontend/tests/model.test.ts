@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { describe, moments, periodAt } from "../src/model.ts";
+import { describe, moments, periodAt, preferenceItemLabel } from "../src/model.ts";
 test("overnight stay offers only reachable periods with explicit offsets", () => {
   const start = "2026-11-12T20:30:00+03:00",
     end = "2026-11-13T07:00:00+03:00";
@@ -24,4 +24,12 @@ test("distinguishes unavailable readings and confirmed zero", () => {
   assert.equal(describe("light", { brightness: 0 }), "0 %");
   assert.equal(describe("alarm", { at: null }), "Выключен");
   assert.equal(describe("dnd", { enabled: false }), "Выключен");
+});
+
+test("known technical preference IDs are localized for the guest profile", () => {
+  assert.deepEqual(
+    ["temperature", "tracks", "volume", "timer", "alarm_mode"].map(preferenceItemLabel),
+    ["Температура", "Звуки", "Громкость", "Таймер звука", "Режим пробуждения"],
+  );
+  assert.equal(preferenceItemLabel("custom_setting"), "custom setting");
 });

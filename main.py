@@ -294,6 +294,9 @@ def check_time(session, at):
 
 @app.get('/api/v1/state', response_model=State)
 async def state(at: str | None = None, session=Depends(client_session)):
+    # Explicit ?at= is a read-only virtual preview. It must not replace the
+    # confirmed live snapshot used by /prepared and offline UI fallbacks.
+    is_preview = at is not None
     at = at or session.at
     try:
         check_time(session, at)
@@ -308,8 +311,10 @@ async def state(at: str | None = None, session=Depends(client_session)):
             note_upstream_error(session, exc)
             raise
         session.connection_status = 'available'
-        session.last_confirmed = {'at': at, 'state': actual}
-        return session.last_confirmed
+        snapshot = {'at': at, 'state': actual}
+        if not is_preview:
+            session.last_confirmed = snapshot
+        return snapshot
 
 
 def note_upstream_error(session, exc):

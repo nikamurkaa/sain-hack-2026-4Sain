@@ -357,3 +357,19 @@ test("browser history, double submit, in-flight session switch, resize and refre
   await page.reload();
   await expect(page.getByLabel("Временный токен гостя")).toBeVisible();
 });
+
+test("virtual preview does not overwrite the authoritative live fallback", async ({ page, request }) => {
+  const token = await connect(page, request);
+  const headers = { Authorization: "Bearer " + token };
+  const baseline = await request.get("http://127.0.0.1:8765/api/v1/state", { headers });
+  expect(baseline.status()).toBe(200);
+  const live = await baseline.json();
+  await go(page, "Виртуальное время");
+  await page.getByRole("button", { name: "Ночь", exact: true }).click();
+  await expect(page.getByText(/Виртуальный момент/)).toBeVisible();
+  const prepared = await request.get("http://127.0.0.1:8765/api/v1/prepared", { headers });
+  expect(prepared.status()).toBe(200);
+  expect((await prepared.json()).last_confirmed).toEqual(live);
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Заселиться" })).toBeVisible();
+});

@@ -130,6 +130,29 @@ export function describe(id: string, v: Values = {}, catalog?: Catalog) {
       return "—";
   }
 }
+// The dataset stores internal preference IDs; never surface known IDs as
+// raw English strings in the guest-facing profile.
+export function preferenceItemLabel(value: string): string {
+  const translations: Record<string, string> = {
+    temperature: "Температура",
+    tracks: "Звуки",
+    volume: "Громкость",
+    timer: "Таймер звука",
+    alarm_mode: "Режим пробуждения",
+    neutral: "Умеренная температура",
+    normal: "Умеренная температура",
+    cool: "Прохлада",
+    warm: "Тепло",
+    both: "Свет и звук",
+    light: "Свет",
+    sound: "Звук",
+    morning: "Утро",
+    evening: "Вечер",
+    day: "День",
+    night: "Ночь",
+  };
+  return translations[value] ?? fieldNames[value] ?? value.replaceAll("_", " ");
+}
 export const fieldNames: Record<string, string> = {
   temperature_c: "Температура, °C",
   brightness: "Яркость, %",
