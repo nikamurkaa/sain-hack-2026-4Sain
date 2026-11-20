@@ -11,9 +11,15 @@ permissions:
 jobs:
   offline-client:
     runs-on: ubuntu-latest
+    env:
+      SAIN_SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Assert exact PR source checkout
+        run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'

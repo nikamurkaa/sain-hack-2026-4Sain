@@ -101,7 +101,7 @@ test('V06: 12 real catalog tracks × 10 viewports, API confirmation and keyboard
         await page.screenshot({path:file,animations:'disabled'});
     }
     const checkpoint=evidence('tracks-progress.json');
-    if(checkpoint)writeFileSync(checkpoint,JSON.stringify({sha:process.env.GITHUB_SHA||'local',completed:index+1,metrics},null,2));
+    if(checkpoint)writeFileSync(checkpoint,JSON.stringify({sha:process.env.SAIN_SOURCE_SHA||process.env.GITHUB_SHA||'local',completed:index+1,metrics},null,2));
     await page.setViewportSize({width:375,height:812});
     // Wait for ResponsiveWidget ResizeObserver before testing focus.
     await page.waitForTimeout(120);
@@ -112,7 +112,7 @@ test('V06: 12 real catalog tracks × 10 viewports, API confirmation and keyboard
     await page.getByRole('button',{name:'Назад'}).click();
   }
   const metricsFile=evidence('tracks-120-measurements.json');
-  if(metricsFile)writeFileSync(metricsFile,JSON.stringify({sha:process.env.GITHUB_SHA||'local',metrics},null,2));
+  if(metricsFile)writeFileSync(metricsFile,JSON.stringify({sha:process.env.SAIN_SOURCE_SHA||process.env.GITHUB_SHA||'local',metrics},null,2));
   expect(metrics).toHaveLength(120);
   expect(errors,errors.slice(0,50).join('\n')).toHaveLength(0);
 });
