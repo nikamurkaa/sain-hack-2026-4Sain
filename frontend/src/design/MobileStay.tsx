@@ -365,8 +365,8 @@ export function MobileStay(p: Props) {
         {p.info.source === "final"
           ? "Финальный гость · просмотр"
           : p.info.rehearsal
-            ? "Репетиция · демо"
-            : "Демо-номер · управление"}
+            ? p.allowed ? "Репетиция · управление" : "Репетиция · просмотр"
+            : p.allowed ? "Демо-номер · управление" : "Демо-номер · просмотр"}
       </small>
       {p.page === "plan" && (
         <div className="personal-plan">

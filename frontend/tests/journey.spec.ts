@@ -159,9 +159,8 @@ test("final snapshot, virtual reads, isolation and expiry", async ({
   await page.getByRole("button", { name: "Сделай попрохладнее" }).click();
   await expect(page.getByText("Сеанс завершён")).toBeVisible();
   await page.getByText("Переподключиться").click();
-  await expect(
-    page.getByText("Демо-номер · управление"),
-  ).toBeVisible();
+  await expect(page.getByText("Репетиция · управление")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Сделай попрохладнее" })).toBeVisible();
 });
 test("responsive layouts and confirmed manual climate", async ({
   page,
