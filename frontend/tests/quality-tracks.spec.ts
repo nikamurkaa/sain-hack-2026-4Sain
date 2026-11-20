@@ -36,7 +36,14 @@ async function measure(page:Page,title:string){
    const meter=el.querySelector('.indicator-meter,.meter');
    const mr=meter?.getBoundingClientRect();
    const barTop=mr?(meter?.classList.contains('indicator-meter')?mr.top+mr.height/2-2:mr.top):undefined;
-   const clipped=label.scrollHeight>label.clientHeight+1||label.scrollWidth>label.clientWidth+1||
+   // Firefox may report scrollHeight > clientHeight for transformed Figma text
+   // even when overflow is visible and every glyph is rendered. Only call it
+   // clipping when the computed overflow can actually conceal content.
+   const style=getComputedStyle(label);
+   const clipX=['hidden','clip','scroll','auto'].includes(style.overflowX);
+   const clipY=['hidden','clip','scroll','auto'].includes(style.overflowY);
+   const clipped=(clipY&&label.scrollHeight>label.clientHeight+1)||
+     (clipX&&label.scrollWidth>label.clientWidth+1)||
      glyphs.some(g=>g.left<box.left-2||g.right>box.right+2)||bottom>box.bottom+1;
    return {found:true,expected,width:innerWidth,height:innerHeight,
      clipped,meterOverlap:barTop!==undefined&&bottom>barTop-1,
