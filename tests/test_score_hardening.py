@@ -103,3 +103,53 @@ def test_A10_one_bad_stay_does_not_abort_all_other_records():
             assert answer["stays"]==[]
             assert len(answer["requests"])==1
     asyncio.run(check())
+
+
+@pytest.mark.parametrize("at,clock,day,zone", [
+    ("2026-03-28T12:00:00+01:00","02:30",1,"Europe/Berlin"),
+    ("2026-10-24T12:00:00+02:00","02:30",1,"Europe/Berlin"),
+])
+def test_A03_reject_nonexistent_or_ambiguous_DST_time(at,clock,day,zone):
+    state = default_state(CATALOG["devices"])
+    with pytest.raises(Refusal):
+        plan_commands(Intent(intent="alarm_set",time=clock,day_offset=day),
+                      state,prefs(),at,CATALOG["devices"],CATALOG["tracks"],hotel_timezone=zone)
+
+
+def test_A03_explicit_today_in_past_refused():
+    with pytest.raises(Refusal):
+        plan_commands(Intent(intent="alarm_set",time="09:00",day_offset=0),
+                      default_state(CATALOG["devices"]),prefs(),"2026-11-12T10:00:00+03:00",
+                      CATALOG["devices"],CATALOG["tracks"])
+
+
+def test_A04_late_arrival_starts_favorite_sound_on_arrival():
+    data = dataset()
+    stay = data["stays"][0]
+    stay["check_in_at"] = "2026-11-12T23:10:00+03:00"
+    p = prefs()
+    p.update(tracks=["track_04"],volume=15,timer=30)
+    steps = build_scenario(data["users"][0],stay,p,data["devices"],data["sleep_rules"])
+    start = moment(stay["check_in_at"])
+    starts = [s for s in steps if s["device_id"]=="sound" and s["values"].get("volume",0)>0]
+    assert len(starts)==1 and moment(starts[0]["at"])==start
+    assert all(start <= moment(s["at"]) <= moment(stay["target_wake_at"]) for s in steps)
+
+
+def test_A08_429_retry_after_is_bounded_and_used(monkeypatch):
+    from unittest.mock import AsyncMock, patch
+    import json
+    from backend.clients import ModelClient
+    monkeypatch.setenv("LLM_API_KEY","offline-key")
+    monkeypatch.setenv("LLM_MODEL","offline-model")
+    monkeypatch.setenv("LLM_BASE_URL","https://example.invalid/v1")
+    responses = iter([
+        httpx.Response(429,headers={"Retry-After":"17"}),
+        httpx.Response(200,json={"choices":[{"finish_reason":"stop","message":{"content":json.dumps({"intent":"cooler"})}}]}),
+    ])
+    async def check():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _:next(responses)),trust_env=False) as client:
+            with patch("backend.clients.asyncio.sleep", new_callable=AsyncMock) as nap:
+                assert await ModelClient(client).json("test",{})=={"intent":"cooler"}
+                assert any(call.args and call.args[0]>=17 for call in nap.call_args_list)
+    asyncio.run(check())
