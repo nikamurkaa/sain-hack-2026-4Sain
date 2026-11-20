@@ -34,6 +34,8 @@ class ScriptedModel:
             words = payload['utterances']
             if words == ['Разбуди меня', 'В половине седьмого']:
                 return {'intent':'alarm_set','time':'06:30'}
+            if words == ['Открой шторы на 150 процентов']:
+                return {'intent': 'invalid_value'}
             if words == ['Ещё немного']:
                 previous = payload['history'][-1]['utterances']
                 if previous != ['Душно']:
@@ -76,6 +78,8 @@ def fixture():
                 words, intent, delta = ['Ещё немного'], CASES[3][1], CASES[3][2]
             if j == 5:
                 words, intent, delta = ['Разбуди меня','В половине седьмого'], CASES[8][1], CASES[8][2]
+            if i == 0 and j == 2:
+                words, intent, delta = ['Открой шторы на 150 процентов'], {'intent': 'invalid_value'}, None
             initial = deepcopy(request['initial_state'])
             initial['alarm']['at'] = WAKE
             initial['light']['color_temperature_k'] = 3300
