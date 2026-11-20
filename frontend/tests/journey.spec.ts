@@ -160,7 +160,11 @@ test("final snapshot, virtual reads, isolation and expiry", async ({
   await expect(page.getByText("Сеанс завершён")).toBeVisible();
   await page.getByText("Переподключиться").click();
   await expect(page.getByText("Репетиция · управление")).toBeVisible();
+  // Reconnecting resets navigation to the entry screen: open the chat before
+  // asserting that a writable session exposes the real command control.
+  await go(page, "Диалог");
   await expect(page.getByRole("button", { name: "Сделай попрохладнее" })).toBeVisible();
+  await expect(page.getByLabel("Просьба", { exact: true })).toBeEnabled();
 });
 test("responsive layouts and confirmed manual climate", async ({
   page,
