@@ -160,7 +160,7 @@ export function MobileStay(p: Props) {
         (displayName.trim().length > 20 ? "…" : "") +
         ",\n"
       : "";
-  const status = p.info.source === "final" ? "Финальный номер" : "Демонстрационный номер";
+  const status = p.info.source === "final" ? "Финальный номер" : "Демо-номер";
   const selectPeriod = (availability: boolean) => (
     <div className="design-tabs">
       {periods.map((k) => (
@@ -361,7 +361,10 @@ export function MobileStay(p: Props) {
   }
   return (
     <DesignScreen screen={screen} bind={bind}>
-      <small className="mode-caption">{p.badge}</small>
+      <small className="mode-caption">
+        {p.info.rehearsal ? "Репетиция · демо" : p.info.source === "final"
+          ? "Финальный гость · просмотр" : "Демо-номер · управление"}
+      </small>
       {p.page === "plan" && (
         <div className="personal-plan">
           {selectPeriod(false)}

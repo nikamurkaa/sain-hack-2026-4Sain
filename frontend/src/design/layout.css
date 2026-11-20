@@ -530,3 +530,22 @@
   opacity: 1;
   text-shadow: none;
 }
+
+/* P0 V01: Figma decorative SVG must not cover the inactive period labels. */
+.design-widget .design-tabs {
+  position: relative;
+  z-index: 4;
+}
+.design-widget .design-tabs button {
+  display: grid;
+  place-items: center;
+  flex: 1 1 25%;
+  position: relative;
+  z-index: 1;
+  color: #f9ebe0;
+  font: 650 14px/1.2 Manrope, sans-serif;
+  text-align: center;
+  white-space: nowrap;
+}
+.design-widget .design-tabs button[aria-pressed="true"] { color: #1b140f; }
+.design-widget .design-tabs button:disabled { color: #c4b5ab; opacity: 1; }

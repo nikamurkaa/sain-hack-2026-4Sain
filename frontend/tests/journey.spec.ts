@@ -140,7 +140,7 @@ test("final snapshot, virtual reads, isolation and expiry", async ({
   await expect(page.getByText("Сеанс завершён")).toBeVisible();
   await page.getByText("Переподключиться").click();
   await expect(
-    page.getByText("Демонстрационный номер · управление"),
+    page.getByText("Демо-номер · управление"),
   ).toBeVisible();
 });
 test("responsive layouts and confirmed manual climate", async ({
