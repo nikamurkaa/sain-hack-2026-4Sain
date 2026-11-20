@@ -44,6 +44,9 @@ class Room:
     async def execute(self, commands, at):
         # Все относительные просьбы уже преобразованы в абсолютные значения.
         # При неопределённом результате проверяем состояние, а не повторяем изменение.
+        if not commands:
+            return await self.state(at)
+        expected = {}
         for command in commands:
             try:
                 await self.client.request("POST", self.path + "/action", body=command)
@@ -51,7 +54,9 @@ class Room:
                 if exc.code != "UPSTREAM_UNCERTAIN":
                     raise
             actual = await self.state(at)
-            if any(actual[command["device_id"]].get(k) != v for k, v in command["values"].items()):
+            expected.setdefault(command["device_id"], {}).update(command["values"])
+            if any(actual.get(device, {}).get(key) != value
+                   for device, fields in expected.items() for key, value in fields.items()):
                 raise ServiceError("ACTION_UNCONFIRMED", "Изменения подтверждены не полностью. Проверьте состояние комнаты.")
-        return await self.state(at)
+        return actual
 
