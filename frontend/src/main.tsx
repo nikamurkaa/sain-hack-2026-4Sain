@@ -718,7 +718,7 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
       {page === "profile" && (
         <section>
           <h1>Профиль гостя</h1>
-          <p>Доступные данные помогают подготовить номер к вашему приезду.</p>
+          <p>Доступные данные помогают подготовить номер к вашему приезду. Ручные изменения относятся к текущему проживанию и не записываются как постоянные привычки.</p>
           <Detail data={prepared.guest.profile} catalog={catalog} />
           <h2>Предпочтения</h2>
           <Detail data={prepared.guest.preferences} catalog={catalog} />

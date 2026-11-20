@@ -514,3 +514,19 @@
   height: 44px;
   transform: translate(-50%, -50%);
 }
+
+/* P0 V01: legible inactive and disabled virtual-time period labels. */
+.design-tabs button {
+  color: #f9ebe0;
+  font-weight: 650;
+  text-shadow: 0 1px 2px #100e0e;
+}
+.design-tabs button[aria-pressed="true"] {
+  color: #18110d;
+  text-shadow: none;
+}
+.design-tabs button:disabled {
+  color: #b4a49b;
+  opacity: 1;
+  text-shadow: none;
+}
