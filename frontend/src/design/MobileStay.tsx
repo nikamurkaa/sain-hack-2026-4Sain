@@ -160,7 +160,7 @@ export function MobileStay(p: Props) {
         (displayName.trim().length > 20 ? "…" : "") +
         ",\n"
       : "";
-  const status = p.info.stay_id;
+  const status = p.info.source === "final" ? "Финальный номер" : "Демонстрационный номер";
   const selectPeriod = (availability: boolean) => (
     <div className="design-tabs">
       {periods.map((k) => (

@@ -42,7 +42,7 @@ test("check-in, real API, contextual chat, refusal and unknown delivery", async 
   await page.getByText("Заселиться").click();
   await page.getByRole("button", { name: "День", exact: true }).click();
   await expect(
-    page.getByText("На этот период действий в расписании нет."),
+    page.getByText("В этот период автоматических изменений не запланировано."),
   ).toBeVisible();
   await page.getByText("В номер", { exact: true }).click();
   await go(page, "Диалог");

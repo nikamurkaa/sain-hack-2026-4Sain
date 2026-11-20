@@ -147,41 +147,50 @@ export function Devices({
     </div>
   );
 }
-export function Detail({ data }: { data: Record<string, unknown> }) {
+export function Detail({
+  data, catalog, depth = 0,
+}: {
+  data: Record<string, unknown>;
+  catalog?: Catalog;
+  depth?: number;
+}) {
+  const readable = (key: string, value: unknown): string => {
+    const terms: Record<string, string> = {
+      neutral: "Умеренная температура", normal: "Умеренная температура",
+      cool: "Предпочитает прохладу", warm: "Предпочитает тепло",
+      both: "Свет и звук", light: "Свет", sound: "Звук",
+      morning: "Утро", evening: "Вечер", day: "День", night: "Ночь",
+    };
+    if (typeof value === "boolean") return value ? "Да" : "Нет";
+    if (typeof value === "number" && key === "temperature_c") return value + " °C";
+    if (typeof value === "number" && ["volume", "brightness", "position"].includes(key))
+      return value + " %";
+    if (typeof value === "number" && ["timer", "timer_minutes", "window_minutes"].includes(key))
+      return value + " мин";
+    if (typeof value === "string" && catalog?.tracks) {
+      const track = catalog.tracks.find((item) => item.track_id === value);
+      if (track) return track.title;
+    }
+    return terms[String(value)] ?? String(value);
+  };
   return (
-    <dl>
+    <dl className="preferences">
       {Object.entries(data)
-        .filter(
-          ([, v]) =>
-            v != null &&
-            v !== "" &&
-            (!(typeof v === "object") || Object.keys(v).length > 0),
-        )
+        .filter(([, v]) => v != null && v !== "" &&
+          (typeof v !== "object" || Object.keys(v).length > 0))
         .map(([k, v]) => (
           <div key={k}>
-            <dt>{fieldNames[k] ?? k}</dt>
+            <dt>{fieldNames[k] ?? k.replaceAll("_", " ")}</dt>
             <dd>
               {typeof v === "object" ? (
                 Array.isArray(v) ? (
-                  v
-                    .map((item) =>
-                      typeof item === "object"
-                        ? JSON.stringify(item)
-                        : String(item),
-                    )
-                    .join(", ")
-                ) : (
-                  <Detail data={v as Record<string, unknown>} />
-                )
-              ) : typeof v === "boolean" ? (
-                v ? (
-                  "Включено"
-                ) : (
-                  "Выключено"
-                )
-              ) : (
-                String(v)
-              )}
+                  v.map((item) => typeof item === "object"
+                    ? "Источник предпочтения" : readable(k, item)).join(", ")
+                ) : depth < 3 ? (
+                  <Detail data={v as Record<string, unknown>}
+                          catalog={catalog} depth={depth + 1} />
+                ) : "Дополнительные сведения"
+              ) : readable(k, v)}
             </dd>
           </div>
         ))}
@@ -247,7 +256,7 @@ export function Plan({ steps, period }: { steps: Step[]; period: Period }) {
             </article>
           ))
         ) : (
-          <p>На этот период действий в расписании нет.</p>
+          <p>В этот период автоматических изменений не запланировано.</p>
         )}
       </div>
     </>
@@ -274,7 +283,7 @@ export function Settings({
         sound: values.track_id,
         light: values.brightness,
         curtains: values.position,
-        dnd: String(!values.enabled),
+        dnd: String(values.enabled === true),
       }[id] ?? "",
     ),
   );
@@ -626,7 +635,7 @@ export function Settings({
         </label>
       ) : (
         <label>
-          Режим
+          Установить режим
           <select value={val} onChange={(e) => set(e.target.value)}>
             <option value="true">Включить</option>
             <option value="false">Выключить</option>
@@ -661,7 +670,7 @@ export function Settings({
       )}
       {id === "sound" && (
         <small>
-          Таймер по сценарию: {String(values.timer_minutes ?? "—")} мин
+          Таймер текущего звука: {String(values.timer_minutes ?? "—")} мин
         </small>
       )}
       <button className="primary" disabled={!val}>

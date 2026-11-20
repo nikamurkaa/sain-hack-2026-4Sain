@@ -308,7 +308,15 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
       try {
         const recovery = { signal: AbortSignal.timeout(4000) };
         const updated = await api<Session>("session", recovery);
-        setInfo({ ...updated, history: info.history });
+        // Recover authoritative history when the response to a command was lost.
+        setInfo(updated);
+        const delivered = updated.history.length > info.history.length &&
+          updated.history.at(-1)?.utterances.join(" ") === attempt.text;
+        if (delivered) {
+          setPending(null);
+          setError("");
+          setDraft("");
+        }
         if (updated.actions.includes("state")) {
           const live = await api<Snapshot>("state", recovery);
           setSnapshot(live);
@@ -710,12 +718,15 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
       {page === "profile" && (
         <section>
           <h1>Профиль гостя</h1>
-          <p>
-            {prepared.guest.user_id} · {info.stay_id}
-          </p>
-          <Detail data={prepared.guest.profile} />
+          <p>Доступные данные помогают подготовить номер к вашему приезду.</p>
+          <Detail data={prepared.guest.profile} catalog={catalog} />
           <h2>Предпочтения</h2>
-          <Detail data={prepared.guest.preferences} />
+          <Detail data={prepared.guest.preferences} catalog={catalog} />
+          <details className="technical-details">
+            <summary>Технические сведения о проживании</summary>
+            <small>Гость: {prepared.guest.user_id}</small>
+            <small>Заезд: {info.stay_id}</small>
+          </details>
         </section>
       )}
       {page === "plan" && (
@@ -741,7 +752,7 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
         <div className="dashboard">
           <section>
             <h1>{page === "room" ? "Мой номер" : "Ваш номер"}</h1>
-            <small>● {info.stay_id}</small>
+            <small>{info.source === "final" ? "Финальный гость · просмотр" : "Демонстрационный номер"}</small>
             {page === "room" && (
               <Hero
                 period={periodAt(info.at)}
@@ -799,7 +810,7 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
           ) : points[period] ? (
             <>
               <small>
-                {preview ? time(preview.at) : "Загружаем состояние…"}
+                {preview ? "Виртуальный момент: " + preview.at.slice(0, 16).replace("T", " · ") : "Загружаем состояние симулятора…"}
               </small>
               <Devices room={preview?.state} catalog={catalog} list />
             </>
