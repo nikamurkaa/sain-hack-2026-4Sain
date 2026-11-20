@@ -56,38 +56,45 @@ MORNING_PROMPT = """Извлеки пропущенные настройки п�
 
 
 def parse_facts(raw: dict, history: list, devices: list, tracks: list) -> dict:
-    parsed = Extraction.model_validate(raw)
+    if not isinstance(raw, dict) or not isinstance(raw.get("facts"), list) or len(raw["facts"]) > 60:
+        raise ValueError("Недопустимый контейнер предпочтений")
     sources = {x["id"]: x for x in history}
     track_ids = {t["track_id"] for t in tracks}
     result = {}
-    for fact in parsed.facts:
-        if fact.key in result:
-            raise ValueError("Неподтверждённый источник предпочтения")
-        source_id = fact.source_id
-        if source_id not in sources or fact.quote not in sources[source_id]["text"]:
-            candidates = [s for s in history if fact.quote in s["text"]]
-            if len(candidates) != 1:
-                raise ValueError("Неподтверждённый источник предпочтения")
-            source_id = candidates[0]["id"]
-        k, v = fact.key, fact.value
-        if k == "temperature":
-            valid = v in ("cool", "neutral", "warm")
-        elif k == "tracks":
-            valid = isinstance(v, list) and all(isinstance(x, str) and x in track_ids for x in v)
-        elif k in ("volume", "timer"):
-            valid = type(v) is int and 1 <= v <= (30 if k == "volume" else 45)
-        elif k == "alarm_mode":
-            valid = v in ("light", "sound", "both")
-        else:
-            parts = k.split(".")
-            valid = len(parts) == 3 and parts[0] in ("home", "morning", "yesterday")
-            if valid:
-                check_values(devices, parts[1], {parts[2]: v})
-        if not valid:
-            raise ValueError("Недопустимое предпочтение")
-        result[k] = {"value": v, "source": source_id, "at": sources[source_id]["at"], "quote": fact.quote}
-        if source_id != fact.source_id:
-            result[k]["source_repaired"] = True
+    for entry in raw["facts"]:
+        try:
+            fact = Fact.model_validate(entry)
+            source_id = fact.source_id
+            if source_id not in sources or fact.quote not in sources[source_id]["text"]:
+                candidates = [s for s in history if fact.quote in s["text"]]
+                if len(candidates) != 1:
+                    continue
+                source_id = candidates[0]["id"]
+            k, v = fact.key, fact.value
+            if k == "temperature":
+                valid = v in ("cool", "neutral", "warm")
+            elif k == "tracks":
+                valid = isinstance(v, list) and all(isinstance(x, str) and x in track_ids for x in v)
+            elif k in ("volume", "timer"):
+                valid = type(v) is int and 1 <= v <= (30 if k == "volume" else 45)
+            elif k == "alarm_mode":
+                valid = v in ("light", "sound", "both")
+            else:
+                parts = k.split(".")
+                valid = len(parts) == 3 and parts[0] in ("home", "morning", "yesterday")
+                if valid:
+                    check_values(devices, parts[1], {parts[2]: v})
+            if not valid:
+                continue
+            if k in result and moment(sources[source_id]["at"]) <= moment(result[k]["at"]):
+                continue
+            result[k] = {"value": v, "source": source_id, "at": sources[source_id]["at"], "quote": fact.quote}
+            if source_id != fact.source_id:
+                result[k]["source_repaired"] = True
+        except (ValueError, TypeError, SchemaError, KeyError):
+            # A single corrupted or unsupported fact does not erase verified
+            # facts; nothing is fabricated to replace a rejected item.
+            continue
     # Перевод качественного описания света в параметры каталога.
     # Берём только источник уже подтверждённой настройки света, не случайное
     # упоминание тепла/холода в остальной истории.
