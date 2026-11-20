@@ -549,3 +549,13 @@
 }
 .design-widget .design-tabs button[aria-pressed="true"] { color: #1b140f; }
 .design-widget .design-tabs button:disabled { color: #c4b5ab; opacity: 1; }
+
+/* The read-only marker is essential status information, not a decorative caption. */
+.design-frame .mode-caption {
+  z-index: 8;
+  left: 51px;
+  width: 225px;
+  font: 600 10px/14px Manrope, sans-serif;
+  color: #ead9cc;
+  white-space: nowrap;
+}

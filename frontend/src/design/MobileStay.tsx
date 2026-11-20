@@ -361,9 +361,12 @@ export function MobileStay(p: Props) {
   }
   return (
     <DesignScreen screen={screen} bind={bind}>
-      <small className="mode-caption">
-        {p.info.rehearsal ? "Репетиция · демо" : p.info.source === "final"
-          ? "Финальный гость · просмотр" : "Демо-номер · управление"}
+      <small className="mode-caption" aria-label={p.badge}>
+        {p.info.source === "final"
+          ? "Финальный гость · просмотр"
+          : p.info.rehearsal
+            ? "Репетиция · демо"
+            : "Демо-номер · управление"}
       </small>
       {p.page === "plan" && (
         <div className="personal-plan">

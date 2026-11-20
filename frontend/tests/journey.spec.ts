@@ -20,6 +20,7 @@ async function connect(page: Page, request: APIRequestContext, source = "dev") {
   await page.getByLabel("Временный токен гостя").fill(token);
   await page.getByRole("button", { name: "Подключиться", exact: true }).click();
   await expect(page.getByRole("button", { name: "Заселиться" })).toBeVisible();
+  return token;
 }
 async function go(page: Page, label: string) {
   await page.getByRole("button", { name: "Меню" }).click();
@@ -117,8 +118,27 @@ test("final snapshot, virtual reads, isolation and expiry", async ({
   page,
   request,
 }) => {
-  await connect(page, request, "final");
-  await expect(page.getByText("Финальный гость · просмотр")).toBeVisible();
+  const finalToken = await connect(page, request, "final");
+  const readOnlyMarker = page.getByText("Финальный гость · просмотр");
+  await expect(readOnlyMarker).toBeVisible();
+  await expect(readOnlyMarker).toHaveAttribute("aria-label", /Репетиция/);
+  // The server must reject writes to the final session, not merely hide controls.
+  const finalAuth = {
+    Authorization: "Bearer " + finalToken,
+    "Idempotency-Key": "final-readonly-assertion",
+  };
+  const finalManual = await request.post("http://127.0.0.1:8765/api/v1/devices", {
+    headers: finalAuth,
+    data: { device_id: "light", values: { brightness: 40 }, at: "2026-11-12T20:00:00+03:00" },
+  });
+  expect(finalManual.status()).toBe(409);
+  expect((await finalManual.json()).code).toBe("SESSION_READ_ONLY");
+  const finalText = await request.post("http://127.0.0.1:8765/api/v1/messages", {
+    headers: finalAuth,
+    data: { text: "Включи свет", at: "2026-11-12T20:00:00+03:00" },
+  });
+  expect(finalText.status()).toBe(409);
+  await expect(readOnlyMarker).toBeVisible();
   await go(page, "Профиль гостя");
   await page.getByText("Технические сведения о проживании").click();
   await expect(page.getByText(/final_test/)).toBeVisible();
