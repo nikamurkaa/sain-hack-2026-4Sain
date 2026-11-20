@@ -1,4 +1,5 @@
 import { defineConfig } from "@playwright/test";
+const webkit = process.env.SAIN_BROWSER === "webkit";
 const firefox = process.env.SAIN_BROWSER === "firefox";
 export default defineConfig({
   testDir: "tests",
@@ -8,22 +9,24 @@ export default defineConfig({
   use: {
     baseURL: "http://127.0.0.1:4173",
     viewport: { width: 375, height: 812 },
-    browserName: firefox ? "firefox" : "chromium",
-    permissions: firefox ? [] : ["microphone"],
-    launchOptions: firefox
-      ? {
-          firefoxUserPrefs: {
-            "media.navigator.streams.fake": true,
-            "media.navigator.permission.disabled": true,
+    browserName: webkit ? "webkit" : firefox ? "firefox" : "chromium",
+    permissions: firefox || webkit ? [] : ["microphone"],
+    launchOptions: webkit
+      ? {}
+      : firefox
+        ? {
+            firefoxUserPrefs: {
+              "media.navigator.streams.fake": true,
+              "media.navigator.permission.disabled": true,
+            },
+          }
+        : {
+            executablePath: process.env.CHROMIUM_PATH || undefined,
+            args: [
+              "--use-fake-device-for-media-stream",
+              "--use-fake-ui-for-media-stream",
+            ],
           },
-        }
-      : {
-          executablePath: process.env.CHROMIUM_PATH || undefined,
-          args: [
-            "--use-fake-device-for-media-stream",
-            "--use-fake-ui-for-media-stream",
-          ],
-        },
   },
   webServer: [
     {

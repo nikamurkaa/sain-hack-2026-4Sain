@@ -181,7 +181,10 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
     let current = true;
     setPreview(null);
     setPreviewError("");
-    api<Snapshot>("state?" + new URLSearchParams({ at: points[period]! }))
+    const reading = new AbortController();
+    api<Snapshot>("state?" + new URLSearchParams({ at: points[period]! }), {
+      signal: reading.signal,
+    })
       .then((v) => {
         if (current) setPreview(v);
       })
@@ -193,13 +196,45 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
       });
     return () => {
       current = false;
+      reading.abort();
     };
   }, [api, page, period, points, expired, previewVersion]);
   useEffect(() => {
     const el = chatLog.current;
     if (el && follow.current) el.scrollTop = el.scrollHeight;
   }, [pending, busy, info?.history.length, error, page]);
-  function go(next: Page) {
+  const [navigationId] = useState(() => crypto.randomUUID());
+  useEffect(() => {
+    // History entries contain only view names and a per-mount nonce.
+    history.replaceState({ navigationId, view: "welcome" }, "");
+    const restore = (event: PopStateEvent) => {
+      const state = event.state;
+      const view =
+        state?.navigationId === navigationId ? state.view : "welcome";
+      const known = [
+        "welcome",
+        "room",
+        "plan",
+        "chat",
+        "virtual",
+        "profile",
+        "settings",
+        "voice",
+      ];
+      if (view === "settings" && typeof state.device === "string")
+        setDevice(state.device);
+      setPage(known.includes(view) ? view : "welcome");
+      setMenu(false);
+    };
+    window.addEventListener("popstate", restore);
+    return () => window.removeEventListener("popstate", restore);
+  }, [navigationId]);
+  function go(next: Page, selectedDevice = device) {
+    if (next !== page)
+      history.pushState(
+        { navigationId, view: next, device: selectedDevice },
+        "",
+      );
     setMenu(false);
     setPage(next);
     window.scrollTo(0, 0);
@@ -271,10 +306,11 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
       setDraft(attempt.text);
       setStale(true);
       try {
-        const updated = await api<Session>("session");
+        const recovery = { signal: AbortSignal.timeout(4000) };
+        const updated = await api<Session>("session", recovery);
         setInfo({ ...updated, history: info.history });
         if (updated.actions.includes("state")) {
-          const live = await api<Snapshot>("state");
+          const live = await api<Snapshot>("state", recovery);
           setSnapshot(live);
           setStale(false);
         }
@@ -386,13 +422,27 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
     allowed && !pending && !busy
       ? (id: string) => {
           setDevice(id);
-          go("settings");
+          go("settings", id);
         }
       : undefined;
   const navigationMenu = menu && (
-    <nav>
+    <nav
+      aria-label="Навигация по номеру"
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          setMenu(false);
+          document
+            .querySelector<HTMLButtonElement>('button[aria-label="Меню"]')
+            ?.focus();
+        }
+      }}
+    >
       {Object.entries(pageNames).map(([key, label]) => (
-        <button key={key} onClick={() => go(key as Page)}>
+        <button
+          key={key}
+          autoFocus={key === "welcome"}
+          onClick={() => go(key as Page)}
+        >
           {label}
         </button>
       ))}

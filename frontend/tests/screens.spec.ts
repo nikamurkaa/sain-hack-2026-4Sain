@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { readFileSync, mkdirSync } from "node:fs";
+import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
 const sample = (name: string) =>
   JSON.parse(readFileSync("../docs/examples/room/" + name + ".json", "utf8"));
 const catalog = JSON.parse(readFileSync("../tests/catalog.json", "utf8"));
@@ -113,6 +113,42 @@ async function shot(page: Page, name: string | number) {
     await new Promise(requestAnimationFrame);
     await new Promise(requestAnimationFrame);
   });
+  if (typeof name === "number" && process.env.SAIN_DESKTOP_SHOTS) {
+    const covered = await page.evaluate(() =>
+      Array.from(
+        document.querySelectorAll<HTMLElement>(
+          "button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled)",
+        ),
+      ).flatMap((el) => {
+        const r = el.getBoundingClientRect(),
+          x = r.left + r.width / 2,
+          y = r.top + r.height / 2;
+        if (!r.width || !r.height || y < 0 || y >= innerHeight) return [];
+        return el.contains(document.elementFromPoint(x, y))
+          ? []
+          : [el.getAttribute("aria-label") || el.textContent || el.tagName];
+      }),
+    );
+    writeFileSync(
+      dir + "/" + String(name).padStart(2, "0") + "-hit.json",
+      JSON.stringify(covered),
+    );
+  }
+  if (process.env.SAIN_DESKTOP_SHOTS && typeof name === "number") {
+    const desktop = process.env.SAIN_DESKTOP_SHOTS;
+    mkdirSync(desktop, { recursive: true });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.evaluate(() => new Promise(requestAnimationFrame));
+    await page.screenshot({
+      path: desktop + "/" + String(name).padStart(2, "0") + ".png",
+      animations: "disabled",
+    });
+    await page.setViewportSize({ width: 375, height: 812 });
+    await expect(page.locator(".design-frame")).toHaveAttribute(
+      "data-frame",
+      String(name),
+    );
+  }
   await page.screenshot({
     path: dir + "/" + String(name).padStart(2, "0") + ".png",
     animations: "disabled",
@@ -141,7 +177,7 @@ test("connection, device settings, chat lifecycle, voice review and expiry", asy
   page,
 }) => {
   const c = await fixture(page, "19:48");
-  c.loading = 800;
+  c.loading = process.env.SAIN_DESKTOP_SHOTS ? 2400 : 800;
   await start(page);
   await expect(page.getByRole("status")).toContainText("Загружаем");
   await shot(page, 24);
@@ -157,7 +193,7 @@ test("connection, device settings, chat lifecycle, voice review and expiry", asy
   }
   await go(page, "Диалог");
   await shot(page, 9);
-  c.delay = 700;
+  c.delay = process.env.SAIN_DESKTOP_SHOTS ? 1600 : 700;
   await page.getByText("Сделай попрохладнее", { exact: true }).click();
   await expect(page.getByText("Выполняю просьбу…")).toBeVisible();
   await shot(page, 25);
@@ -177,18 +213,28 @@ test("connection, device settings, chat lifecycle, voice review and expiry", asy
   await shot(page, 28);
   await page.getByRole("button", { name: "Закрыть", exact: true }).click();
   c.fail = false;
-  c.stt = 850;
+  c.stt = process.env.SAIN_DESKTOP_SHOTS ? 2400 : 850;
   await page.getByLabel("Голосовой ввод").click();
   await expect(page.locator(".record")).toBeVisible();
   await shot(page, 12);
-  await page.waitForTimeout(550);
-  await page.locator(".record").click();
-  await expect(
-    page.getByRole("heading", { name: "Распознаём вашу команду" }),
-  ).toBeVisible();
-  await shot(page, 13);
-  await expect(page.getByLabel("Распознанный текст")).toBeVisible();
-  await shot(page, 14);
+  if (
+    await page.evaluate(
+      () =>
+        !!navigator.mediaDevices?.getUserMedia &&
+        typeof MediaRecorder !== "undefined",
+    )
+  ) {
+    await page.waitForTimeout(550);
+    await page.locator(".record").click();
+    await expect(
+      page.getByRole("heading", { name: "Распознаём вашу команду" }),
+    ).toBeVisible();
+    await shot(page, 13);
+    await expect(page.getByLabel("Распознанный текст")).toBeVisible();
+    await shot(page, 14);
+  } else {
+    await expect(page.getByRole("alert")).toContainText("Запись недоступна");
+  }
   await page.getByRole("button", { name: "Отменить" }).click();
   await go(page, "Мой номер");
   for (const width of [768, 1440]) {
