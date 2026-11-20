@@ -11,7 +11,7 @@ ORIGINS = {
     "stand": "https://team25.hack.be-healthy.tech",
 }
 READS = {"session", "prepared", "state", "guest", "catalog", "scenario"}
-WRITES = {"messages", "transcriptions"}
+WRITES = {"messages", "transcriptions", "devices"}
 
 
 class Handler(SimpleHTTPRequestHandler):

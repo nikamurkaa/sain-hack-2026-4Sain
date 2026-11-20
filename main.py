@@ -9,16 +9,20 @@ import os
 import secrets
 import time
 from typing import Literal
+from datetime import timedelta
+from zoneinfo import ZoneInfo
+from jsonschema.exceptions import ValidationError as JsonSchemaValidationError
 
 import httpx
 from fastapi import Depends, FastAPI, Header, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 
 from backend.clients import ModelClient
 from backend.api_models import RunAnswer, SessionCreated, Conversation, PreparedView, Guest, Scenario, Catalog, State, MessageResult, Transcription
-from backend.core import ServiceError, moment
+from backend.core import ServiceError, moment, check_values
 from backend.runner import open_solution
+from backend.commands import _local_alarm, success_text
 
 logging.getLogger('httpx').setLevel(logging.WARNING)
 logging.getLogger('httpcore').setLevel(logging.WARNING)
@@ -118,6 +122,19 @@ class SessionInput(BaseModel):
     dataset_code: str = Field(default='case2-dev-v1', pattern=r'^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$')
     stay_id: str | None = Field(default=None, pattern=r'^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$')
     source: Literal['dev', 'final'] = 'dev'
+
+
+class DeviceInput(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    device_id: Literal['light', 'climate', 'sound', 'curtains', 'alarm', 'dnd']
+    values: dict[str, JsonValue] = Field(min_length=1)
+    at: str
+
+    @field_validator('at')
+    @classmethod
+    def validate_time(cls, value):
+        moment(value)
+        return value
 
 
 class MessageInput(BaseModel):
@@ -223,7 +240,7 @@ def session_info(session):
         actions.append('state')
     can_send = not session.read_only and session.connection_status != 'access_ended'
     if can_send:
-        actions.extend(['message', 'transcription'])
+        actions.extend(['message', 'transcription', 'devices'])
     return {'source': 'final' if session.presentation else 'dev',
             'connection_status': session.connection_status, 'can_send_requests': can_send,
             'actions': actions, 'expires_in': max(0, int(session.expires - time.monotonic())),
@@ -349,6 +366,65 @@ async def message(body: MessageInput, idempotency_key: str = Header(min_length=8
                     session.read_only = True
             session.messages[idempotency_key] = (fingerprint, ServiceError(exc.code, exc.message, exc.status))
             raise
+
+
+@app.post('/api/v1/devices', response_model=MessageResult)
+async def set_device(body: DeviceInput, idempotency_key: str = Header(min_length=8, max_length=128),
+                     session=Depends(client_session)):
+    """Manual controls in an authorized writable dev session only."""
+    fingerprint = hashlib.sha256(('manual:' + body.model_dump_json()).encode()).hexdigest()
+    async with session.lock:
+        previous = session.messages.get(idempotency_key)
+        if previous:
+            if previous[0] != fingerprint:
+                raise ServiceError('IDEMPOTENCY_CONFLICT', 'Ключ уже использован для другой настройки.', 409)
+            if isinstance(previous[1], ServiceError):
+                err = previous[1]
+                raise ServiceError(err.code, err.message, err.status)
+            return previous[1]
+        require_writable(session)
+        if len(session.messages) >= 100:
+            raise ServiceError('MESSAGE_LIMIT', 'Лимит операций сеанса исчерпан.', 429)
+        check_time(session, body.at)
+        if moment(body.at) < moment(session.at):
+            raise ServiceError('TIME_BACKWARDS', 'Нельзя изменять настройки в прошлом.', 409)
+        changes = dict(body.values)
+        if body.device_id == 'alarm' and isinstance(changes.get('at'), str) and len(changes['at']) == 5:
+            try:
+                hotel = session.stay.get('hotel_timezone')
+                zone = ZoneInfo(hotel) if hotel else moment(body.at).tzinfo
+                now = moment(body.at).astimezone(zone)
+                when = _local_alarm(now.date(), changes['at'], zone)
+                if when <= now:
+                    when = _local_alarm(now.date() + timedelta(days=1), changes['at'], zone)
+                changes['at'] = when.isoformat()
+            except (ValueError, KeyError, OverflowError):
+                raise ServiceError('INVALID_TIME', 'Укажите допустимое время пробуждения.', 422) from None
+        try:
+            check_values(session.solution.data['devices'], body.device_id, changes)
+        except (JsonSchemaValidationError, ValueError, TypeError):
+            raise ServiceError('INVALID_VALUE', 'Значение не соответствует настройкам устройства.', 422) from None
+        uncertain = ServiceError('ACTION_UNCERTAIN', 'Результат не подтверждён. Проверьте состояние номера.', 409)
+        session.messages[idempotency_key] = (fingerprint, uncertain)
+        command = {'device_id': body.device_id, 'values': changes, 'at': body.at}
+        try:
+            actual = await session.room.execute([command], body.at)
+        except ServiceError as exc:
+            note_upstream_error(session, exc)
+            if exc.status == 409 and exc.code.startswith(('UPSTREAM_', 'RUN_')):
+                session.read_only = True
+            session.messages[idempotency_key] = (fingerprint, ServiceError(exc.code, exc.message, exc.status))
+            raise
+        reply = {'role': 'agent', 'at': body.at,
+                 'text': success_text([command], session.solution.data['tracks']), 'response_class': 'done'}
+        result = {'reply': reply, 'state': actual}
+        session.connection_status = 'available'
+        session.last_confirmed = {'at': body.at, 'state': actual}
+        session.at = body.at
+        session.history.append({'at': body.at, 'utterances': ['Ручная настройка: ' + body.device_id],
+                                'reply': reply})
+        session.messages[idempotency_key] = (fingerprint, result)
+        return result
 
 
 @app.delete('/api/v1/session', status_code=204)
