@@ -57,6 +57,7 @@ test('V06: 12 real catalog tracks × 10 viewports, API confirmation and keyboard
   await page.getByRole('button',{name:/^Сохранить/}).click();
   await expect(page.locator('.reply.done')).toBeVisible();
   const metrics:object[]=[];
+  const errors:string[]=[];
   for (const [index,t] of tracks.entries()){
     await page.setViewportSize({width:375,height:812});
     await go(page,'Мой номер');await card(page).click();
@@ -76,12 +77,12 @@ test('V06: 12 real catalog tracks × 10 viewports, API confirmation and keyboard
       await expect(card(page)).toContainText(t.title);
       const result=await measure(page,t.title);
       metrics.push({track_id:t.track_id,...result});
-      expect(result,t.track_id+' '+width+' missing').toHaveProperty('found',true);
-      expect(result,t.track_id+' '+width+' clipped').toHaveProperty('clipped',false);
-      expect(result,t.track_id+' '+width+' overlap').toHaveProperty('meterOverlap',false);
-      expect(result,t.track_id+' '+width+' page overflow').toHaveProperty('horizontalOverflow',false);
+      if(!('found' in result) || !result.found || ('clipped' in result && result.clipped) ||
+         ('meterOverlap' in result && result.meterOverlap) ||
+         ('horizontalOverflow' in result && result.horizontalOverflow))
+        errors.push(t.track_id+' / '+width+': '+JSON.stringify(result));
       const file=evidence('track-'+t.track_id+'-'+width+'.png');
-      if(file&&(width===375||(index===6&&[320,1440,1920].includes(width))))
+      if(file&&([375,768].includes(width)||(index===6&&[320,1440,1920].includes(width))))
         await page.screenshot({path:file,animations:'disabled'});
     }
     await page.setViewportSize({width:375,height:812});
@@ -93,4 +94,5 @@ test('V06: 12 real catalog tracks × 10 viewports, API confirmation and keyboard
   const metricsFile=evidence('tracks-120-measurements.json');
   if(metricsFile)writeFileSync(metricsFile,JSON.stringify({sha:process.env.GITHUB_SHA||'local',metrics},null,2));
   expect(metrics).toHaveLength(120);
+  expect(errors,errors.slice(0,50).join('\n')).toHaveLength(0);
 });
