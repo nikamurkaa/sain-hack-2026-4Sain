@@ -150,7 +150,18 @@ class ModelClient:
                     continue
                 raise ServiceError("MODEL_UNAVAILABLE", "Не удалось обработать сообщение. Попробуйте позже.", 503) from None
             if response.status_code in (429, 500, 502, 503, 504) and attempt < 2:
-                await asyncio.sleep(5 * 2 ** attempt)
+                delay = 5 * 2 ** attempt
+                # A brief server-provided cooldown is more reliable than a
+                # blind retry. Bound it so a transient 429 cannot monopolize
+                # the official 45-minute /run deadline.
+                if response.status_code == 429:
+                    try:
+                        requested = float(response.headers.get("Retry-After", ""))
+                        if 0 < requested <= 60 and requested == requested:
+                            delay = max(delay, requested)
+                    except ValueError:
+                        pass
+                await asyncio.sleep(delay)
                 continue
             if response.is_error:
                 raise ServiceError("MODEL_UNAVAILABLE", "Сервис обработки сообщений временно недоступен.", 503)
