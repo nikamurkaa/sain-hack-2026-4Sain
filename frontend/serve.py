@@ -11,7 +11,7 @@ ORIGINS = {
     "live": "http://127.0.0.1:8765",
     "stand": "https://team25.hack.be-healthy.tech",
 }
-READS = {"session", "prepared", "state", "guest", "catalog", "scenario", "reconciliation"}
+READS = {"session", "prepared", "state", "guest", "catalog", "scenario", "reconciliation", "ai-status"}
 WRITES = {"messages", "transcriptions", "devices", "speech"}
 
 
