@@ -50,3 +50,18 @@ This section supersedes any earlier *merge-readiness claim* in the original Stag
 | MR-004 | Assert non-merge source commit with job env and checkout ref | `.github/workflows/test.yml` (checkout and exact SHA assertion) | Original [CI 45024448298](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45024448298) tested synthetic merge SHA; tree was identical, provenance policy still violated | [backend 45028432526](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45028432526) now logs expected and actual exact head; verify final run against final SHA |
 
 **Final exact-SHA gate:** resolve PR #20 head *after the final documentation commit*, then verify all three completed SUCCESS runs on that SHA. Do not interpret the above intermediate proof as independent signoff. Existing S-003/S-004/S-008/S-009/S-010, INT-001–INT-006 and the 10/60 offline score remain required regression checks.
+
+
+---
+
+## TEMPORAL FINAL GATE — MR-NEW-01/02/03 (2026-11-22)
+
+> **Supersedes earlier review-ready claims based on `fb3b082...`.** The independent second review found a new P1 temporal inconsistency; the older 305/28-each green runs are **not** acceptance of the new code. Final disposition requires three new SUCCESS workflows whose jobs checked out the **same last PR HEAD**, independent signoff, and a separate owner merge decision. Full technical explanation: [SAIN_Stage1_Temporal_Recovery_Remediation.md](SAIN_Stage1_Temporal_Recovery_Remediation.md).
+
+| Temporal T2!=T1 | `tests/stage1/test_mr_new01_temporal.py`, `frontend/tests/stage1-temporal.{test,spec}.ts` | RED `9eda085...` [45031450797](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45031450797) (2 failed). Green code checkpoint [45032271808](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45032271808) **311 pytest**, [45032271827](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45032271827) **13 Node / 41 Chromium / 41 Firefox**; T2 partial light=0, stale T1=70, no T1 POST, no POST on GET, same key replay, manual uncertain, midnight, conflict, guest isolation, default/live/preview distinct |
+| Untrusted recon snapshot | `frontend/tests/stage1-temporal.test.ts`, `frontend/tests/stage1-temporal.spec.ts` | Wrong operation ID/UTC instant/snapshot/confirmed devices HTTP200 rejected; same instant with different offset accepted; GET failure stays stale and no auto POST; async response generation guard |
+| Mobile stale submit | `frontend/tests/stage1-temporal.spec.ts` | Nonempty draft disabled, aria-describedby, no retry, successful GET allows new manual send, no automatic submission; Figma decorative circle dimmed; 320×568 screenshot |
+| In-flow critical notice | `frontend/tests/stage1-temporal.spec.ts` | 320×568, 360×640, 375×667/812, 390×844, 430×932, 768×1024, 1440×900 and 200% zoom; DOM focus/Enter, no horizontal overflow, dismiss then six devices, screenshots Chromium+Firefox |
+| Windows ZIP test layout | `tests/test_quality_gate_time_ops.py` | Source under `windows/`, flattened release root with BUILD_INFO and START/STOP — 311 full pytest from exact ZIP **without symlink**, artifact contents unchanged |
+
+**Final SHA policy:** all figures above identify a specific code checkpoint. The final documentation commit changes PR HEAD; only the *new* backend/frontend/Windows success checks linked in PR #20 constitute final exact-HEAD evidence. Never merge based on prior screenshots alone.

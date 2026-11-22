@@ -78,3 +78,21 @@ This section supersedes any earlier *merge-readiness claim* in the original Stag
 - [ ] Independent re-review, owner's separate merge permission and any future external legal/brand approval are **not granted here**.
 
 Stage 1 restart state remains in-memory; one worker/process only. A new synthetic REHEARSAL session after restart is *not* recovered old state.
+
+
+---
+
+## TEMPORAL FINAL GATE — MR-NEW-01/02/03 (2026-11-22)
+
+> **Supersedes earlier review-ready claims based on `fb3b082...`.** The independent second review found a new P1 temporal inconsistency; the older 305/28-each green runs are **not** acceptance of the new code. Final disposition requires three new SUCCESS workflows whose jobs checked out the **same last PR HEAD**, independent signoff, and a separate owner merge decision. Full technical explanation: [SAIN_Stage1_Temporal_Recovery_Remediation.md](SAIN_Stage1_Temporal_Recovery_Remediation.md).
+
+- [x] MR-NEW-01 reproducible RED committed before fix: POST at T2=20:45, first light=0 confirmed, second sound rejected, default GET T1=20:00 returns 70%, old T1 write was accepted on baseline.
+- [x] Backend per-operation trusted attempted_at + mutation floor, 409 RECOVERY_REQUIRED / TIME_BACKWARDS, cached key replay; explicit read-only reconciliation GET at T2 confirms actual light=0.
+- [x] No success history or `session.at` rewrite on partial; no automatic POST retry; default GET and virtual preview cannot unlock issue or regress last_confirmed.
+- [x] Browser only releases after validated operation ID, UTC-equivalent attempted/snapshot instant, status and confirmed device set; rejects HTTP200 stale/malformed snapshots; token/revision guard.
+- [x] MR-NEW-02 nonempty mobile draft disabled while stale, accessible explanation, visually dimmed send circle, no POST until verified GET and conscious new action.
+- [x] MR-NEW-03 no overlapping overlay; accessibility actions in document flow and 44px buttons. Eight viewports, keyboard/scroll and CSS zoom 200% automated; all six devices visible after dismiss.
+- [x] Source vs Windows package test oracle accepts both required documented layouts; independent full 311 pytest and 10/60 from extracted flat ZIP without symlink.
+- [ ] Independently inspect *latest* browser screenshots and test a real physical 320px device/touch keyboard if required by review scope; screen reader NOT tested.
+- [ ] Verify exact newest PR HEAD (NOT temporary merge ref) equals successful backend/frontend/Windows job checkout logs and ZIP BUILD_INFO; latest screenshot artifact must be that SHA.
+- [ ] Independently rerun adversarial temporal cases; signer/owner must explicitly review PR #20. No self-issued merge approval.

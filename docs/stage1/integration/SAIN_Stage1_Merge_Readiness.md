@@ -43,3 +43,19 @@ Hard gates: MR-001 structured partial error and safe state-refresh screenshots; 
 No merge, force push, branch deletion, production deployment, closed organizer /run, token use, final read-only bypass, historic tag edit or expert handoff. The existing PR #20 remains Draft until owner decision.
 
 Supported: one process, one worker, in-memory Room journal and API idempotency, loopback REHEARSAL, new session after restart. Unsupported: multi-worker, durable crash replay, remote upstream reattach and exactly-once. Those limitations are carried in the Final ADR and Stage 6 backlog.
+
+
+---
+
+## TEMPORAL FINAL GATE — MR-NEW-01/02/03 (2026-11-22)
+
+> **Supersedes earlier review-ready claims based on `fb3b082...`.** The independent second review found a new P1 temporal inconsistency; the older 305/28-each green runs are **not** acceptance of the new code. Final disposition requires three new SUCCESS workflows whose jobs checked out the **same last PR HEAD**, independent signoff, and a separate owner merge decision. Full technical explanation: [SAIN_Stage1_Temporal_Recovery_Remediation.md](SAIN_Stage1_Temporal_Recovery_Remediation.md).
+
+**New verdict target:** `READY FOR FINAL INDEPENDENT MERGE REVIEW` only after the four hard conditions below are independently inspected; otherwise `NOT READY — FIXABLE BLOCKERS REMAIN`. Older `READY FOR INDEPENDENT REVIEW` language predates the confirmed second-review MR-NEW-01 failure and is superseded by this section.
+
+1. MR-NEW-01: RED baseline, GREEN T2=20:45 partial snapshot light=0, T1 default light=70 never called verified for T2; both message and manual T1 writes forbidden until correct GET reconciliation, and still forbidden at T1 afterward; same-key replay zero POST.
+2. MR-NEW-02: nonempty mobile draft disabled while unresolved, focus/aria hint, no false clickable decorative circle; after GET allowed only conscious new action at next_action_at.
+3. MR-NEW-03: real mobile Chromium/Firefox screenshots at low viewport, accessible scroll/keyboard buttons, no overlap with alarm/DND, six devices reachable after dismiss; independent physical QA remains unproven.
+4. All backend/online-offline, frontend Chromium+Firefox and Windows ZIP workflows **SUCCESS at identical final commit HEAD**, exact checkout verified. No combining different SHAs; inspect the final run URLs in Draft PR description.
+
+No merge to main, no force push, no official closed /run, no organizer tokens, no tag edit or expert distribution. Upstream atomicity, durable recovery, physical Windows and IP approvals remain external/Stage 6 limitations.

@@ -84,3 +84,16 @@ This section supersedes any earlier *merge-readiness claim* in the original Stag
 **Supported topology:** single process, single worker, local in-memory journal; fresh guest session after process restart. No distributed coordination, remote reattachment, upstream exactly-once, SQLite durability or external licensing approval.
 
 **Rollback:** normal non-force revert on the integration branch only, then rerun all exact-head checks; never blindly retry an uncertain POST and never merge main without a fresh independent acceptance.
+
+
+---
+
+## TEMPORAL FINAL GATE — MR-NEW-01/02/03 (2026-11-22)
+
+> **Supersedes earlier review-ready claims based on `fb3b082...`.** The independent second review found a new P1 temporal inconsistency; the older 305/28-each green runs are **not** acceptance of the new code. Final disposition requires three new SUCCESS workflows whose jobs checked out the **same last PR HEAD**, independent signoff, and a separate owner merge decision. Full technical explanation: [SAIN_Stage1_Temporal_Recovery_Remediation.md](SAIN_Stage1_Temporal_Recovery_Remediation.md).
+
+**MR-NEW-01:** Server now distinguishes last successful `session.at` from the monotonic potentially applied `mutation_floor`. Typed action errors carry trusted `attempted_at` and confirmed devices; GET `/reconciliation?operation_id=` reads **exact T2** with journal cross-check. Default GET T1 or future preview never unlocks T2 action or rewrites newer `last_confirmed`. After successful verification only new explicit write at `next_action_at >= T2` is permitted. No unsafe POST replay.
+
+**MR-NEW-02/03:** Shared `canSubmit`, explicit disabled/aria explanation even with nonempty mobile draft, and in-flow (non-overlapping) alert at 320×568 through desktop; decorative send circle visibly dimmed when unresolved. Existing SAIN Figma room cards and all six devices retained.
+
+**Packaging oracle:** `tests/test_quality_gate_time_ops.py` explicitly distinguishes source `windows/*.ps1` and flattened Windows ZIP root scripts without modifying either package; independent full pytest from flat artifact **311 passed**, 10/60 offline passed. Before this doc update, exact code-only CI evidence: [backend](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45032271808) 311 pytest; [frontend](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45032271827) 41 Chromium + 41 Firefox; [Windows](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45032271793) package. New exact-final-HEAD runs supersede them and are linked from PR #20.

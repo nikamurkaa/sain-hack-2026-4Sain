@@ -43,3 +43,18 @@ This section supersedes any earlier *merge-readiness claim* in the original Stag
 | Single-worker / restart boundary | HIGH for distributed deployment, accepted local-only | One Room owner per remote session; per-object asyncio lock and in-memory journal are not shared between processes. On restart guest tokens and operation journal expire; start fresh REHEARSAL, no official reattach. Durable authorized local persistence deferred to Stage 6. |
 
 The standalone [remediation report](SAIN_Stage1_Merge_Review_Remediation.md) must be reviewed alongside the prior integration reports; it does not independently close S-002/S-024 or IP/licensing issues.
+
+
+---
+
+## TEMPORAL FINAL GATE — MR-NEW-01/02/03 (2026-11-22)
+
+> **Supersedes earlier review-ready claims based on `fb3b082...`.** The independent second review found a new P1 temporal inconsistency; the older 305/28-each green runs are **not** acceptance of the new code. Final disposition requires three new SUCCESS workflows whose jobs checked out the **same last PR HEAD**, independent signoff, and a separate owner merge decision. Full technical explanation: [SAIN_Stage1_Temporal_Recovery_Remediation.md](SAIN_Stage1_Temporal_Recovery_Remediation.md).
+
+| MR-NEW-01 residual external semantics | HIGH for production, accepted single-process local only | GET reconciliation proves observed actual device state at the attempted instant, NOT remote transaction receipt, unobservable side effects or exactly-once; no authorized upstream session reattach exists. Stage 6 persistence alone cannot resolve organizer receipt gaps. |
+| MR-NEW-01 crash | HIGH if session survives restart | In-memory issue journal, floor and tokens vanish on process restart; always fresh synthetic session, no silent continuation of old upstream identity. |
+| MR-NEW-02 mobile affordance | LOW after code/test | Semantically and visually disabled while unresolved; physical touch usability still awaits manual device QA. |
+| MR-NEW-03 accessibility hardware | LOW / follow-up | Browser viewport/zoom/keyboard/focus/screenshot coverage complete in local synthetic E2E; actual mobile OS keyboard, tactile hit target and screen-reader audit not performed. Do not claim WCAG AA or native UI QA. |
+| Windows package vs source paths | Resolved test oracle | Source uses `windows/`, distribution intentionally flattens launch scripts beside START/STOP; package file layout isn't the source tree. Strict test accepts either with BUILD_INFO evidence; no duplicate files added. |
+
+**No external-use authorization:** this local Stage 1 evidence does not authorize distribution of SAIN branding, host assets, organizer token use, production release or claims of durable multi-worker correctness. A fresh independent review and owner decision remain pending.
