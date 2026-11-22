@@ -1,0 +1,73 @@
+name: One-time full history audit and rescue bundle
+on:
+  push:
+    branches: [release/sain-final-candidate-20261120]
+    paths:
+      - '.github/workflows/archive-rescue.yml'
+      - 'tests/test_final_score_gate.py'
+permissions:
+  contents: read
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Fetch all named branch histories without modifying remote
+        run: |
+          git fetch origin '+refs/heads/*:refs/remotes/origin/*'
+          git fetch origin '+refs/tags/*:refs/tags/*'
+          git branch -r
+      - name: Scan all reachable historical blobs; never print credentials
+        run: |
+          python - <<'PY'
+          import subprocess, re, json, pathlib
+          patterns = [
+              ("PRIVATE_KEY", re.compile(rb"-----BEGIN (?:OPENSSH |RSA |EC |DSA )?PRIVATE KEY-----")),
+              ("GITHUB_TOKEN", re.compile(rb"(?:gh[pousr]_[A-Za-z0-9_]{30,}|github_pat_[A-Za-z0-9_]{40,})")),
+              ("MODEL_API_KEY", re.compile(rb"sk-[A-Za-z0-9_-]{28,}")),
+              ("GOOGLE_API_KEY", re.compile(rb"AIza[A-Za-z0-9_-]{30,}")),
+              ("SENSITIVE_CONFIGURATION", re.compile(rb"(?:HACK_TEAM_TOKEN|LLM_API_KEY|BIFROST_API_KEY|STAND_SSH_KEY)\s*[=:]\s*['\"]?[A-Za-z0-9_-]{28,}",re.I)),
+          ]
+          listed=subprocess.check_output(["git","rev-list","--objects","--all"],text=True).splitlines()
+          findings=[]; inspected=0; skipped_large=0; seen=set()
+          for line in listed:
+              sha,_,path=line.partition(" ")
+              if sha in seen: continue
+              seen.add(sha)
+              if subprocess.run(["git","cat-file","-t",sha],capture_output=True,text=True).stdout.strip()!="blob":
+                  continue
+              size=int(subprocess.check_output(["git","cat-file","-s",sha],text=True).strip())
+              if size>3_000_000: skipped_large+=1; continue
+              inspected+=1
+              data=subprocess.check_output(["git","cat-file","blob",sha])
+              if path.lower().endswith(("team25.zip","id_ed25519",".env")):
+                  findings.append({"type":"SENSITIVE_FILE_PATH","path":path,"git_object":sha[:12]})
+              for label,reg in patterns:
+                  if reg.search(data):
+                      findings.append({"type":label,"path":path,"git_object":sha[:12]})
+          report={"total_git_objects":len(seen),"inspected_blobs":inspected,"large_blobs_not_content_scanned":skipped_large,"finding_count":len(findings),"findings":findings}
+          pathlib.Path("git_history_security_scan.json").write_text(json.dumps(report,ensure_ascii=False,indent=2))
+          print("History objects:",len(seen),"inspected:",inspected,"large skipped:",skipped_large,"finding count:",len(findings))
+          for f in findings: print("Potential secret:",f["type"],f["path"],f["git_object"])
+          if findings: raise SystemExit("Historical security scan blocked backup: investigate and rotate before publishing")
+          PY
+      - name: Create full reachable branch history backup
+        run: |
+          git bundle create SAIN-Smart-Room-All-Branches.bundle --all
+          git bundle verify SAIN-Smart-Room-All-Branches.bundle
+          git for-each-ref --format='%(refname:short) %(objectname)' refs/remotes/origin refs/tags > branch_sha_inventory.txt
+          sha256sum SAIN-Smart-Room-All-Branches.bundle > bundle.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sain-all-branches-git-rescue
+          path: |
+            SAIN-Smart-Room-All-Branches.bundle
+            bundle.sha256
+            branch_sha_inventory.txt
+            git_history_security_scan.json
+          if-no-files-found: error
+          retention-days: 90
