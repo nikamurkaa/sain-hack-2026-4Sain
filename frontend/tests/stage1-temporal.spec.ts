@@ -150,6 +150,7 @@ test("MR-NEW-02: 320x568 unresolved partial, nonempty draft disables send until 
     await draft.fill("Сделай потеплее");
     const sendButton=page.getByRole("button",{name:"Отправить просьбу"});
     await expect(sendButton).toBeDisabled();
+    await expect(page.locator(".design-composer")).toHaveClass(/recovery-blocked/);
     await expect(sendButton).toHaveAttribute("aria-describedby","sain-action-hint");
     expect(posts).toBe(1);
     mkdirSync("evidence",{recursive:true});

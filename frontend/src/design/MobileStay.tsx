@@ -342,7 +342,7 @@ export function MobileStay(p: Props) {
               e.preventDefault();
               if (p.canSubmit) p.send(p.draft);
             }}
-            className="design-composer"
+            className={"design-composer" + (p.blockedByRecovery ? " recovery-blocked" : "")}
           >
             <input
               aria-label="Просьба"
