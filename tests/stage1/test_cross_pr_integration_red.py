@@ -83,3 +83,47 @@ def test_operation_journal_capacity_must_fail_closed_without_replay_eviction():
         assert await room.execute(cmd, AT, operation_id="op-000") == sim.actual
         assert sim.posts == posts
     asyncio.run(check())
+
+
+def test_repeated_partial_operation_reports_same_confirmed_steps():
+    from tests.stage1.test_partial_operations import FaultySimulator, COMMANDS
+    sim = FaultySimulator(fail_post=2)
+    room = Room(SimpleNamespace(request=sim.request), {"session_id": "synthetic"})
+    async def check():
+        codes = []
+        for _ in range(2):
+            with pytest.raises(ActionFailure) as failed:
+                await room.execute(COMMANDS, AT, operation_id="persistent-partial-key")
+            codes.append(failed.value.code)
+            assert failed.value.confirmed_devices == ["light"]
+        assert codes == ["ACTION_PARTIAL", "ACTION_PARTIAL"]
+        assert sim.posts == 2, "Replay never reposts any already attempted subcommand"
+        assert room.operations["persistent-partial-key"]["status"] == "partial"
+    asyncio.run(check())
+
+
+def test_conflicting_snapshot_records_conflict_not_unknown():
+    from tests.stage1.test_partial_operations import FaultySimulator, COMMANDS
+    sim = FaultySimulator(drift=True)
+    room = Room(SimpleNamespace(request=sim.request), {"session_id": "synthetic"})
+    async def check():
+        with pytest.raises(ActionFailure) as failed:
+            await room.execute(COMMANDS, AT, operation_id="drift-conflict-key")
+        assert failed.value.code == "ACTION_CONFLICT"
+        assert room.operations["drift-conflict-key"]["status"] == "conflict"
+        assert sim.posts == 1
+    asyncio.run(check())
+
+
+def test_double_submit_same_operation_concurrently_posts_once():
+    sim = ConcurrentSimulator()
+    room = Room(SimpleNamespace(request=sim.request), {"session_id": "synthetic"})
+    cmd = [{"device_id": "light", "values": {"brightness": 0}, "at": AT}]
+    async def check():
+        one, two = await asyncio.gather(
+            room.execute(cmd, AT, operation_id="one-command"),
+            room.execute(cmd, AT, operation_id="one-command"),
+        )
+        assert one == two
+        assert sim.posts == 1
+    asyncio.run(check())
