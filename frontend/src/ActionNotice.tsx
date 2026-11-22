@@ -14,7 +14,8 @@ export function ActionNotice({ issue, refresh, dismiss, disabled = false }: {
         <p>Подтверждённо изменены: <strong>{issue.confirmed.join(", ")}</strong>.</p>
       )}
       <p>{issue.description}</p>
-      <p className="action-verification" role="status">
+      <p className="action-at">Проверка относится к операции на {issue.attemptedAt.slice(0, 16).replace("T", " · ")}.</p>
+      <p className="action-verification" id="sain-action-hint" role="status">
         {issue.checked
           ? "Фактическое состояние получено. Проверьте настройки перед новым действием."
           : "Актуальное состояние не подтверждено. Последний снимок может быть устаревшим."}

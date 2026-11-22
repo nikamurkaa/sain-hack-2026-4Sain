@@ -8,6 +8,7 @@ export type ActionIssue = {
   confirmed: string[];
   checked: boolean;
   operationId: string;
+  attemptedAt: string;
 };
 export function actionIssue(error: ActionApiError): ActionIssue {
   const confirmed = error.confirmedDevices.map((device) => deviceNames[device]);
@@ -24,5 +25,6 @@ export function actionIssue(error: ActionApiError): ActionIssue {
     failed: "Сервис отклонил действие. Состояние номера нужно сверить, прежде чем выбирать новые настройки.",
   };
   return { kind: error.kind, title: titles[error.kind], description: details[error.kind],
-           confirmed, checked: false, operationId: error.operationId };
+           confirmed, checked: false, operationId: error.operationId,
+           attemptedAt: error.attemptedAt };
 }

@@ -90,6 +90,8 @@ type Props = {
   previewError: string;
   retryPreview: () => void;
   allowed: boolean;
+  canSubmit: boolean;
+  blockedByRecovery: boolean;
   draft: string;
   setDraft: (s: string) => void;
   pending: { text: string } | null;
@@ -338,7 +340,7 @@ export function MobileStay(p: Props) {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              p.send(p.draft);
+              if (p.canSubmit) p.send(p.draft);
             }}
             className="design-composer"
           >
@@ -360,14 +362,22 @@ export function MobileStay(p: Props) {
             />
             <button
               aria-label="Отправить просьбу"
-              disabled={p.busy || !!p.pending || !p.draft.trim()}
+              aria-describedby={p.blockedByRecovery ? "sain-action-hint" : undefined}
+              disabled={!p.canSubmit}
             />
           </form>
         ),
       };
   }
   return (
-    <DesignScreen screen={screen} bind={bind}>
+    <>
+      {p.page === "chat" && p.actionIssue && (
+        <div className="mobile-action-flow">
+          <ActionNotice issue={p.actionIssue} refresh={p.refreshActual}
+                        dismiss={p.dismissActionIssue} disabled={p.busy} />
+        </div>
+      )}
+      <DesignScreen screen={screen} bind={bind}>
       <small className="mode-caption" aria-label={p.badge}>
         {p.info.source === "final"
           ? "Финальный гость · просмотр"
@@ -401,10 +411,6 @@ export function MobileStay(p: Props) {
       {p.page === "chat" && !p.allowed && (
         <p className="read-caption">Сеанс доступен только для просмотра.</p>
       )}
-      {p.page === "chat" && p.actionIssue && (
-        <ActionNotice issue={p.actionIssue}
-          refresh={p.refreshActual} dismiss={p.dismissActionIssue} disabled={p.busy} />
-      )}
       {p.page === "chat" && p.error && (
         <button
           className="dismiss-message"
@@ -416,7 +422,8 @@ export function MobileStay(p: Props) {
       )}
       {historyOpen && p.page === "chat" && history}
       {p.overlay}
-    </DesignScreen>
+      </DesignScreen>
+    </>
   );
 }
 export type DesignChrome = {

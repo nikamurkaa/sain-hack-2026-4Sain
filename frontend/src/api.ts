@@ -16,14 +16,16 @@ export class ActionApiError extends ApiError {
   readonly code: string;
   readonly operationId: string;
   readonly confirmedDevices: readonly ConfirmedDevice[];
+  readonly attemptedAt: string;
   constructor(status: number, message: string, code: string, kind: ActionErrorKind,
-              operationId: string, confirmedDevices: readonly ConfirmedDevice[]) {
+              operationId: string, confirmedDevices: readonly ConfirmedDevice[], attemptedAt: string) {
     super(status, message);
     this.name = "ActionApiError";
     this.code = code;
     this.kind = kind;
     this.operationId = operationId;
     this.confirmedDevices = Object.freeze([...confirmedDevices]);
+    this.attemptedAt = attemptedAt;
   }
 }
 const errors: Record<number, string> = {
@@ -53,6 +55,13 @@ const recognized: Record<string, ActionErrorKind> = {
   ACTION_FAILED: "failed",
 };
 const deviceIDs = Object.keys(deviceNames);
+/** Require explicit UTC-offset; comparison is by real instant, never ISO text. */
+export function instant(raw: unknown): number | null {
+  if (typeof raw !== "string" ||
+      !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,6})?(?:Z|[+-]\d\d:\d\d)$/.test(raw)) return null;
+  const ms = Date.parse(raw);
+  return Number.isFinite(ms) ? ms : null;
+}
 function validatedOperationId(raw: unknown): raw is string {
   return typeof raw === "string" && raw.length >= 1 && raw.length <= 128 &&
     /^[A-Za-z0-9_-]+$/.test(raw) && !/(?:bearer|secret|token|password)/i.test(raw);
@@ -65,13 +74,14 @@ export function parseActionFailure(status: number, value: unknown): ApiError {
   const kind = typeof code === "string" ? recognized[code] : undefined;
   const op = body?.operation_id;
   const rawDevices = body?.confirmed_devices;
-  if (status === 409 && kind && validatedOperationId(op) &&
+  const attemptedAt = body?.attempted_at;
+  if (status === 409 && kind && validatedOperationId(op) && instant(attemptedAt) !== null &&
       Array.isArray(rawDevices) && rawDevices.length <= 6 &&
       rawDevices.every((id: unknown) => typeof id === "string" && deviceIDs.includes(id)) &&
       new Set(rawDevices).size === rawDevices.length &&
       (kind !== "partial" || rawDevices.length > 0)) {
     return new ActionApiError(status, message, code as string, kind, op,
-      rawDevices as ConfirmedDevice[]);
+      rawDevices as ConfirmedDevice[], attemptedAt as string);
   }
   return new ApiError(status, message);
 }

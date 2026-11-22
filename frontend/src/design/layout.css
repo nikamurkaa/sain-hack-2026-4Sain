@@ -617,27 +617,26 @@
   line-height: 14px;
 }
 
-/* MR-001: a semantic, keyboard accessible overlay on top of the original SAIN
-   Figma frame; its palette is deliberately the existing warm dark scheme. */
-.design-frame > .action-notice {
-  position: absolute;
-  z-index: 15;
-  left: 14px;
-  right: 14px;
-  bottom: 100px;
-  max-height: 360px;
-  overflow-y: auto;
-  font-size: 12px;
-  line-height: 1.45;
+/* MR-NEW-03: in-flow status panel instead of overlaying alarm/DND cards.
+   At 320x568/200% zoom the page remains scrollable and all focus targets
+   stay in DOM order; SAIN's Figma-based device layout itself is unchanged. */
+.mobile-action-flow {
+  width: min(100%, 640px);
+  margin: 0 auto;
+  padding: 12px 12px 0;
 }
-.design-frame > .action-notice h3 {
-  font-size: 15px;
+.mobile-action-flow .action-notice {
+  position: static;
+  max-height: none;
+  overflow: visible;
+  font-size: 13px;
+  line-height: 1.5;
 }
-.design-frame > .action-notice .action-notice-actions {
+.mobile-action-flow .action-notice-actions {
   display: grid;
-  gap: 5px;
+  gap: 8px;
 }
-.design-frame > .action-notice button {
-  min-height: 38px;
-  font-size: 12px;
+.mobile-action-flow .action-notice button {
+  min-height: 44px;
+  font-size: 13px;
 }

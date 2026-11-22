@@ -1,6 +1,15 @@
 export type Values = Record<string, string | number | boolean | null>;
 export type Room = Record<string, Values>;
 export type Snapshot = { at: string; state: Room };
+export type Reconciliation = {
+  operation_id: string;
+  attempted_at: string;
+  status: "partial" | "uncertain" | "conflict" | "failed";
+  confirmed_devices: string[];
+  verified: boolean;
+  snapshot: Snapshot;
+  next_action_at: string;
+};
 export type Step = { at: string; device_id: string; values: Values };
 export type Reply = { text: string; response_class: "done" | "refused" };
 export type Exchange = { at: string; utterances: string[]; reply: Reply };
@@ -16,6 +25,9 @@ export type Session = {
   actions: string[];
   history: Exchange[];
   connection_status: string;
+  next_action_at?: string;
+  reconciliation_required?: boolean;
+  pending_action?: unknown;
 };
 export type Guest = {
   user_id: string;

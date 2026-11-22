@@ -6,10 +6,12 @@ test("MR-001: preserve verified structured partial evidence and a distinct type"
   const received = parseActionFailure(409, {
     code: "ACTION_PARTIAL", message: "Подтверждена часть команды",
     operation_id: "op-123456", confirmed_devices: ["light"],
+    attempted_at: "2026-11-12T20:45:00+03:00",
   });
   assert.ok(received instanceof ActionApiError);
   assert.equal(received.kind, "partial");
   assert.equal(received.operationId, "op-123456");
+  assert.equal(received.attemptedAt, "2026-11-12T20:45:00+03:00");
   assert.deepEqual(received.confirmedDevices, ["light"]);
   assert.equal(received.status, 409);
 });
@@ -17,15 +19,19 @@ test("MR-001: preserve verified structured partial evidence and a distinct type"
 test("MR-001: classify conflicts/uncertain independently of all other HTTP 409", () => {
   assert.equal(parseActionFailure(409, {
     code:"ACTION_UNCERTAIN", operation_id:"op123", confirmed_devices: [],
+    attempted_at: "2026-11-12T20:45:00+03:00",
   }).kind, "uncertain");
   assert.equal(parseActionFailure(409, {
     code:"ACTION_CONFLICT", operation_id:"op123", confirmed_devices: [],
+    attempted_at: "2026-11-12T20:45:00+03:00",
   }).kind, "conflict");
   assert.equal(parseActionFailure(409, { code:"SESSION_READ_ONLY" }).kind, undefined);
 });
 
 test("MR-001: reject untrusted partial evidence instead of displaying unverified devices", () => {
   for (const body of [
+    {code:"ACTION_PARTIAL", operation_id:"good", confirmed_devices:["light"]},
+    {code:"ACTION_PARTIAL", operation_id:"good", confirmed_devices:["light"], attempted_at: "2026-11-12T20:45:00"},
     {code:"ACTION_PARTIAL", operation_id:"Bearer-secret", confirmed_devices:["light"]},
     {code:"ACTION_PARTIAL", operation_id:"ok", confirmed_devices:["admin"]},
     {code:"ACTION_PARTIAL", operation_id:"ok", confirmed_devices:["light","light"]},
