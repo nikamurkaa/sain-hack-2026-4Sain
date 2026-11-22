@@ -1,4 +1,6 @@
 import { useState, useSyncExternalStore } from "react";
+import { ActionNotice } from "../ActionNotice";
+import type { ActionIssue } from "../actionFeedback";
 import type { ReactNode } from "react";
 import {
   describe,
@@ -93,6 +95,9 @@ type Props = {
   pending: { text: string } | null;
   busy: boolean;
   error: string;
+  actionIssue: ActionIssue | null;
+  refreshActual: () => void;
+  dismissActionIssue: () => void;
   send: (text: string) => void;
   retry: () => void;
   dismiss: () => void;
@@ -138,7 +143,7 @@ export function MobileStay(p: Props) {
           ? 2 + mode * 2
           : p.page === "virtual"
             ? 17 + periodIndex(p.period)
-            : p.error
+            : p.error || p.actionIssue
               ? p.info.history.length
                 ? 28
                 : 16
@@ -295,6 +300,7 @@ export function MobileStay(p: Props) {
         text: () => p.pending?.text ?? last?.utterances.join(" ") ?? "",
       };
     if (name === "Ответ") {
+      if (p.actionIssue) return { hidden: true };
       if (p.error)
         return {
           role: "alert",
@@ -391,6 +397,10 @@ export function MobileStay(p: Props) {
       )}
       {p.page === "chat" && !p.allowed && (
         <p className="read-caption">Сеанс доступен только для просмотра.</p>
+      )}
+      {p.page === "chat" && p.actionIssue && (
+        <ActionNotice issue={p.actionIssue}
+          refresh={p.refreshActual} dismiss={p.dismissActionIssue} disabled={p.busy} />
       )}
       {p.page === "chat" && p.error && (
         <button

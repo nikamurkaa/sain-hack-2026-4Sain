@@ -616,3 +616,28 @@
   font-size: 11px;
   line-height: 14px;
 }
+
+/* MR-001: a semantic, keyboard accessible overlay on top of the original SAIN
+   Figma frame; its palette is deliberately the existing warm dark scheme. */
+.design-frame > .action-notice {
+  position: absolute;
+  z-index: 15;
+  left: 14px;
+  right: 14px;
+  bottom: 100px;
+  max-height: 360px;
+  overflow-y: auto;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.design-frame > .action-notice h3 {
+  font-size: 15px;
+}
+.design-frame > .action-notice .action-notice-actions {
+  display: grid;
+  gap: 5px;
+}
+.design-frame > .action-notice button {
+  min-height: 38px;
+  font-size: 12px;
+}

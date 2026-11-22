@@ -23,7 +23,7 @@ export function ActionNotice({ issue, refresh, dismiss, disabled = false }: {
         <button type="button" disabled={disabled} onClick={refresh}>
           Обновить состояние номера
         </button>
-        <button type="button" disabled={disabled} onClick={dismiss}>
+        <button type="button" disabled={disabled || !issue.checked} onClick={dismiss}>
           Закрыть уведомление
         </button>
       </div>
