@@ -403,6 +403,39 @@ def register_action_failure(session, error, attempted_at):
         session.mutation_floor = error.attempted_at
 
 
+def record_cancelled_action(session, known_operations, fingerprint, key, attempted_at):
+    """Synchronous cancellation cleanup under the owning ClientSession lock.
+
+    Room.execute has already sealed its journal under _execute_lock. Bind each
+    newly created operation to this request's idempotency key, conservatively
+    retaining confirmed devices and the last possible upstream mutation time.
+    There are NO awaits in this critical section.
+    """
+    candidates = [
+        (identifier, record)
+        for identifier, record in session.room.operations.items()
+        if identifier not in known_operations
+    ]
+    for identifier, record in candidates:
+        if not record.get('attempted_at'):
+            continue
+        # A surrounding request may be cancelled even after a completed Room
+        # read; no HTTP success receipt can be assumed after cancellation.
+        record['status'] = 'uncertain'
+        message = ('Выполнение прервано. Результат не подтверждён; '
+                   'проверьте номер, не повторяя исходную команду.')
+        record['error'] = ('action', 'ACTION_UNCERTAIN', message, 409)
+        cancelled = ActionFailure(
+            'ACTION_UNCERTAIN', message, identifier,
+            record.get('confirmed_devices', ()),
+            record['attempted_at'], record.get('mutation_possible', False),
+        )
+        register_action_failure(session, cancelled, attempted_at)
+        session.messages[key] = (fingerprint, cancelled)
+    # No newly created operation means no Room-managed action POST began.
+    # The original uncertain API key stays reserved; never invent confirmation.
+
+
 @app.get('/api/v1/reconciliation', response_model=ReconciliationResult)
 async def reconciliation(operation_id: str, session=Depends(client_session)):
     # This authorized, GET-only operation samples the *attempted* instant,
@@ -473,6 +506,7 @@ async def message(body: MessageInput, idempotency_key: str = Header(min_length=8
         ensure_safe_action_time(session, body.at)
         uncertain = ServiceError('MESSAGE_UNCERTAIN', 'Результат не подтверждён. Проверьте состояние комнаты.', 409)
         session.messages[idempotency_key] = (fingerprint, uncertain)
+        known_operations = set(session.room.operations)
         try:
             texts = [body.text]
             reply, actual = await session.solution.message(session.room, session.stay['user_id'], texts, body.at,
@@ -484,6 +518,12 @@ async def message(body: MessageInput, idempotency_key: str = Header(min_length=8
             session.history.append({'at': body.at, 'utterances': texts, 'reply': reply})
             session.messages[idempotency_key] = (fingerprint, result)
             return result
+        except asyncio.CancelledError:
+            # NO await: preserve id/time/confirmed devices and mutation frontier
+            # while session.lock is held, then propagate genuine cancellation.
+            record_cancelled_action(session, known_operations, fingerprint,
+                                    idempotency_key, body.at)
+            raise
         except ServiceError as exc:
             register_action_failure(session, exc, body.at)
             if exc.code.startswith(('UPSTREAM_', 'RUN_')):
@@ -540,8 +580,13 @@ async def set_device(body: DeviceInput, idempotency_key: str = Header(min_length
         uncertain = ServiceError('ACTION_UNCERTAIN', 'Результат не подтверждён. Проверьте состояние номера.', 409)
         session.messages[idempotency_key] = (fingerprint, uncertain)
         command = {'device_id': body.device_id, 'values': changes, 'at': body.at}
+        known_operations = set(session.room.operations)
         try:
             actual = await session.room.execute([command], body.at)
+        except asyncio.CancelledError:
+            record_cancelled_action(session, known_operations, fingerprint,
+                                    idempotency_key, body.at)
+            raise
         except ServiceError as exc:
             register_action_failure(session, exc, body.at)
             if exc.code.startswith(('UPSTREAM_', 'RUN_')):
