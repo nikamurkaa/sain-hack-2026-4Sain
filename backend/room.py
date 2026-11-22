@@ -153,8 +153,12 @@ class Room:
                         fail("ACTION_PARTIAL", "partial",
                              "Подтверждено частичное выполнение (" + names +
                              "). Остальные изменения не подтверждены.")
-                    fail("ACTION_FAILED", "failed",
-                         "Действие отклонено внешним сервисом; результат требуется сверить.")
+                    # A definitive upstream rejection retains its public status
+                    # (429 rate limiting, 409 closed session, etc.). Only POST
+                    # outcomes which may have committed are action-uncertain.
+                    record["status"] = "failed"
+                    record["error"] = ("service", exc.code, exc.message, exc.status)
+                    raise
                 # The external POST might already have committed: do not retry.
                 uncertain_post = True
             else:
