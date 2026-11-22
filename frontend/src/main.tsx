@@ -17,6 +17,7 @@ import type {
 } from "./model";
 import { Hero, Icon, Devices, Plan, Settings, Detail } from "./views";
 import Voice from "./Voice";
+import { SpeechReply } from "./SpeechReply";
 import { MobileStay, useMobile } from "./design/MobileStay";
 import { DesignScreen } from "./design/Layout";
 import "./style.css";
@@ -719,6 +720,7 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
   if (mobile && ["room", "welcome", "plan", "chat", "virtual"].includes(page))
     return (
       <MobileStay
+        token={token}
         page={page as "room" | "welcome" | "plan" | "chat" | "virtual"}
         info={info}
         prepared={prepared}
@@ -800,6 +802,7 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
                 {h.reply.text}
               </p>
             </div>
+            <SpeechReply token={token} replyIndex={i} />
           </div>
         ))}
         {pending && (
