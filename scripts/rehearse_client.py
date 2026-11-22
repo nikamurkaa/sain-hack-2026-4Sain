@@ -2,6 +2,7 @@
 import os
 import re
 import json
+import asyncio
 from contextlib import asynccontextmanager
 
 import httpx
@@ -29,6 +30,7 @@ class RehearsalModel(FakeModel):
             "Проверка частичного выполнения без состояния": "partial_stale",
             "Проверка конфликта состояния": "conflict",
             "Проверка неопределённого результата": "uncertain",
+            "Проверка отмены после принятия": "cancel_after_commit_stale",
         }
         if self.faults is not None and phrase in synthetic_faults:
             self.faults["mode"] = synthetic_faults[phrase]
@@ -99,6 +101,20 @@ def build_rehearsal():
     faults = {"mode": None, "fail_state_reads": 0, "rejections": 0, "injected": 0}
     model = RehearsalModel(faults)
 
+    class SyntheticCancellationHTTP(httpx.AsyncClient):
+        """Only loopback MockTransport: inject actual asyncio.CancelledError
+        AFTER local simulator accepted a POST. No production behavior altered.
+        """
+        async def request(self, method, url, **kwargs):
+            response = await super().request(method, url, **kwargs)
+            if (method.upper() == "POST" and str(url).endswith("/action")
+                    and faults["mode"] == "cancel_after_commit_stale"):
+                faults["mode"] = None
+                faults["fail_state_reads"] = 3
+                faults["injected"] += 1
+                raise asyncio.CancelledError("synthetic cancelled task after POST commit")
+            return response
+
     def dispatch(request):
         # Faults are synthesized only by the localhost MockTransport for the
         # special test request and NEVER affect the closed official simulator.
@@ -146,7 +162,7 @@ def build_rehearsal():
 
     @asynccontextmanager
     async def lifespan(app):
-        async with backend.router.lifespan_context(backend), httpx.AsyncClient(
+        async with backend.router.lifespan_context(backend), SyntheticCancellationHTTP(
             transport=httpx.MockTransport(dispatch)
         ) as upstream, httpx.AsyncClient(
             transport=httpx.ASGITransport(app=backend), base_url="http://offline.invalid"
