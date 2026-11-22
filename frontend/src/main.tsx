@@ -623,7 +623,7 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
       </main>
     );
   const badge =
-    (info.rehearsal ? "Репетиция · " : "") +
+    (info.live_ai ? "LIVE AI · локальный симулятор · " : info.rehearsal ? "Репетиция · " : "") +
     (info.source === "final"
       ? "Финальный гость · просмотр"
       : "Демонстрационный номер" + (allowed ? " · управление" : " · просмотр"));
