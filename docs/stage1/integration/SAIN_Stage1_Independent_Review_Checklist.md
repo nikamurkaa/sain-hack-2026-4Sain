@@ -56,3 +56,25 @@ Check scope: integrated [Draft PR #20](https://github.com/nikamurkaa/sain-hack-2
 - [ ] Owner gives separate explicit permission to merge; **do not merge from this checklist**.
 
 Failure to meet any executable CI item is `NOT READY: FIXABLE BLOCKERS`. A green CI is necessary but not sufficient for approval to publish, operate with official tokens, or claim a durable multi-tenant service.
+
+
+---
+
+## 2026-11-22: Independent MR-001–MR-004 remediation (PR #20)
+
+This section supersedes any earlier *merge-readiness claim* in the original Stage 1 document; pre-remediation CI does not establish acceptance of the new HEAD. Full issue-by-issue proof, reproducible tests, red-green SHA links, scope and reviewer questions: [SAIN_Stage1_Merge_Review_Remediation.md](SAIN_Stage1_Merge_Review_Remediation.md).
+
+### MR-specific independent reviewer actions
+- [x] MR-001: reproducing Node failure committed before fix; action code, operation ID, device list are validated and retained; no blind whole-request repeat after partial/uncertain.
+- [x] MR-001: local FastAPI + MockTransport fault injection tests and Chromium/Firefox Playwright cover real HTTP 409 → typed client → UI → safe GET; screenshots generated automatically at 375×812 and 1440×900.
+- [x] MR-001: alert semantics, keyboard focus/Enter on GET-only button, no generic final-lock interpretation of unrelated 409.
+- [x] MR-002: 4 DST invalid clock requests return 422/INVALID_TIME on a real TestClient, no POST; cached refusal fingerprint rejects different-body reuse.
+- [x] MR-003: UTC chronological comparisons, explicit first-fold and forward-gap policy, real-hour R8 +1/−1 tests.
+- [x] MR-004: backend exact-head checkout, SHA assert, least privilege; frontend and Windows exact-head source guards retained.
+- [ ] Independently inspect `frontend/evidence/mr001-partial-*.png` from the **latest** `browser-screens` artifact and verify visual accessibility/readability.
+- [ ] Independently repeat failure scenarios and challenge fault-injection test oracle (local-only fixture, no official API).
+- [ ] Confirm **three final CI success runs use precisely the same final PR HEAD SHA** and no temporary merge ref executed.
+- [ ] Confirm original #14–19 and main unchanged and PR #20 still Draft.
+- [ ] Independent re-review, owner's separate merge permission and any future external legal/brand approval are **not granted here**.
+
+Stage 1 restart state remains in-memory; one worker/process only. A new synthetic REHEARSAL session after restart is *not* recovered old state.

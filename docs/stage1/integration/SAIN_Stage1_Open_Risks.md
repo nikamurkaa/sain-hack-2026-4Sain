@@ -24,3 +24,22 @@ Date: 2026-11-22 · [Integrated Draft PR #20](https://github.com/nikamurkaa/sain
 Never perform unsafe retries of creating POST or partial operations when outcome is not verified. Never surface "Готово" for partial or unknown results. Do not treat planned events as actual state. Do not persist bearer tokens, service keys, private ZIPs or raw audio. Do not silently use organizer infrastructure for post-event demonstrations. Historic tag `v1.0.0-hackathon` remains immutable.
 
 These risks are disclosed rather than marked fixed simply because a unit test or offline CI passed.
+
+
+---
+
+## 2026-11-22: Independent MR-001–MR-004 remediation (PR #20)
+
+This section supersedes any earlier *merge-readiness claim* in the original Stage 1 document; pre-remediation CI does not establish acceptance of the new HEAD. Full issue-by-issue proof, reproducible tests, red-green SHA links, scope and reviewer questions: [SAIN_Stage1_Merge_Review_Remediation.md](SAIN_Stage1_Merge_Review_Remediation.md).
+
+| Additional risk | Severity | Residual boundary / independent review task |
+|---|---|---|
+| MR-001 malformed external error bodies | LOW | Unknown/malformed JSON falls back to ordinary safe ApiError, never to fabricated confirmed_devices. Verify external clients still handle non-action HTTP 409 by code. |
+| MR-001 visual presentation | LOW | Semantic action overlay works in original SAIN mobile/desktop theme; manual physical-device accessibility/contrast review is still separate. Four Playwright PNG screenshots per CI run (Chromium/Firefox, mobile/desktop) are captured in the browser artifact. |
+| MR-001 GET after error | MEDIUM | If state GET fails, mark stale/unknown and require GET verification before new action; a successful GET proves current observed snapshot, *not* external operation receipt or atomic upstream mutation. |
+| MR-002 ambiguous alarm local time | LOW | HH:MM lacks fold offset, so reject ambiguity with 422 rather than silently choosing an occurrence. Valid explicit-offset timestamps remain subject to IANA backend validation. |
+| MR-003 habitual bedtime policy | LOW | No input offset in profile: choose earliest valid repeated time; gap is shifted forward to first real local time. Human confirmation of this policy may be needed if product scope expands beyond synthetic R1–R8. |
+| MR-004 CI provenance | LOW | Checkout pinned and SHA asserted per job; GitHub Actions jobs are still GitHub-hosted, public advisory data point-in-time, actions version tags not immutable SHA-pinned. |
+| Single-worker / restart boundary | HIGH for distributed deployment, accepted local-only | One Room owner per remote session; per-object asyncio lock and in-memory journal are not shared between processes. On restart guest tokens and operation journal expire; start fresh REHEARSAL, no official reattach. Durable authorized local persistence deferred to Stage 6. |
+
+The standalone [remediation report](SAIN_Stage1_Merge_Review_Remediation.md) must be reviewed alongside the prior integration reports; it does not independently close S-002/S-024 or IP/licensing issues.

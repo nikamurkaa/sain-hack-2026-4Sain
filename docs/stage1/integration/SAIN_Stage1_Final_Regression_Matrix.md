@@ -34,3 +34,19 @@ Source: [integration PR #20](https://github.com/nikamurkaa/sain-hack-2026-4Sain/
 | e6e613012b15cb0915943a04933bac30c11bf1bb | 2 replay/status classification failures | c6a8da64807e53129cd471c8cdce55121101f8ea |
 
 All positive results in the matrix refer only to the local synthetic simulator. Re-run the full matrix at the **final integration HEAD** before declaring independent review ready.
+
+
+---
+
+## 2026-11-22: Independent MR-001–MR-004 remediation (PR #20)
+
+This section supersedes any earlier *merge-readiness claim* in the original Stage 1 document; pre-remediation CI does not establish acceptance of the new HEAD. Full issue-by-issue proof, reproducible tests, red-green SHA links, scope and reviewer questions: [SAIN_Stage1_Merge_Review_Remediation.md](SAIN_Stage1_Merge_Review_Remediation.md).
+
+| MR ID | New assertion/coverage | Test files | Before-fix proof | Green evidence/checkpoint |
+|---|---|---|---|---|
+| MR-001 | typed 409 metadata, malicious JSON fallback, known device names, true partial/unknown/conflict, single POST on idempotency replay, 375×812+1440×900 mobile/desktop and keyboard, GET success/failure, no false done | `frontend/tests/stage1-action-error.test.ts`, `frontend/tests/stage1-partial.spec.ts`, `tests/stage1/test_mr001_rehearsal_fault.py` | [red Node 45027331815](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45027331815) missing ActionApiError, red after adding full-transport test [45027912975](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45027912975) identified missing stale-GET expectation | [green combined 45027979302](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45027979302) and [Chromium/Firefox 45027979275](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45027979275), 28 each at code checkpoint; final PR HEAD evidence supersedes these |
+| MR-002 | TestClient Berlin/NY spring gap and autumn fold, valid Moscow, before/after DST, next-day, same/different idempotency key, 0 simulator writes on reject | `tests/stage1/test_mr002_alarm_contract.py` | [red backend 45027331816](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45027331816): four HTTP 500s | [green backend 45028432526](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45028432526), final PR run required |
+| MR-003 | New York first-fold bedtime preceding second-fold wake, earliest-fold choice, spring-gap forward resolution, real UTC ordering, +1/−1h R8, Berlin/NY/Moscow | `tests/stage1/test_mr003_bedtime_fold.py`, existing `test_integrated_dst_scheduler_red.py` | [red backend 45027331816](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45027331816): two independent DST bedtime failures | [green 305 pytest 45028432526](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45028432526), final PR run required |
+| MR-004 | Assert non-merge source commit with job env and checkout ref | `.github/workflows/test.yml` (checkout and exact SHA assertion) | Original [CI 45024448298](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45024448298) tested synthetic merge SHA; tree was identical, provenance policy still violated | [backend 45028432526](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45028432526) now logs expected and actual exact head; verify final run against final SHA |
+
+**Final exact-SHA gate:** resolve PR #20 head *after the final documentation commit*, then verify all three completed SUCCESS runs on that SHA. Do not interpret the above intermediate proof as independent signoff. Existing S-003/S-004/S-008/S-009/S-010, INT-001–INT-006 and the 10/60 offline score remain required regression checks.

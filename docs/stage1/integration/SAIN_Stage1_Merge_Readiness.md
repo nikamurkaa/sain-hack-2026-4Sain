@@ -28,3 +28,18 @@ This does **not** authorize a merge, public distribution, production use, offici
 
 ## Formal signoff
 Technical evidence can make Stage 1 **reviewable**, not FULLY COMPLETE; S-002/S-024 durable recovery, external API reattachment, brand/IP approval, native Windows acceptance and independent expert review are not closed by CI. Final reviewer and repository owner must separately approve any next action.
+
+
+---
+
+## 2026-11-22: Independent MR-001–MR-004 remediation (PR #20)
+
+This section supersedes any earlier *merge-readiness claim* in the original Stage 1 document; pre-remediation CI does not establish acceptance of the new HEAD. Full issue-by-issue proof, reproducible tests, red-green SHA links, scope and reviewer questions: [SAIN_Stage1_Merge_Review_Remediation.md](SAIN_Stage1_Merge_Review_Remediation.md).
+
+**Required verdict wording after exact-HEAD checks:** `READY FOR INDEPENDENT RE-REVIEW` or `NOT READY — REMAINING FIXABLE BLOCKERS`. Do not use APPROVED FOR MERGE. The previous document's earlier `READY FOR INDEPENDENT REVIEW` line was superseded by the independent REQUEST CHANGES verdict and this remediation work.
+
+Hard gates: MR-001 structured partial error and safe state-refresh screenshots; MR-002 real HTTP 422 without action; MR-003 fold/gap and ±1h R8 actual UTC; MR-004 backend exact-head provenance; full 10/60+pytest+Python advisory+candidate secrets, npm unit+audit+typecheck+build+Chromium+Firefox local backend E2E, Windows ZIP artifact all on the one **final PR HEAD**. The independent reviewer must explicitly accept these proofs; green CI alone does not approve merge.
+
+No merge, force push, branch deletion, production deployment, closed organizer /run, token use, final read-only bypass, historic tag edit or expert handoff. The existing PR #20 remains Draft until owner decision.
+
+Supported: one process, one worker, in-memory Room journal and API idempotency, loopback REHEARSAL, new session after restart. Unsupported: multi-worker, durable crash replay, remote upstream reattach and exactly-once. Those limitations are carried in the Final ADR and Stage 6 backlog.

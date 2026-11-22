@@ -61,3 +61,26 @@ Frontend workflow installs locked npm packages, audits graph, runs Node unit/Typ
 Rollback: do NOT merge. For integrated-only defect, revert the matching corrective commit on this integration branch (without force push); keep original PRs unchanged. After future approved merge, revert the merge on main via a normal new PR/commit, re-run all offline/browser security checks and re-validate currently authoritative room state before any write. Unknown external POST outcomes must never be retried blindly.
 
 **Acceptance boundary:** ready for independent technical review only when every required workflow is green on the exact final integration PR HEAD. Durable third-party session reattachment, source licensing and native Windows testing remain separate documented blockers to external production/demo use.
+
+
+---
+
+## 2026-11-22: Independent MR-001–MR-004 remediation (PR #20)
+
+This section supersedes any earlier *merge-readiness claim* in the original Stage 1 document; pre-remediation CI does not establish acceptance of the new HEAD. Full issue-by-issue proof, reproducible tests, red-green SHA links, scope and reviewer questions: [SAIN_Stage1_Merge_Review_Remediation.md](SAIN_Stage1_Merge_Review_Remediation.md).
+
+**Review source:** the independent read-only merge report with verdict REQUEST CHANGES BEFORE MERGE. No reviewer has yet independently approved these corrections. MR-001, MR-002, MR-003 and MR-004 were addressed in the *same existing integration branch*. Main, historical tag, original PR branches, production APIs and final read-only were not changed.
+
+**Code checkpoint before this documentation change:** `5be7f4c05974b31f8bfc8dd0dae6c091162151f5`. Backend proof [45028432526](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45028432526): 305 pytest passed, two offline 10/60 green, Python dependency advisory scan clean at that point. Frontend Chromium/Firefox, npm audit and the Windows ZIP must be confirmed against the **final post-documentation PR HEAD** separately, using the three run URLs published in the PR body. Do not combine green checks from different SHAs.
+
+**MR-001:** whitelisted typed `ActionApiError` preserves validated operation ID and confirmed device IDs. SAIN-localized partial/uncertain/conflict notice does not display `done` or offer whole-message retry. Real local-only REHEARSAL MockTransport can deterministically fail the second action, lose a response, force a GET failure or create a concurrent state drift. FastAPI TestClient checks idempotent HTTP 409 replay, exact metadata and one upstream action; browser E2E checks response → UI → GET reconciliation, keyboard action, 375×812 and 1440×900. Screenshots are generated in `frontend/evidence/mr001-partial-*.png` and uploaded by `browser-screens` artifact.
+
+**MR-002:** `Refusal` from `_local_alarm` is explicitly converted into stable 422 `INVALID_TIME` and stored against the request idempotency key before any simulator action. Gap/fold for Berlin and New York refuse; valid Moscow/DST-side and next-day cases succeed without altering unrelated devices.
+
+**MR-003:** habitual local bedtime uses first valid fold occurrence (`fold=0`) where input contains no offset; nonexistent spring wall time advances to the first valid future local time. All candidate comparisons, R8 +1/−1h correction and scenario sorting use UTC instants. Independent scheduler tests assert actual device-event UTC ordering.
+
+**MR-004:** backend CI uses `github.event.pull_request.head.sha || github.sha`, explicit non-credential checkout, `git rev-parse HEAD` and fail-on-mismatch. Frontend and Windows preserve their existing exact-head guards. Actions have `contents: read`, no `pull_request_target` secret context.
+
+**Supported topology:** single process, single worker, local in-memory journal; fresh guest session after process restart. No distributed coordination, remote reattachment, upstream exactly-once, SQLite durability or external licensing approval.
+
+**Rollback:** normal non-force revert on the integration branch only, then rerun all exact-head checks; never blindly retry an uncertain POST and never merge main without a fresh independent acceptance.
