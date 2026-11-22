@@ -22,6 +22,9 @@ Original main: `2ccad73652a20f93eb93e70e466e958cc731d705`. Integration base is t
 3. **Impossible R6 window**: Stage 1 deliberately refused to backdate actions on check-in less than 15 minutes before wake. Stage 2 now explains this limitation as a warning, **not** as a passed sleep rule.
 4. **Generic invalid-value refusal**: `invalid_value` no longer replies with an unrelated out-of-scope message.
 
+## Exact-SHA CI evidence (before final documentation update)
+At integrated code SHA `7a3efc7fa52d5a02312db254d75c4e049c783bf0`, [Python backend Actions](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45055542536) reported **433 passed, 1 warning**; scripted offline 10/60 passed in normal and 1 CPU/512 MiB runs with C=S=x=1.0. [Windows package Actions](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45055542576) succeeded. These are reproducible *local synthetic* tests, not official hidden SAIN scores or native Windows acceptance. Integrated browser run: [45055542555](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45055542555).
+
 ## Explicit gaps
 - Live NLU accuracy, typo robustness, compound instruction resolution, context and negative preference inference remain unproven without a real model and blind benchmark; Stage 3.
 - Deterministic tests with fixed structured intents are not independent measurements of a model's ability to understand language.

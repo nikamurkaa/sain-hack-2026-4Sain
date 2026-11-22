@@ -16,6 +16,8 @@ The primary benchmark in PR #22 evaluates **structured intent → command planni
 | Contextual multi-turn inference | Unknown phrases interpreted by a genuine model | 0 executed | NOT TESTED |
 | Current simulator full-state actions | Actual Room execute using real upstream | 0 new official runs | NOT TESTED |
 
+At integrated code SHA `7a3efc7fa52d5a02312db254d75c4e049c783bf0`, [Python CI](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45055542536) completed **433 passed** including all Stage 2 action/golden oracle tests. The hidden natural-language set comprises 86 prompts stored **outside the public repository**, and has never been executed against a real LLM; it does not enter this score.
+
 **No inferred language-model accuracy, F1, official score or organizer result.** An offline fake model cannot generalize, and matching a scripted fixture does not prove understanding. Phrase labels in tests describe expected category only; production parser is not trained or adjusted on them.
 
 ## Proper Stage 3 acceptance criteria
