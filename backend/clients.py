@@ -52,7 +52,6 @@ class HackClient:
                 value = response.json()
                 if not isinstance(value, dict):
                     raise ValueError("object required")
-                self.successful['chat'] += 1
                 return value
             except ValueError:
                 raise ServiceError("UPSTREAM_FORMAT", "Сервис вернул некорректный ответ.") from None
@@ -217,6 +216,7 @@ class ModelClient:
                 value = json.loads(choice["message"]["content"])
                 if not isinstance(value, dict):
                     raise ValueError("object required")
+                self.successful['chat'] += 1
                 return value
             except (ValueError, KeyError, IndexError, TypeError):
                 raise ServiceError("MODEL_FORMAT", "Не удалось надёжно разобрать сообщение. Уточните просьбу.", 503) from None
