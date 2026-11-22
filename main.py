@@ -641,6 +641,20 @@ async def close_session(token=Depends(bearer)):
 
 
 
+@app.get('/api/v1/ai-status')
+async def ai_status(session=Depends(client_session)):
+    """Redacted in-process provider receipts, scoped to authenticated guests."""
+    model = app.state.model
+    live = isinstance(model, ModelClient) and bool(os.getenv('LLM_API_KEY'))
+    return {
+        'mode': 'live' if live else 'offline',
+        'model': os.getenv('LLM_MODEL') if live else 'synthetic',
+        'successful_calls': dict(model.successful) if live else {'chat': 0, 'stt': 0, 'tts': 0},
+        'provider_key_exposed': False,
+        'devices': 'local_simulator' if os.getenv('HACK_API_URL','').endswith('.invalid') else 'external_dev',
+    }
+
+
 class SpeechInput(BaseModel):
     model_config = ConfigDict(extra='forbid', strict=True)
     reply_index: int = Field(ge=0, le=99)
