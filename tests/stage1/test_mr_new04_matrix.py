@@ -198,3 +198,57 @@ def test_expiry_and_two_guest_sessions_do_not_leak_cancelled_operation():
                        params={"operation_id": opid}).status_code == 401
         assert send(api, owner, "devices", "expired-attempt-0002", T2).status_code == 401
         assert api.get("/api/v1/session", headers=other).status_code == 200
+
+
+def test_real_task_cancel_while_post_response_is_pending_releases_room_lock():
+    """Task.cancel(), not only raise CancelledError; no shielding/background POST."""
+    from copy import deepcopy
+    from backend.room import Room, ActionFailure
+
+    async def scenario():
+        class HungUpstream:
+            def __init__(self):
+                self.actual = {"light": {"brightness": 70},
+                               "sound": {"volume": 20}}
+                self.posted = asyncio.Event()
+                self.posts = 0
+
+            async def request(self, method, path, **kwargs):
+                if method == "GET":
+                    return {"state": deepcopy(self.actual)}
+                assert method == "POST"
+                self.posts += 1
+                self.actual["light"]["brightness"] = 0
+                self.posted.set()
+                # Upstream committed but the response never arrives.
+                await asyncio.Event().wait()
+
+        upstream = HungUpstream()
+        room = Room(upstream, {
+            "session_id": "synthetic-cancelled-task",
+            "initial_state": deepcopy(upstream.actual),
+        })
+        action = [{"device_id": "light",
+                   "values": {"brightness": 0}, "at": T2}]
+        task = asyncio.create_task(room.execute(
+            action, T2, operation_id="real-task-cancel-001"))
+        await asyncio.wait_for(upstream.posted.wait(), timeout=2)
+        task.cancel()
+        task.cancel()  # repeated cancellation must not lose journal cleanup
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert upstream.posts == 1
+        assert not room._execute_lock.locked()
+        entry = room.operations["real-task-cancel-001"]
+        assert entry["attempted_at"] == T2
+        assert entry["mutation_possible"] is True
+        assert entry["status"] == "uncertain"
+        assert entry["confirmed_devices"] == []
+        assert upstream.actual["light"]["brightness"] == 0
+        with pytest.raises(ActionFailure) as failure:
+            await room.execute(action, T2, operation_id="real-task-cancel-001")
+        assert failure.value.code == "ACTION_UNCERTAIN"
+        assert failure.value.attempted_at == T2
+        assert upstream.posts == 1  # no detached work, no blind retry
+
+    asyncio.run(scenario())
