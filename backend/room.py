@@ -87,6 +87,14 @@ class Room:
                                    "Идентификатор операции уже использован для других действий.", 409)
             if earlier["status"] == "done":
                 return deepcopy(earlier["state"])
+            # Replays must expose the same verified partial/conflict outcome,
+            # never silently downgrade known confirmed devices to "unknown".
+            previous_error = earlier.get("error")
+            if previous_error:
+                kind, code, message, http_status = previous_error
+                if kind == "action":
+                    raise ActionFailure(code, message, operation_id, earlier["confirmed_devices"])
+                raise ServiceError(code, message, http_status)
             raise ActionFailure("ACTION_UNCERTAIN",
                                 "Исход предыдущей операции не подтверждён. Повтор не выполнялся.",
                                 operation_id, earlier["confirmed_devices"])
@@ -107,13 +115,15 @@ class Room:
 
         def fail(code, status, message):
             record["status"] = status
+            record["error"] = ("action", code, message, 409)
             raise ActionFailure(code, message, operation_id, record["confirmed_devices"])
 
         try:
             expected = deepcopy(await self.state(at))
-        except ServiceError:
+        except ServiceError as exc:
             # No POST has happened, but the completed read is not confirmed.
             record["status"] = "uncertain"
+            record["error"] = ("service", exc.code, exc.message, exc.status)
             raise
 
         for command in commands:
@@ -134,6 +144,7 @@ class Room:
                              "Подтверждено частичное выполнение (" + names +
                              "). Остальные изменения не подтверждены.")
                     record["status"] = "failed"
+                    record["error"] = ("service", exc.code, exc.message, exc.status)
                     raise
                 # The external POST might already have committed: do not retry.
                 uncertain_post = True
@@ -152,7 +163,7 @@ class Room:
                     fail("ACTION_UNCERTAIN", "uncertain",
                          "Ответ действия потерян, а состояние не подтвердило результат. "
                          "Изменения не подтверждены; повтор не выполнялся.")
-                fail("ACTION_CONFLICT", "uncertain",
+                fail("ACTION_CONFLICT", "conflict",
                      "Состояние номера изменилось иначе ожидаемого. "
                      "Не все изменения подтверждены; дальнейшие действия остановлены.")
 
