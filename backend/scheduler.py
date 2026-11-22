@@ -60,9 +60,20 @@ def build_scenario(user, stay, prefs, devices, rules):
     if sound["volume"]:
         add(sound_start + timedelta(minutes=sound["timer_minutes"]), "sound", {"volume": 0, "timer_minutes": 0})
     add(start, "alarm", {"at": iso(wake), "mode": prefs["alarm_mode"], "window_minutes": 0})
-    for minutes, brightness in [(30, 10), (23, 30), (16, 60)]:
-        dawn = wake - timedelta(minutes=minutes)
-        if dawn > night:
-            add(dawn, "light", {"brightness": brightness, "color_temperature_k": 2700})
+    # R6: three rising light steps within 15–30 minutes before wake, OR
+    # open the curtains within that same window. Never backdate an event to
+    # before check-in and never silently count two rises as three.
+    dawn_steps = [(wake - timedelta(minutes=minutes), brightness)
+                  for minutes, brightness in ((30, 10), (23, 30), (16, 60))]
+    if all(at >= night for at, _ in dawn_steps):
+        for at, brightness in dawn_steps:
+            add(at, "light", {"brightness": brightness, "color_temperature_k": 2700})
+    elif night <= wake - timedelta(minutes=15):
+        # A short stay cannot accommodate three 30/23/16-minute light events.
+        # R6 explicitly permits curtains instead; keep R2 darkness until then.
+        add(wake - timedelta(minutes=15), "curtains", {"position": 100})
+    # If check-in/night begins later than wake - 15 min, the official R6
+    # window is already unreachable. Preserve the legal [check-in, wake]
+    # timeline instead of fabricating compliance or historical actions.
     add(wake, "dnd", {"enabled": False})
     return sorted(steps, key=lambda x: moment(x["at"]))
