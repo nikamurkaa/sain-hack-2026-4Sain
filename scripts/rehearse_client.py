@@ -31,6 +31,7 @@ class RehearsalModel(FakeModel):
             "Проверка конфликта состояния": "conflict",
             "Проверка неопределённого результата": "uncertain",
             "Проверка отмены после принятия": "cancel_after_commit_stale",
+            "Проверка отмены составной команды": "multi_no_fault",
         }
         if self.faults is not None and phrase in synthetic_faults:
             self.faults["mode"] = synthetic_faults[phrase]
