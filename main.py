@@ -24,6 +24,7 @@ from backend.clients import ModelClient
 from backend.api_models import RunAnswer, SessionCreated, Conversation, PreparedView, Guest, Scenario, Catalog, State, MessageResult, Transcription, ReconciliationResult
 from backend.core import ServiceError, moment, hotel_moment, check_values
 from backend.runner import open_solution
+from backend.explanations import preparation_explanations
 from backend.commands import _local_alarm, success_text, Refusal
 from backend.room import ActionFailure
 
@@ -320,7 +321,10 @@ async def guest(session=Depends(client_session)):
 async def prepared_view(session=Depends(client_session)):
     return {'source': 'final' if session.presentation else 'dev', 'provenance': 'prepared',
             'guest': guest_data(session), 'scenario': {'steps': session.steps},
-            'last_confirmed': session.last_confirmed}
+            'last_confirmed': session.last_confirmed,
+             'explanations': preparation_explanations(
+                 session.presentation.profile if session.presentation else session.solution.user(session.stay['user_id']),
+                 session.stay, session.prefs, session.steps)}
 
 
 @app.get('/api/v1/scenario', response_model=Scenario)
