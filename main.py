@@ -15,6 +15,8 @@ from jsonschema.exceptions import ValidationError as JsonSchemaValidationError
 
 import httpx
 from fastapi import Depends, FastAPI, Header, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 
@@ -54,6 +56,18 @@ async def private_responses(request, call_next):
     return response
 
 
+@app.exception_handler(RequestValidationError)
+async def request_validation_rejection(request, exc):
+    # FastAPI validates the body/required headers before entering the action
+    # handler. Only this stage can certify an HTTP422 as pre-action rejected.
+    response = await request_validation_exception_handler(request, exc)
+    if request.method == 'POST' and request.url.path in (
+        '/api/v1/messages', '/api/v1/devices'
+    ):
+        response.headers['X-Sain-Rejection-Class'] = 'prehandler'
+    return response
+
+
 @app.exception_handler(ServiceError)
 async def service_error(request, exc):
     content = {'status': 'error', 'code': exc.code, 'message': exc.message}
@@ -63,7 +77,17 @@ async def service_error(request, exc):
         content['confirmed_devices'] = list(getattr(exc, 'confirmed_devices', ()))[:6]
         if isinstance(getattr(exc, 'attempted_at', None), str):
             content['attempted_at'] = exc.attempted_at
-    return JSONResponse(status_code=exc.status, content=content)
+    response = JSONResponse(status_code=exc.status, content=content)
+    # Only documented pre-upstream validation/refusal codes may advertise a
+    # side-effect-free error. Unknown 4xx, 5xx and action errors never do.
+    if (request.method == 'POST' and
+            request.url.path in ('/api/v1/messages', '/api/v1/devices') and
+            exc.status == 422 and exc.code in (
+                ('INVALID_TIME', 'INVALID_VALUE')
+                if request.url.path.endswith('/devices') else ('INVALID_TIME',)
+            )):
+        response.headers['X-Sain-Rejection-Class'] = 'domain'
+    return response
 
 
 def bearer(authorization: str | None = Header(default=None)):

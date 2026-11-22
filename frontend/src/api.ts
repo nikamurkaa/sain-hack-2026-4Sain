@@ -1,12 +1,47 @@
 import { deviceNames } from "./model.ts";
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  readonly code: string | null;
+  constructor(status: number, message: string, code: string | null = null) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.code = code;
   }
 }
+export type DefinitiveRejectionKind = "prehandler_validation" | "domain_refusal";
+/** Only a verified same-origin server response may certify no action POST began. */
+export class DefinitiveApiError extends ApiError {
+  readonly rejectionKind: DefinitiveRejectionKind;
+  constructor(status: number, message: string, code: string, kind: DefinitiveRejectionKind) {
+    super(status, message, code);
+    this.name = "DefinitiveApiError";
+    this.rejectionKind = kind;
+  }
+}
+/** Dispositions are intentionally conservative: only definitive_* may
+ * clear a per-request transport uncertainty, never an existing session issue.
+ */
+export type FailureCategory =
+  | "definitive_validation" | "domain_refusal" | "action_partial" | "action_uncertain"
+  | "action_conflict" | "action_failed" | "authentication" | "authorization"
+  | "idempotency_conflict" | "recovery_required" | "time_backwards"
+  | "rate_limited" | "transport_failure" | "unknown_server" | "unknown_rejection";
+export function failureCategory(error: unknown): FailureCategory {
+  if (error instanceof DefinitiveApiError) return error.rejectionKind === "prehandler_validation"
+    ? "definitive_validation" : "domain_refusal";
+  if (error instanceof ActionApiError) return ("action_" + error.kind) as FailureCategory;
+  if (!(error instanceof ApiError)) return "transport_failure";
+  if (error.status === 401) return "authentication";
+  if (error.status === 403) return "authorization";
+  if (error.status === 409 && error.code === "IDEMPOTENCY_CONFLICT") return "idempotency_conflict";
+  if (error.status === 409 && error.code === "RECOVERY_REQUIRED") return "recovery_required";
+  if (error.status === 409 && error.code === "TIME_BACKWARDS") return "time_backwards";
+  if (error.status === 429) return "rate_limited";
+  if (error.status >= 500) return "unknown_server";
+  return "unknown_rejection";
+}
+
 
 /** Explicitly recognized *action* outcomes, not all HTTP 409 responses. */
 export type ActionErrorKind = "partial" | "uncertain" | "conflict" | "failed";
@@ -19,7 +54,7 @@ export class ActionApiError extends ApiError {
   readonly attemptedAt: string;
   constructor(status: number, message: string, code: string, kind: ActionErrorKind,
               operationId: string, confirmedDevices: readonly ConfirmedDevice[], attemptedAt: string) {
-    super(status, message);
+    super(status, message, code);
     this.name = "ActionApiError";
     this.code = code;
     this.kind = kind;
@@ -67,10 +102,33 @@ function validatedOperationId(raw: unknown): raw is string {
     /^[A-Za-z0-9_-]+$/.test(raw) && !/(?:bearer|secret|token|password)/i.test(raw);
 }
 /** Never derive an action confirmation from an untrusted/error-shaped JSON body. */
-export function parseActionFailure(status: number, value: unknown): ApiError {
+export function parseActionFailure(
+  status: number, value: unknown,
+  proof: { rejectionClass?: string | null; path?: string } = {},
+): ApiError {
   const body = object(value);
   const message = safeMessage(body) || errors[status] || "Сервис временно недоступен.";
   const code = body?.code;
+  // FastAPI validation happens before /messages or /devices enters its handler.
+  // HTTP 422 alone is NOT sufficient: arbitrary domain/upstream 422 must
+  // remain unknown until the trusted server explicitly certifies no mutation.
+  const writeRoute = proof.path === "messages" || proof.path === "devices";
+  const details = body?.detail;
+  const validRequestErrors = Array.isArray(details) && details.length > 0 &&
+    details.length <= 20 && details.every((item: unknown) => {
+      const e = object(item);
+      return !!e && typeof e.type === "string" && e.type.length <= 80 &&
+        Array.isArray(e.loc) && e.loc.length > 0 &&
+        ["body", "header", "query", "path"].includes(e.loc[0]) &&
+        e.loc.length <= 8;
+    });
+  if (status === 422 && writeRoute && proof.rejectionClass === "prehandler" &&
+      validRequestErrors)
+    return new DefinitiveApiError(status, errors[422], "REQUEST_VALIDATION", "prehandler_validation");
+  if (status === 422 && writeRoute && proof.rejectionClass === "domain" &&
+      body?.status === "error" &&
+      (code === "INVALID_TIME" || (proof.path === "devices" && code === "INVALID_VALUE")))
+    return new DefinitiveApiError(status, message, code as string, "domain_refusal");
   const kind = typeof code === "string" ? recognized[code] : undefined;
   const op = body?.operation_id;
   const rawDevices = body?.confirmed_devices;
@@ -83,7 +141,9 @@ export function parseActionFailure(status: number, value: unknown): ApiError {
     return new ActionApiError(status, message, code as string, kind, op,
       rawDevices as ConfirmedDevice[], attemptedAt as string);
   }
-  return new ApiError(status, message);
+  return new ApiError(status, message,
+    body?.status === "error" && typeof code === "string" &&
+    /^[A-Z][A-Z0-9_]{2,63}$/.test(code) ? code : null);
 }
 export function client(token: string, signal: AbortSignal) {
   return async function request<T>(
@@ -103,7 +163,10 @@ export function client(token: string, signal: AbortSignal) {
     });
     if (!response.ok) {
       const body: unknown = await response.json().catch(() => ({}));
-      throw parseActionFailure(response.status, body);
+      throw parseActionFailure(response.status, body, {
+        rejectionClass: response.headers.get("X-Sain-Rejection-Class"),
+        path: path.split("?")[0],
+      });
     }
     if (response.status === 204) return undefined as T;
     const data = await response.json();

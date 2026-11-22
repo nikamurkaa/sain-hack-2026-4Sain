@@ -1,6 +1,6 @@
 import { createRoot } from "react-dom/client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { client, ApiError, ActionApiError, parseActionFailure, instant } from "./api";
+import { client, ApiError, ActionApiError, DefinitiveApiError, parseActionFailure, instant } from "./api";
 import { verifiedReconciliation } from "./temporalRecovery";
 import { actionIssue as describeActionIssue } from "./actionFeedback";
 import type { ActionIssue } from "./actionFeedback";
@@ -313,6 +313,39 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
         ? { ...prev, checked: false } : prev);
     }
   }
+  /** A definitive rejection concerns THIS HTTP request only. Even if the
+   * server certifies pre-action rejection, check same-token /session before
+   * clearing the guard: another concurrent request could have pending effects.
+   */
+  async function handleDefinitiveRejection(error: DefinitiveApiError) {
+    setPending(null);
+    setError(error.message);
+    setUnansweredPost(true);
+    try {
+      const updated = await api<Session>("session", { signal: AbortSignal.timeout(4000) });
+      if (controller.signal.aborted) return;
+      setInfo(updated);
+      if (updated.reconciliation_required) {
+        const pending = parseActionFailure(409, updated.pending_action);
+        if (pending instanceof ActionApiError) {
+          const issue = describeActionIssue(pending);
+          recoveryRevision.current++;
+          currentIssue.current = issue;
+          setActionIssue(issue);
+          await refreshActual(issue);
+        } else {
+          setError("Другая операция ожидает проверки. Управление пока заблокировано.");
+        }
+        return;
+      }
+      if (currentIssue.current && !currentIssue.current.checked) return;
+      setUnansweredPost(false);
+    } catch (e) {
+      if (expiredError(e)) return;
+      setError(error.message + " Не удалось проверить доступность сеанса; управление пока заблокировано.");
+    }
+  }
+
   // A 500, timeout or browser network abort may hide a completed POST.
   // /session serializes behind the in-flight action, so the returned
   // pending_action belongs to the authoritative same-token Room journal.
@@ -457,8 +490,12 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
         await refreshActual(issue);
         return;
       }
-      setError("Ответ команды не получен. Проверяем, могло ли действие выполниться.");
       setDraft(attempt.text);
+      if (e instanceof DefinitiveApiError) {
+        await handleDefinitiveRejection(e);
+        return;
+      }
+      setError("Ответ команды не получен. Проверяем, могло ли действие выполниться.");
       await recoverUnansweredPost(attempt.text);
     } finally {
       lock.current = false;
@@ -503,6 +540,10 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
         setPending(null);
         setDraft("");
         await refreshActual(issue);
+        return;
+      }
+      if (e instanceof DefinitiveApiError) {
+        await handleDefinitiveRejection(e);
         return;
       }
       // Transport error is not proof that the operation failed. Check
@@ -707,13 +748,13 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
         refreshActual={() => void refreshActual()}
         dismissActionIssue={dismissActionIssue}
         send={send}
+        retryAllowed={!!pending && !blockedByRecovery && !busy && allowed}
         retry={() => {
-          if (pending) void send(pending.text, pending);
+          if (pending && !blockedByRecovery && allowed && !busy) void send(pending.text, pending);
         }}
         dismiss={() => {
           setError("");
           setPending(null);
-          setDraft("");
         }}
       />
     );
@@ -777,10 +818,10 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
         ) : error && (
           <div className="error" role="alert">
             {error}
-            {pending && (
+            {pending && !blockedByRecovery && (
               <>
                 <button
-                  disabled={busy || !allowed}
+                  disabled={busy || !allowed || blockedByRecovery}
                   onClick={() => send(pending.text, pending)}
                 >
                   Повторить

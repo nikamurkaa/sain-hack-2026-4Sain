@@ -102,6 +102,7 @@ type Props = {
   dismissActionIssue: () => void;
   send: (text: string) => void;
   retry: () => void;
+  retryAllowed: boolean;
   dismiss: () => void;
 };
 const periodIndex = (p: Period) => periods.indexOf(p);
@@ -310,15 +311,15 @@ export function MobileStay(p: Props) {
         return {
           role: "alert",
           className: "delivery-error",
-          text: (s, i) => (i === 0 ? p.error : s),
-          children: (
+          text: (s, i) => (i === 0 ? p.error : (p.retryAllowed ? s : "")),
+          children: p.retryAllowed ? (
             <Hit
               label="Повторить"
               box={[w.texts[1].box[0] - 28, w.texts[1].box[1] - 15, 165, 49]}
               onClick={p.retry}
               disabled={p.busy}
             />
-          ),
+          ) : undefined,
         };
       return {
         onClick: !p.busy && last ? () => setHistoryOpen(true) : undefined,
