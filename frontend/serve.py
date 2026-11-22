@@ -11,7 +11,7 @@ ORIGINS = {
     "stand": "https://team25.hack.be-healthy.tech",
 }
 READS = {"session", "prepared", "state", "guest", "catalog", "scenario", "reconciliation"}
-WRITES = {"messages", "transcriptions", "devices"}
+WRITES = {"messages", "transcriptions", "devices", "speech"}
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -67,7 +67,7 @@ class Handler(SimpleHTTPRequestHandler):
             response = connection.getresponse()
             content = response.read()
             self.send_response(response.status)
-            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Type", "audio/mpeg" if path.path.endswith("/speech") and response.status == 200 and response.getheader("Content-Type", "").split(";")[0].strip() == "audio/mpeg" else "application/json")
             self.send_header("Content-Length", str(len(content)))
             # Preserve ONLY the backend's tightly scoped pre-action
             # rejection certificate. A transparent JSON proxy otherwise
