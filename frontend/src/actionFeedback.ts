@@ -1,5 +1,5 @@
 import type { ActionApiError, ActionErrorKind } from "./api";
-import { deviceNames } from "./model";
+import { deviceNames } from "./model.ts";
 
 export type ActionIssue = {
   kind: ActionErrorKind;
