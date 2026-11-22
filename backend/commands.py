@@ -29,7 +29,10 @@ def plan_commands(intent, state, prefs, at, devices, tracks, hotel_timezone=None
     name = intent.intent
     if name == "medical":
         raise Refusal("Я могу управлять настройками номера, но не определяю причины симптомов и не подбираю лекарства. Обратитесь к врачу.")
-    if name in ("out_of_scope", "invalid_value"):
+    if name == "invalid_value":
+        raise Refusal("Недопустимое значение. Температура: 16–26 °C; яркость, громкость и шторы: "
+                      "0–100 %; цвет света: 2200–6500 K. Уточните значение.")
+    if name == "out_of_scope":
         raise Refusal("Эту просьбу выполнить не могу. Доступно управление светом, температурой, звуком, шторами, будильником и режимом «Не беспокоить».")
     if intent.needs_clarification:
         raise Refusal("Уточните, пожалуйста, нужную настройку и значение.")

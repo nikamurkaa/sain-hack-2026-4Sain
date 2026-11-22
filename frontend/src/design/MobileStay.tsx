@@ -390,6 +390,13 @@ export function MobileStay(p: Props) {
         <div className="personal-plan">
           {selectPeriod(false)}
           <Plan steps={p.prepared.scenario.steps} period={p.period} />
+           <details className="technical-details">
+             <summary>Почему выбран этот сценарий</summary>
+             <p>Это план, а не подтверждённое состояние устройств.</p>
+             <ul>{p.prepared.explanations?.map((item, index) => (
+               <li key={index} role={item.status === "warning" ? "alert" : undefined}>{item.reason}</li>
+             ))}</ul>
+           </details>
         </div>
       )}
       {p.page === "virtual" &&

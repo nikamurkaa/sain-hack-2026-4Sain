@@ -130,9 +130,16 @@ class PreferenceResolver:
         self.cache = {}
         self.locks = {}
 
+    def _snapshot_key(self, user_id, cutoff, yesterday, history):
+        # IDs and timestamps do not uniquely identify changing evidence content.
+        user = next(u for u in self.data["users"] if u["user_id"] == user_id)
+        return (user_id, yesterday, moment(cutoff).utcoffset(),
+                json.dumps(user, sort_keys=True, ensure_ascii=False),
+                tuple((e["id"], e["at"], e["source"], e["text"]) for e in history))
+
     async def resolve(self, user_id: str, cutoff: str, yesterday: str):
         history = evidence(self.data, user_id, cutoff)
-        key = (user_id, yesterday, moment(cutoff).utcoffset(), tuple((e["id"], e["at"]) for e in history))
+        key = self._snapshot_key(user_id, cutoff, yesterday, history)
         lock = self.locks.setdefault(key, asyncio.Lock())
         async with lock:
             return await self._resolve(user_id, cutoff, yesterday)
@@ -140,7 +147,7 @@ class PreferenceResolver:
     async def _resolve(self, user_id: str, cutoff: str, yesterday: str):
         history = evidence(self.data, user_id, cutoff)
         user = next(u for u in self.data["users"] if u["user_id"] == user_id)
-        cache_key = (user_id, yesterday, moment(cutoff).utcoffset(), tuple((e["id"], e["at"]) for e in history))
+        cache_key = self._snapshot_key(user_id, cutoff, yesterday, history)
         if cache_key in self.cache:
             return deepcopy(self.cache[cache_key])
         profile = user.get("sleep_preferences") or {}
