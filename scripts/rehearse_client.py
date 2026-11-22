@@ -1,6 +1,7 @@
 """Loopback-only browser rehearsal. Run python -m scripts.rehearse_client."""
 import os
 import re
+import json
 from contextlib import asynccontextmanager
 
 import httpx
@@ -14,10 +15,24 @@ from tests.simulator import Simulator
 
 
 class RehearsalModel(FakeModel):
+    def __init__(self, faults=None):
+        self.faults = faults
+
     async def json(self, instruction, payload, output_tokens=3500):
         if "utterances" not in payload:
             return {"facts": []}
         phrase = payload["utterances"][-1]
+        # These deterministic phrases exist ONLY in loopback REHEARSAL.
+        # No official client, token, API or user-controlled fault endpoint.
+        synthetic_faults = {
+            "Проверка частичного выполнения": "partial",
+            "Проверка частичного выполнения без состояния": "partial_stale",
+            "Проверка конфликта состояния": "conflict",
+            "Проверка неопределённого результата": "uncertain",
+        }
+        if self.faults is not None and phrase in synthetic_faults:
+            self.faults["mode"] = synthetic_faults[phrase]
+            return {"intent": "all_off"}
         if phrase.casefold().strip(" .!?…") in ("ещё немного", "еще немного", "ещё", "еще"):
             # Continue the last *successful* direction, including consecutive continuations.
             # An unrelated/refused request breaks the chain to prevent unintended changes.
@@ -81,10 +96,53 @@ def build_rehearsal():
     # Give the rehearsal dev guest an afternoon checkout for all four previews.
     dev.until = "2026-11-13T15:00:00+03:00"
     final.data["stays"][0]["user_id"] = final.data["users"][0]["user_id"] = "final_test"
+    faults = {"mode": None, "fail_state_reads": 0, "rejections": 0, "injected": 0}
+    model = RehearsalModel(faults)
 
     def dispatch(request):
-        sim = final if request.headers["authorization"] == "Bearer evaluation" else dev
-        return sim(request)
+        # Faults are synthesized only by the localhost MockTransport for the
+        # special test request and NEVER affect the closed official simulator.
+        if request.headers.get("authorization") == "Bearer evaluation":
+            return final(request)
+        path = request.url.path
+        if (request.method == "GET" and path.endswith("/state")
+                and faults["fail_state_reads"] > 0):
+            faults["fail_state_reads"] -= 1
+            return httpx.Response(503, json={"code": "SYNTHETIC_STATE_DOWN"})
+        if request.method == "POST" and path.endswith("/action") and faults["mode"]:
+            body = json.loads(request.content)
+            mode, device = faults["mode"], body.get("device_id")
+            if mode in ("partial", "partial_stale") and device == "sound":
+                faults["mode"] = None
+                faults["rejections"] += 1
+                faults["injected"] += 1
+                if mode == "partial_stale":
+                    faults["fail_state_reads"] = 3  # defeat all safe GET retries
+                return httpx.Response(409, json={"code": "SYNTHETIC_ACTION_REJECTED"})
+            if mode == "uncertain" and device == "light":
+                # Upstream commits first POST then loses its reply; the
+                # verification GET also fails, so no step is called confirmed.
+                response = dev(request)
+                faults["mode"] = None
+                faults["fail_state_reads"] = 3
+                faults["injected"] += 1
+                return httpx.Response(503, json={"code": "SYNTHETIC_LOST_REPLY"})
+            if mode == "conflict" and device == "sound":
+                response = dev(request)
+                sid = path.split("/")[2]
+                # Other actor's independent device change before reconciliation:
+                # the second command's full-state expectation is now false.
+                dev.sessions[sid]["entries"].append({
+                    "kind": "action", "steps": [{
+                        "device_id": "climate",
+                        "values": {"temperature_c": 25},
+                        "at": body["at"],
+                    }]
+                })
+                faults["mode"] = None
+                faults["injected"] += 1
+                return response
+        return dev(request)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -93,7 +151,9 @@ def build_rehearsal():
         ) as upstream, httpx.AsyncClient(
             transport=httpx.ASGITransport(app=backend), base_url="http://offline.invalid"
         ) as internal:
-            backend.state.http, backend.state.model = upstream, RehearsalModel()
+            backend.state.http, backend.state.model = upstream, model
+            app.state.rehearsal_faults = faults
+            app.state.rehearsal_simulator = dev
             response = await internal.post("/run", headers={"Authorization": "Bearer evaluation"},
                                            json={"case": 2, "dataset_code": "offline-final"})
             response.raise_for_status()
