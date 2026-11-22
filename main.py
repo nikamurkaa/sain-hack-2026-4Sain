@@ -17,7 +17,7 @@ import httpx
 from fastapi import Depends, FastAPI, Header, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.exception_handlers import request_validation_exception_handler
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 
 from backend.clients import ModelClient
@@ -639,6 +639,36 @@ async def set_device(body: DeviceInput, idempotency_key: str = Header(min_length
 async def close_session(token=Depends(bearer)):
     app.state.sessions.pop(hashlib.sha256(token.encode()).hexdigest(), None)
 
+
+
+class SpeechInput(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True)
+    reply_index: int = Field(ge=0, le=99)
+
+
+@app.post('/api/v1/speech', responses={
+    200: {'content': {'audio/mpeg': {'schema': {'type': 'string', 'format': 'binary'}}}},
+    402: {'description': 'Budget exhausted'},
+    429: {'description': 'Rate limited'},
+})
+async def speech(body: SpeechInput, session=Depends(client_session)):
+    """Speak *only* server-recorded replies; never executes or retries actions."""
+    if not hasattr(app.state.model, 'speak'):
+        raise ServiceError('TTS_NOT_CONFIGURED', 'Озвучка доступна только в live AI режиме.', 503)
+    async with session.lock:
+        if body.reply_index >= len(session.history):
+            raise ServiceError('REPLY_NOT_FOUND', 'Ответ для озвучивания не найден.', 404)
+        reply = session.history[body.reply_index].get('reply', {})
+        if reply.get('response_class') not in ('done', 'refused'):
+            raise ServiceError('REPLY_UNCONFIRMED', 'Ответ не подтверждён.', 409)
+        if reply['response_class'] == 'done' and not session.last_confirmed:
+            raise ServiceError('REPLY_UNCONFIRMED', 'Нет подтверждённого состояния.', 409)
+        text = reply.get('text')
+        if not isinstance(text, str) or not text or len(text) > 4096:
+            raise ServiceError('INVALID_SPEECH_TEXT', 'Текст для озвучивания недоступен.', 422)
+    audio = await app.state.model.speak(text)
+    return Response(content=audio, media_type='audio/mpeg',
+                    headers={'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff'})
 
 
 AUDIO_TYPES = {
