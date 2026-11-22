@@ -9,20 +9,17 @@ import subprocess
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-NAME = "SAIN-Smart-Room-Final-Candidate-Windows.zip"
+NAME = "SAIN-Smart-Room-Portfolio-Windows.zip"
 IGNORED_PARTS = {".git", ".github", ".venv", ".runtime", "node_modules", "__pycache__", "test-results", ".pytest_cache"}
 FORBIDDEN_ENDINGS = (".pem", ".p12", ".pfx", ".key", ".ppk")
 ROOT_ALIASES = {
     "docs/WINDOWS_ACCEPTANCE_GUIDE_RU.md": "WINDOWS_ACCEPTANCE_GUIDE_RU.md",
-    "docs/BACKUP_VIDEO_RECORDING_GUIDE_RU.md": "BACKUP_VIDEO_RECORDING_GUIDE_RU.md",
-    "docs/BACKUP_DEMO_SCRIPT_RU.md": "BACKUP_DEMO_SCRIPT_RU.md",
-    "docs/FINAL_RELEASE_READINESS.md": "FINAL_RELEASE_READINESS.md",
 }
 REQUIRED = {
     "BUILD_INFO.txt", "README_WINDOWS.md", "CHECK_ENV.cmd", "START.cmd", "STOP.cmd",
     "RESET_TEST_STATE.cmd", "launcher.ps1", "stop.ps1", "check_env.ps1",
     "main.py", "requirements-dev.txt", "frontend/serve.py", "frontend/dist/index.html",
-    "WINDOWS_ACCEPTANCE_GUIDE_RU.md", "BACKUP_DEMO_SCRIPT_RU.md", "BACKUP_VIDEO_RECORDING_GUIDE_RU.md",
+    "WINDOWS_ACCEPTANCE_GUIDE_RU.md",
 }
 
 
@@ -68,7 +65,7 @@ def package():
             content[relative] = src.read_bytes()
     content["README_WINDOWS.md"] = (
         "# SAIN Smart Room — проверка на Windows\n\n"
-        "Это релиз-кандидат; Windows запуск должен быть подтверждён владельцем. "
+        "Это портфолио-прототип. Нативный Windows запуск проверяется отдельно. "
         "Откройте CHECK_ENV.cmd, затем START.cmd. Режим 1 — локальная репетиция "
         "с FakeLLM/MockSimulator, режим 2 — официальный стенд с временным ГОСТЕВЫМ токеном. "
         "Командный ключ никогда не вводить в браузер.\n\n"
@@ -78,10 +75,10 @@ def package():
         "Остановка: STOP.cmd; сброс репетиции: RESET_TEST_STATE.cmd.\n"
     ).encode("utf-8")
     content["BUILD_INFO.txt"] = (
-        "SAIN Smart Room / 4Sain / Windows Release Candidate\n"
+        "SAIN Smart Room / 4Sain / Windows Portfolio Demo\n"
         f"GitHub source SHA: {sha}\n"
         "Built from GitHub Actions checkout with npm ci + npm test + npm run build.\n"
-        "CI workflow: release-build.yml; browser E2E is separately checked by frontend.yml.\n"
+        "CI workflow: windows-package.yml; browser E2E separately checked by frontend.yml.\n"
         "Windows native launch: NOT YET VERIFIED. Final guest: READ ONLY.\n"
         "REHEARSAL: FakeLLM + MockSimulator. STAND: official temporary GUEST token only.\n"
         "No official /run, production deploy, or organizer quota used in packaging.\n"

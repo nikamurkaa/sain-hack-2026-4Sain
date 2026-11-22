@@ -23,7 +23,7 @@ function Open-Port([int]$port) {
   catch { return $true }
   finally { $socket.Dispose() }
 }
-Write-Host 'SAIN SMART ROOM · 4SAIN · WINDOWS RELEASE CANDIDATE' -ForegroundColor Cyan
+Write-Host 'SAIN SMART ROOM · 4SAIN · LOCAL PORTFOLIO DEMO' -ForegroundColor Cyan
 Write-Host '1 = REHEARSAL / автономный синтетический номер, FakeLLM, без API организаторов'
 Write-Host '2 = STAND / официальный стенд (только временный ГОСТЕВОЙ токен)'
 $choice=Read-Host 'Выберите режим (1 / 2)'

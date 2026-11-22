@@ -1,0 +1,31 @@
+name: Build portable Windows demo
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*-hackathon']
+permissions:
+  contents: read
+jobs:
+  windows-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install, typecheck, unit test and build
+        working-directory: frontend
+        run: npm ci && npm test && npm run build
+      - name: Build portable ZIP with checksums
+        run: python scripts/build_windows_candidate.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sain-windows-demo
+          path: |
+            SAIN-Smart-Room-Portfolio-Windows.zip
+            SAIN-Smart-Room-Portfolio-Windows.zip.sha256
+          if-no-files-found: error
+          retention-days: 30
