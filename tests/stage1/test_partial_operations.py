@@ -15,7 +15,7 @@ COMMANDS = [
 
 class FaultySimulator:
     def __init__(self, fail_post=0, uncertain=False, fail_get=0, drift=False):
-        self.actual = {"light": {"brightness": 70}, "sound": {"volume": 20}}
+        self.actual = {"light": {"brightness": 70}, "sound": {"volume": 20}, "curtains": {"position": 50}}
         self.posts = 0
         self.gets = 0
         self.fail_post, self.uncertain = fail_post, uncertain
@@ -80,3 +80,56 @@ def test_external_state_change_prevents_second_post():
         asyncio.run(room.execute(COMMANDS, AT, operation_id="op-drift"))
     assert captured.value.code in {"ACTION_CONFLICT", "ACTION_PARTIAL"}
     assert sim.posts == 1  # no duplicate / overwriting somebody else's change
+
+
+def test_failure_before_first_action_never_claims_done():
+    sim = FaultySimulator(fail_post=1)
+    room = Room(SimpleNamespace(request=sim.request), {"session_id": "offline"})
+    with pytest.raises(ServiceError) as captured:
+        asyncio.run(room.execute(COMMANDS, AT, operation_id="op-first-failed"))
+    assert captured.value.code != "ACTION_PARTIAL"
+    assert room.operations["op-first-failed"]["confirmed_devices"] == []
+    assert room.operations["op-first-failed"]["status"] == "failed"
+    assert sim.actual["light"]["brightness"] == 70
+    assert sim.posts == 1
+
+
+def test_failure_after_second_confirmed_step_is_truthful():
+    sim = FaultySimulator(fail_post=3)
+    room = Room(SimpleNamespace(request=sim.request), {"session_id": "offline"})
+    commands = COMMANDS + [
+        {"device_id": "curtains", "values": {"position": 0}, "at": AT},
+    ]
+    with pytest.raises(ServiceError) as captured:
+        asyncio.run(room.execute(commands, AT, operation_id="op-after-two"))
+    assert captured.value.code == "ACTION_PARTIAL"
+    assert captured.value.confirmed_devices == ["light", "sound"]
+    assert room.operations["op-after-two"]["status"] == "partial"
+    assert sim.actual["light"]["brightness"] == 0
+    assert sim.actual["sound"]["volume"] == 0
+    assert sim.actual["curtains"]["position"] == 50
+
+
+def test_recovery_requires_fresh_new_operation_after_first_rejection():
+    sim = FaultySimulator(fail_post=1)
+    room = Room(SimpleNamespace(request=sim.request), {"session_id": "offline"})
+    with pytest.raises(ServiceError):
+        asyncio.run(room.execute(COMMANDS[:1], AT, operation_id="op-rejected"))
+    # Never rerun the earlier ID. A newly authorized attempt after a fresh
+    # state check is distinct, and only possible after the simulated outage.
+    sim.fail_post = 0
+    actual = asyncio.run(room.execute(COMMANDS[:1], AT, operation_id="op-new"))
+    assert actual["light"]["brightness"] == 0
+    assert sim.posts == 2
+    assert room.operations["op-new"]["status"] == "done"
+
+
+def test_idempotency_conflict_never_reuses_operation_id_for_new_values():
+    sim = FaultySimulator()
+    room = Room(SimpleNamespace(request=sim.request), {"session_id": "offline"})
+    asyncio.run(room.execute(COMMANDS[:1], AT, operation_id="op-same-key"))
+    different = [{"device_id": "light", "values": {"brightness": 5}, "at": AT}]
+    with pytest.raises(ServiceError) as captured:
+        asyncio.run(room.execute(different, AT, operation_id="op-same-key"))
+    assert captured.value.code == "IDEMPOTENCY_CONFLICT"
+    assert sim.posts == 1
