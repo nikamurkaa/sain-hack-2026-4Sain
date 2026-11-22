@@ -65,3 +65,17 @@ This section supersedes any earlier *merge-readiness claim* in the original Stag
 | Windows ZIP test layout | `tests/test_quality_gate_time_ops.py` | Source under `windows/`, flattened release root with BUILD_INFO and START/STOP — 311 full pytest from exact ZIP **without symlink**, artifact contents unchanged |
 
 **Final SHA policy:** all figures above identify a specific code checkpoint. The final documentation commit changes PR HEAD; only the *new* backend/frontend/Windows success checks linked in PR #20 constitute final exact-HEAD evidence. Never merge based on prior screenshots alone.
+
+
+---
+
+## MR-NEW-04 — cancellation safety supersedes earlier merge-readiness claims (2026-11-22)
+
+**Independent reviewer verdict on old SHA `def405ffc0a8aceb9dc4c49d8206a1992b368f29`: REQUEST CHANGES BEFORE MERGE.** An asynchronous `CancelledError` after an upstream POST accepted at T2 left Session without floor/issue, enabling an unsafe T1 write. This is fixed in integration-only code and remains **pending independent signoff**. Full evidence, root cause, safe cleanup and test matrix: [SAIN_Stage1_Cancellation_Safety_Remediation.md](SAIN_Stage1_Cancellation_Safety_Remediation.md).
+
+| MR-NEW-04 P1 cancelled POST, API | `tests/stage1/test_mr_new04_cancellation.py` | Original independent exact-SHA defect reproduced by supplied `independent_api_probes.py`; pre-main-fix [45036473916](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45036473916) **3 failed**; green real TestClient cancellation for BOTH messages/devices; same-key replay zero extra POST, old T1 write blocked; separate independent bfff ZIP probe first HTTP500, same-key HTTP409, T1 HTTP409 before/after GET; upstream POST 1 until deliberate T2 action |
+| MR-NEW-04 cancellation at awaited boundaries | `tests/stage1/test_mr_new04_matrix.py` | 12 parametrized async CancelledError checkpoints: before/after POST, before/after GET, after 1st/2nd action; preserve confirmed device subset without invented success, stable status/floor/key; failed GET, two guests, token expiry, midnight and timezone offset; new actual `Task.cancel()` x2 test proves Room lock release and replay safety |
+| MR-NEW-04 lost response/browser | `frontend/tests/stage1-cancellation.spec.ts`, strengthened `frontend/tests/screens.spec.ts` | Real local FastAPI/MockSimulator accepted POST at T2; synthetic task cancellation & 3 failed GET; Chromium/Firefox assert stale disabled, no automatic retry, 1 upstream action, error on T1, same original key replay, reconnect with SAME guest token exposes pending, GET reconciliation and safe T2 new action; mock network abort cannot automatically authorize another write |
+| MR-NEW-04 code checkpoint | `bfff9048c85340f63451bf2c5b373e65eb5ef8e7` | [backend 45037464859](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45037464859) 330 passed, [frontend 45037464823](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45037464823) 43 Chromium/43 Firefox, [Windows 45037464825](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45037464825) success; **checkpoint only**, final docs-commit HEAD and new `Task.cancel()` test must be rechecked |
+
+**Final provenance rule:** final exact HEAD and all three SUCCESS actions available from current Draft PR #20; do not reuse old `def405ffc...` green runs as acceptance of cancellation behavior.

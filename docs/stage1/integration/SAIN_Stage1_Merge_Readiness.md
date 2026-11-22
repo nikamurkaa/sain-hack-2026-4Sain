@@ -59,3 +59,16 @@ Supported: one process, one worker, in-memory Room journal and API idempotency, 
 4. All backend/online-offline, frontend Chromium+Firefox and Windows ZIP workflows **SUCCESS at identical final commit HEAD**, exact checkout verified. No combining different SHAs; inspect the final run URLs in Draft PR description.
 
 No merge to main, no force push, no official closed /run, no organizer tokens, no tag edit or expert distribution. Upstream atomicity, durable recovery, physical Windows and IP approvals remain external/Stage 6 limitations.
+
+
+---
+
+## MR-NEW-04 — cancellation safety supersedes earlier merge-readiness claims (2026-11-22)
+
+**Independent reviewer verdict on old SHA `def405ffc0a8aceb9dc4c49d8206a1992b368f29`: REQUEST CHANGES BEFORE MERGE.** An asynchronous `CancelledError` after an upstream POST accepted at T2 left Session without floor/issue, enabling an unsafe T1 write. This is fixed in integration-only code and remains **pending independent signoff**. Full evidence, root cause, safe cleanup and test matrix: [SAIN_Stage1_Cancellation_Safety_Remediation.md](SAIN_Stage1_Cancellation_Safety_Remediation.md).
+
+**Cancellation safety hard gate:** a possible accepted upstream POST on T2 must produce a stable in-memory `mutation_floor >= T2`, journal `uncertain`, server `action_issues` and Idempotency-Key replay before `session.lock` release *even if the task is cancelled*. RED baseline from supplied independent probes; GREEN new real TestClient + direct actual Task.cancel, single-process local only. Browser network loss must read `pending_action` before any default GET or new write. No blind retries, no false done. Manual and message T1 operations must be rejected both before and after reconciliation.
+
+New decision vocabulary after **all three final exact-HEAD CI SUCCESS**: `READY FOR TARGETED INDEPENDENT RE-REVIEW`; otherwise `NOT READY — CANCELLATION SAFETY BLOCKER REMAINS`. Independent approval and separate owner permission still missing; do not merge.
+
+Prior MR-NEW-01/02/03, MR-001–004 retain their tests, semantics and known single-worker limitations. MR-NEW-05 mobile-focus reminder and decorative AI orb cropping are deferred to Stage 4, SQLite/WAL to Stage 6; no native Windows/physical accessibility/official API claims.

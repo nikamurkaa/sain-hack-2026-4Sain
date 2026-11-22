@@ -96,3 +96,20 @@ Stage 1 restart state remains in-memory; one worker/process only. A new syntheti
 - [ ] Independently inspect *latest* browser screenshots and test a real physical 320px device/touch keyboard if required by review scope; screen reader NOT tested.
 - [ ] Verify exact newest PR HEAD (NOT temporary merge ref) equals successful backend/frontend/Windows job checkout logs and ZIP BUILD_INFO; latest screenshot artifact must be that SHA.
 - [ ] Independently rerun adversarial temporal cases; signer/owner must explicitly review PR #20. No self-issued merge approval.
+
+
+---
+
+## MR-NEW-04 — cancellation safety supersedes earlier merge-readiness claims (2026-11-22)
+
+**Independent reviewer verdict on old SHA `def405ffc0a8aceb9dc4c49d8206a1992b368f29`: REQUEST CHANGES BEFORE MERGE.** An asynchronous `CancelledError` after an upstream POST accepted at T2 left Session without floor/issue, enabling an unsafe T1 write. This is fixed in integration-only code and remains **pending independent signoff**. Full evidence, root cause, safe cleanup and test matrix: [SAIN_Stage1_Cancellation_Safety_Remediation.md](SAIN_Stage1_Cancellation_Safety_Remediation.md).
+
+- [x] Attached `independent_api_probes.py` independently run against original exact Windows ZIP `def405ffc...`, reproducing T2 accepted light=0 / HTTP500 / T1 write 200 and two POSTs.
+- [x] New RED tests added before fix; intermediate Room-only CI **3 failed, 311 passed**, proving ClientSession coupling requirement.
+- [x] Explicit `asyncio.CancelledError` handling under Room and Session locks; no await between registration and unlock, no shielding/background task; cancellation is re-raised to ASGI boundary.
+- [x] Manual and message same-key error caching, operation id, attempted UTC time, mutation floor, confirmed steps and no fake `done`; cross-endpoint T1 blocked; read-only preview remains unaffected.
+- [x] 12 awaited injection sites, two-command confirmed subset, expiry, midnight, wrong-offset, failed GET, guest isolation and direct repeated Task.cancel are added independently of old Stage 1 tests.
+- [x] Browser synthetic cancellation (real local MockTransport POST) and reconnect case added; original screenshot fixtures strengthened to reject allowing new writes after unknown network loss.
+- [ ] Independent reviewer challenges cancellation/temporal oracles and confirms final exact-HEAD backend/frontend/Windows SUCCESS jobs and screenshot artifact.
+- [ ] Independent reviewer and repository owner separately approve any later merge; no self-approval.
+- [ ] Backlog kept explicit: MR-NEW-05 mobile focus CTA, decorative AI orb, Stage 6 persistent journal, native Windows acceptance, physical screen-reader/touch/keyboard verification.

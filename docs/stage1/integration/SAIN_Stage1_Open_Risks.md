@@ -58,3 +58,19 @@ The standalone [remediation report](SAIN_Stage1_Merge_Review_Remediation.md) mus
 | Windows package vs source paths | Resolved test oracle | Source uses `windows/`, distribution intentionally flattens launch scripts beside START/STOP; package file layout isn't the source tree. Strict test accepts either with BUILD_INFO evidence; no duplicate files added. |
 
 **No external-use authorization:** this local Stage 1 evidence does not authorize distribution of SAIN branding, host assets, organizer token use, production release or claims of durable multi-worker correctness. A fresh independent review and owner decision remain pending.
+
+
+---
+
+## MR-NEW-04 — cancellation safety supersedes earlier merge-readiness claims (2026-11-22)
+
+**Independent reviewer verdict on old SHA `def405ffc0a8aceb9dc4c49d8206a1992b368f29`: REQUEST CHANGES BEFORE MERGE.** An asynchronous `CancelledError` after an upstream POST accepted at T2 left Session without floor/issue, enabling an unsafe T1 write. This is fixed in integration-only code and remains **pending independent signoff**. Full evidence, root cause, safe cleanup and test matrix: [SAIN_Stage1_Cancellation_Safety_Remediation.md](SAIN_Stage1_Cancellation_Safety_Remediation.md).
+
+| MR-NEW-04 potential upstream effects after task cancellation | HIGH for distributed/production, locally tested single-worker | Explicit CancelledError catches and synchronous journal/Session compensation preserve replay protection and mutation_floor within surviving process. HTTP response may be lost/500, not a successful receipt; no shielding, no detached replays. A killed process still loses all state and tokens. |
+| MR-NEW-05 P2 mobile notice scroll | Accepted Stage 4 | On 320×568 composer focus can scroll notice out of viewport although send stays blocked; add anchored recovery indicator/return link later, no backend bypass today. |
+| Desktop decorative AI assistant clipping | P2 Stage 4 | Scroll can crop illustrative orb; functional recovery/device controls stay accessible, preserve existing SAIN design. |
+| Stage 6 persistence | Deferred, no durability claim | SQLite WAL + authorized recovery/event log only after a separately reviewed design; no remote upstream exactly-once or undocumented reattach. |
+| Windows native execution | NOT TESTED | Linux-produced ZIP CRC/hash and pytest/Node/Playwright CI do not equal Windows START/STOP run. |
+| Physical accessibility | NOT TESTED | Browser viewport/keyboard/zoom tests do not replace TalkBack/VoiceOver, on-device keyboard/touch checks. |
+
+**Scope:** original independent MR-NEW-04 P1 must be independently re-reviewed; other P2 and Stage 4/6 items do not become a silent claim of production readiness.
