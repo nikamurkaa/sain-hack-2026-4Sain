@@ -19,10 +19,11 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 
 from backend.clients import ModelClient
-from backend.api_models import RunAnswer, SessionCreated, Conversation, PreparedView, Guest, Scenario, Catalog, State, MessageResult, Transcription
+from backend.api_models import RunAnswer, SessionCreated, Conversation, PreparedView, Guest, Scenario, Catalog, State, MessageResult, Transcription, ReconciliationResult
 from backend.core import ServiceError, moment, hotel_moment, check_values
 from backend.runner import open_solution
 from backend.commands import _local_alarm, success_text, Refusal
+from backend.room import ActionFailure
 
 logging.getLogger('httpx').setLevel(logging.WARNING)
 logging.getLogger('httpcore').setLevel(logging.WARNING)
@@ -60,6 +61,8 @@ async def service_error(request, exc):
     if isinstance(getattr(exc, 'operation_id', None), str):
         content['operation_id'] = exc.operation_id
         content['confirmed_devices'] = list(getattr(exc, 'confirmed_devices', ()))[:6]
+        if isinstance(getattr(exc, 'attempted_at', None), str):
+            content['attempted_at'] = exc.attempted_at
     return JSONResponse(status_code=exc.status, content=content)
 
 
@@ -188,6 +191,10 @@ class ClientSession:
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     messages: dict = field(default_factory=dict)
     history: list = field(default_factory=list)
+    # Three distinct clocks: last successful action (at), potentially applied
+    # action frontier, and per-operation attempt instant/evidence.
+    mutation_floor: str | None = None
+    action_issues: dict = field(default_factory=dict)
 
 
 def client_session(token=Depends(bearer)):
@@ -246,8 +253,21 @@ def session_info(session):
     can_send = not session.read_only and session.connection_status != 'access_ended'
     if can_send:
         actions.extend(['message', 'transcription', 'devices'])
+    unresolved = next((v for v in session.action_issues.values() if not v['verified']), None)
+    latest_issue = next(reversed(session.action_issues.values()), None) if session.action_issues else None
+    pending = ({
+        'code': latest_issue['code'],
+        'operation_id': latest_issue['operation_id'],
+        'attempted_at': latest_issue['attempted_at'],
+        'confirmed_devices': latest_issue['confirmed_devices'],
+    } if latest_issue and not latest_issue['verified'] else None)
+    next_action = session.at
+    if session.mutation_floor and moment(session.mutation_floor) > moment(next_action):
+        next_action = session.mutation_floor
     return {'source': 'final' if session.presentation else 'dev',
             'connection_status': session.connection_status, 'can_send_requests': can_send,
+            'next_action_at': next_action, 'reconciliation_required': unresolved is not None,
+            'pending_action': pending,
             'actions': actions, 'expires_in': max(0, int(session.expires - time.monotonic())),
             'read_only': not can_send, 'stay_id': session.stay['record_id'],
             'mode': 'simulator', 'at': session.at, 'until': session.room.session['until']}
@@ -343,6 +363,88 @@ def require_writable(session):
         raise ServiceError('SESSION_READ_ONLY', 'В этом сеансе управление недоступно.', 409)
 
 
+def ensure_safe_action_time(session, at):
+    # A successful preview at a different instant NEVER advances this frontier.
+    if any(not issue['verified'] for issue in session.action_issues.values()):
+        raise ServiceError('RECOVERY_REQUIRED',
+                           'Предыдущее действие не сверено. Сначала обновите состояние номера.', 409)
+    floor = session.mutation_floor or session.at
+    if moment(session.at) > moment(floor):
+        floor = session.at
+    if moment(at) < moment(floor):
+        raise ServiceError('TIME_BACKWARDS',
+                           'Нельзя выполнять новую команду раньше возможно применённого действия.', 409)
+
+
+def register_action_failure(session, error, attempted_at):
+    if not isinstance(error, ActionFailure):
+        return
+    # The trusted request instant is checked against the Room journal; the
+    # consumer cannot choose or forge reconciliation time via a query string.
+    if not error.attempted_at or moment(error.attempted_at) != moment(attempted_at):
+        error.attempted_at = attempted_at
+    if error.operation_id not in session.action_issues:
+        session.action_issues[error.operation_id] = {
+            'code': error.code,
+            'status': error.code.removeprefix('ACTION_').lower(),
+            'operation_id': error.operation_id,
+            'attempted_at': error.attempted_at,
+            'confirmed_devices': list(error.confirmed_devices),
+            'verified': False,
+        }
+    if error.mutation_possible and (
+        not session.mutation_floor or moment(error.attempted_at) > moment(session.mutation_floor)
+    ):
+        session.mutation_floor = error.attempted_at
+
+
+@app.get('/api/v1/reconciliation', response_model=ReconciliationResult)
+async def reconciliation(operation_id: str, session=Depends(client_session)):
+    # This authorized, GET-only operation samples the *attempted* instant,
+    # verifies known effects against local journal evidence and updates local
+    # read bookkeeping. It never creates or retries upstream actions.
+    if not (1 <= len(operation_id) <= 128) or not operation_id.replace('-', '').replace('_', '').isalnum():
+        raise ServiceError('INVALID_OPERATION', 'Некорректный идентификатор операции.', 422)
+    async with session.lock:
+        issue = session.action_issues.get(operation_id)
+        if issue is None:
+            raise ServiceError('OPERATION_NOT_FOUND', 'Операция в этом сеансе не найдена.', 404)
+        if session.connection_status == 'access_ended':
+            raise ServiceError('LIVE_ACCESS_ENDED', 'Доступ к состоянию завершён.', 403)
+        at = issue['attempted_at']
+        check_time(session, at)
+        try:
+            actual = await session.room.state(at)
+        except ServiceError as exc:
+            note_upstream_error(session, exc)
+            raise
+        journal = getattr(session.room, 'operations', {}).get(operation_id, {})
+        expected = journal.get('state')
+        if issue['confirmed_devices']:
+            if not isinstance(expected, dict) or any(
+                device not in expected or actual.get(device) != expected[device]
+                for device in issue['confirmed_devices']
+            ):
+                raise ServiceError('RECONCILIATION_CONFLICT',
+                                   'Подтверждённые ранее устройства изменились. Состояние не сверено.', 409)
+        # We know the observed room configuration at this instant; we do NOT
+        # assert that a previously unknown POST succeeded or was exactly once.
+        snapshot = {'at': at, 'state': actual}
+        issue['verified'] = True
+        session.last_confirmed = snapshot
+        session.connection_status = 'available'
+        next_at = session.at
+        if session.mutation_floor and moment(session.mutation_floor) > moment(next_at):
+            next_at = session.mutation_floor
+        return {'operation_id': operation_id,
+                'attempted_at': at,
+                'status': issue['status'],
+                'confirmed_devices': issue['confirmed_devices'],
+                'verified': True,
+                'snapshot': snapshot,
+                'next_action_at': next_at}
+
+
 @app.post('/api/v1/messages', response_model=MessageResult)
 async def message(body: MessageInput, idempotency_key: str = Header(min_length=8, max_length=128), session=Depends(client_session)):
     fingerprint = hashlib.sha256(body.model_dump_json().encode()).hexdigest()
@@ -360,8 +462,7 @@ async def message(body: MessageInput, idempotency_key: str = Header(min_length=8
         if len(session.messages) >= 100:
             raise ServiceError('MESSAGE_LIMIT', 'Лимит сообщений сеанса исчерпан.', 429)
         check_time(session, body.at)
-        if moment(body.at) < moment(session.at):
-            raise ServiceError('TIME_BACKWARDS', 'Нельзя отправить команду раньше предыдущей.', 409)
+        ensure_safe_action_time(session, body.at)
         uncertain = ServiceError('MESSAGE_UNCERTAIN', 'Результат не подтверждён. Проверьте состояние комнаты.', 409)
         session.messages[idempotency_key] = (fingerprint, uncertain)
         try:
@@ -376,6 +477,7 @@ async def message(body: MessageInput, idempotency_key: str = Header(min_length=8
             session.messages[idempotency_key] = (fingerprint, result)
             return result
         except ServiceError as exc:
+            register_action_failure(session, exc, body.at)
             if exc.code.startswith(('UPSTREAM_', 'RUN_')):
                 note_upstream_error(session, exc)
                 if exc.status == 409:
@@ -401,8 +503,7 @@ async def set_device(body: DeviceInput, idempotency_key: str = Header(min_length
         if len(session.messages) >= 100:
             raise ServiceError('MESSAGE_LIMIT', 'Лимит операций сеанса исчерпан.', 429)
         check_time(session, body.at)
-        if moment(body.at) < moment(session.at):
-            raise ServiceError('TIME_BACKWARDS', 'Нельзя изменять настройки в прошлом.', 409)
+        ensure_safe_action_time(session, body.at)
         changes = dict(body.values)
         if body.device_id == 'alarm' and isinstance(changes.get('at'), str) and len(changes['at']) == 5:
             try:
@@ -434,9 +535,11 @@ async def set_device(body: DeviceInput, idempotency_key: str = Header(min_length
         try:
             actual = await session.room.execute([command], body.at)
         except ServiceError as exc:
-            note_upstream_error(session, exc)
-            if exc.status == 409 and exc.code.startswith(('UPSTREAM_', 'RUN_')):
-                session.read_only = True
+            register_action_failure(session, exc, body.at)
+            if exc.code.startswith(('UPSTREAM_', 'RUN_')):
+                note_upstream_error(session, exc)
+                if exc.status == 409:
+                    session.read_only = True
             session.messages[idempotency_key] = (fingerprint, exc)
             raise
         reply = {'role': 'agent', 'at': body.at,

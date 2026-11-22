@@ -39,6 +39,9 @@ class SessionInfo(Output):
     at: str
     until: str
     mode: Literal['simulator']
+    next_action_at: str
+    reconciliation_required: bool
+    pending_action: dict[str, JsonValue] | None = None
 
 
 class SessionCreated(SessionInfo):
@@ -74,6 +77,16 @@ class Catalog(Output):
 class State(Output):
     at: str
     state: dict[str, dict[str, JsonValue]]
+
+
+class ReconciliationResult(Output):
+    operation_id: str
+    attempted_at: str
+    status: Literal['partial', 'uncertain', 'conflict', 'failed']
+    confirmed_devices: list[str]
+    verified: bool
+    snapshot: State
+    next_action_at: str
 
 
 class PreparedView(Output):

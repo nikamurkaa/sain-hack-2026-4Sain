@@ -10,10 +10,13 @@ from backend.core import ServiceError
 class ActionFailure(ServiceError):
     """Confirmed steps are explicit; an unknown step must never be called done."""
 
-    def __init__(self, code, message, operation_id, confirmed_devices):
+    def __init__(self, code, message, operation_id, confirmed_devices,
+                 attempted_at=None, mutation_possible=False):
         super().__init__(code, message, 409)
         self.operation_id = operation_id
         self.confirmed_devices = list(confirmed_devices)
+        self.attempted_at = attempted_at
+        self.mutation_possible = mutation_possible
 
 
 class Room:
@@ -93,11 +96,13 @@ class Room:
             if previous_error:
                 kind, code, message, http_status = previous_error
                 if kind == "action":
-                    raise ActionFailure(code, message, operation_id, earlier["confirmed_devices"])
+                    raise ActionFailure(code, message, operation_id, earlier["confirmed_devices"],
+                                        earlier["attempted_at"], earlier["mutation_possible"])
                 raise ServiceError(code, message, http_status)
             raise ActionFailure("ACTION_UNCERTAIN",
                                 "Исход предыдущей операции не подтверждён. Повтор не выполнялся.",
-                                operation_id, earlier["confirmed_devices"])
+                                operation_id, earlier["confirmed_devices"],
+                                earlier["attempted_at"], earlier["mutation_possible"])
 
         if len(self.operations) >= 100:
             # Dropping old operation IDs would turn a replay into another POST.
@@ -106,6 +111,8 @@ class Room:
                                "Журнал операций заполнен. Создайте новую демосессию.", 429)
         record = {
             "fingerprint": fingerprint,
+            "attempted_at": at,
+            "mutation_possible": False,
             "status": "in_progress",
             "confirmed_devices": [],
             "state": None,
@@ -116,7 +123,8 @@ class Room:
         def fail(code, status, message):
             record["status"] = status
             record["error"] = ("action", code, message, 409)
-            raise ActionFailure(code, message, operation_id, record["confirmed_devices"])
+            raise ActionFailure(code, message, operation_id, record["confirmed_devices"],
+                                record["attempted_at"], record["mutation_possible"])
 
         try:
             expected = deepcopy(await self.state(at))
@@ -135,6 +143,8 @@ class Room:
             desired[device].update(command["values"])
 
             try:
+                # This frontier is irreversible even if the POST response is lost.
+                record["mutation_possible"] = True
                 await self.client.request("POST", self.path + "/action", body=command)
             except ServiceError as exc:
                 if exc.code != "UPSTREAM_UNCERTAIN":
@@ -143,9 +153,8 @@ class Room:
                         fail("ACTION_PARTIAL", "partial",
                              "Подтверждено частичное выполнение (" + names +
                              "). Остальные изменения не подтверждены.")
-                    record["status"] = "failed"
-                    record["error"] = ("service", exc.code, exc.message, exc.status)
-                    raise
+                    fail("ACTION_FAILED", "failed",
+                         "Действие отклонено внешним сервисом; результат требуется сверить.")
                 # The external POST might already have committed: do not retry.
                 uncertain_post = True
             else:
