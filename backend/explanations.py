@@ -11,7 +11,7 @@ def preparation_explanations(user, stay, prefs, steps):
         fact = sources.get(key)
         if not isinstance(fact, dict):
             return "default", "нейтральная настройка по умолчанию"
-        if fact.get("source") == "profile":
+        if str(fact.get("source", "")).startswith("profile"):
             return "profile", "профиль гостя"
         return "history", "его история проживания"
     ts, why_t = origin("temperature")
