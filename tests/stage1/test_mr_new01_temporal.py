@@ -112,3 +112,106 @@ def test_failed_reconciliation_remains_unverified_and_cross_guest_cannot_view():
         assert verified.status_code == 200, verified.text
         assert verified.json()["snapshot"]["state"]["light"]["brightness"] == 0
         assert sim.actions == posts
+
+
+
+def test_equal_at_partial_reconciles_without_rewriting_success_clock():
+    wrapper = build_rehearsal()
+    with TestClient(wrapper) as api:
+        auth = new_guest(api)
+        fault = submit(api, auth, "mrnew01-same-at", T1, "Проверка частичного выполнения")
+        assert fault.status_code == 409
+        assert fault.json()["attempted_at"] == T1
+        op = fault.json()["operation_id"]
+        reconcile = api.get("/api/v1/reconciliation", headers=auth,
+                            params={"operation_id": op})
+        assert reconcile.status_code == 200
+        assert reconcile.json()["snapshot"]["at"] == T1
+        assert reconcile.json()["snapshot"]["state"]["light"]["brightness"] == 0
+        assert api.get("/api/v1/session", headers=auth).json()["at"] == T1
+
+
+def test_partial_across_midnight_and_preview_must_not_unlock_or_overwrite_snapshot():
+    later = "2026-11-13T00:15:00+03:00"
+    wrapper = build_rehearsal()
+    with TestClient(wrapper) as api:
+        auth = new_guest(api)
+        partial = submit(api, auth, "mrnew01-midnight", later,
+                         "Проверка частичного выполнения")
+        assert partial.status_code == 409 and partial.json()["attempted_at"] == later
+        op = partial.json()["operation_id"]
+        sim = wrapper.state.rehearsal_simulator
+        posts = sim.actions
+        preview = api.get("/api/v1/state", headers=auth, params={"at": later})
+        assert preview.status_code == 200 and preview.json()["state"]["light"]["brightness"] == 0
+        assert api.get("/api/v1/session", headers=auth).json()["reconciliation_required"] is True
+        assert submit(api, auth, "mrnew01-early-midnight", T1, "Сделай попрохладнее").status_code == 409
+        assert sim.actions == posts
+        checked = api.get("/api/v1/reconciliation", headers=auth, params={"operation_id": op})
+        assert checked.status_code == 200
+        before = api.get("/api/v1/prepared", headers=auth).json()["last_confirmed"]
+        assert before["at"] == later
+        subsequent_preview = api.get("/api/v1/state", headers=auth,
+                                     params={"at": "2026-11-13T03:30:00+03:00"})
+        assert subsequent_preview.status_code == 200
+        after = api.get("/api/v1/prepared", headers=auth).json()["last_confirmed"]
+        assert after == before, "Virtual preview must never replace reconciled live snapshot"
+        assert sim.actions == posts
+        forward = submit(api, auth, "mrnew01-midnight-forward", later, "Сделай попрохладнее")
+        assert forward.status_code == 200, forward.text
+
+
+def test_manual_device_uncertain_future_time_must_reconcile_before_new_writes():
+    wrapper = build_rehearsal()
+    with TestClient(wrapper) as api:
+        auth = new_guest(api)
+        faults = wrapper.state.rehearsal_faults
+        faults["mode"] = "uncertain"
+        sim = wrapper.state.rehearsal_simulator
+        failed = api.post("/api/v1/devices",
+            headers={**auth, "Idempotency-Key": "mrnew01-manual-uncertain"},
+            json={"device_id": "light", "values": {"brightness": 0}, "at": T2})
+        assert failed.status_code == 409, failed.text
+        assert failed.json()["code"] == "ACTION_UNCERTAIN"
+        assert failed.json()["attempted_at"] == T2
+        posts = sim.actions
+        assert posts > 0
+        assert api.get("/api/v1/session", headers=auth).json()["reconciliation_required"] is True
+        blocked = api.post("/api/v1/devices",
+            headers={**auth, "Idempotency-Key": "mrnew01-manual-before"},
+            json={"device_id":"light", "values":{"brightness":30}, "at":T1})
+        assert blocked.status_code == 409
+        assert sim.actions == posts
+        op = failed.json()["operation_id"]
+        synced = api.get("/api/v1/reconciliation", headers=auth,
+                         params={"operation_id": op})
+        assert synced.status_code == 200, synced.text
+        assert synced.json()["status"] == "uncertain"
+        assert synced.json()["confirmed_devices"] == []
+        assert synced.json()["snapshot"]["at"] == T2
+        assert synced.json()["snapshot"]["state"]["light"]["brightness"] == 0
+        assert sim.actions == posts
+        restored = api.post("/api/v1/devices",
+            headers={**auth, "Idempotency-Key": "mrnew01-manual-forward"},
+            json={"device_id":"light", "values":{"brightness":30}, "at":T2})
+        assert restored.status_code == 200, restored.text
+
+
+def test_conflict_status_stays_conflict_after_temporal_snapshot_reconciliation():
+    wrapper = build_rehearsal()
+    with TestClient(wrapper) as api:
+        auth = new_guest(api)
+        failed = submit(api, auth, "mrnew01-conflict-future", T2,
+                        "Проверка конфликта состояния")
+        assert failed.status_code == 409
+        assert failed.json()["code"] == "ACTION_CONFLICT"
+        opid = failed.json()["operation_id"]
+        latest = api.get("/api/v1/reconciliation", headers=auth,
+                         params={"operation_id": opid})
+        assert latest.status_code == 200, latest.text
+        assert latest.json()["status"] == "conflict"
+        assert latest.json()["snapshot"]["at"] == T2
+        assert api.get("/api/v1/session", headers=auth).json()["history"] == []
+        # A confirmed state observation does not retroactively turn conflict
+        # into a success or permit a post at the previous 20:00 instant.
+        assert submit(api, auth, "mrnew01-conflict-early", T1, "Сделай потише").status_code == 409

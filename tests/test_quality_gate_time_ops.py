@@ -57,8 +57,18 @@ def test_offline_frontend_can_cold_start_and_reject_double_bind():
 
 
 def test_windows_scripts_define_owned_process_shutdown_and_mode_guards():
-    launcher=(ROOT/'windows'/'launcher.ps1').read_text(encoding='utf-8')
-    stop=(ROOT/'windows'/'stop.ps1').read_text(encoding='utf-8')
+    # Source checkout keeps PS scripts under windows/, while the deliberately
+    # portable Windows ZIP puts launch scripts alongside START.cmd at its root.
+    # Both forms are valid; never add duplicate scripts to the release ZIP just
+    # to satisfy a source-tree-only path assumption.
+    if (ROOT/'windows'/'launcher.ps1').is_file():
+        scripts = ROOT/'windows'
+    else:
+        assert (ROOT/'BUILD_INFO.txt').is_file(), "Flat layout allowed only in a built Windows artifact"
+        assert (ROOT/'START.cmd').is_file() and (ROOT/'STOP.cmd').is_file()
+        scripts = ROOT
+    launcher=(scripts/'launcher.ps1').read_text(encoding='utf-8')
+    stop=(scripts/'stop.ps1').read_text(encoding='utf-8')
     assert 'Open-Port 4173' in launcher and 'Open-Port 8765' in launcher
     assert 'REHEARSAL' in launcher and 'STAND' in launcher
     assert 'owned-pids.json' in launcher and 'owned-pids.json' in stop
