@@ -65,32 +65,56 @@ export function periodAt(stamp: string): Period {
         ? "day"
         : "evening";
 }
-// Use timestamps supplied by the simulator, preserving the hotel offset.
+// Format *each instant* using the IANA hotel zone on that date. A stored
+// UTC offset is only valid at the original instant and cannot cross DST.
+export function hotelTime(ms: number, hotelTimezone: string): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: hotelTimezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+    timeZoneName: "longOffset",
+  }).formatToParts(new Date(ms));
+  const part = (name: string) => parts.find((p) => p.type === name)?.value ?? "";
+  const tz = part("timeZoneName");
+  const offset = tz === "GMT" ? "+00:00" : tz.replace(/^GMT/, "");
+  if (!/^[+-]\d{2}:\d{2}$/.test(offset))
+    throw new RangeError("Unsupported IANA offset for hotel time");
+  return `${part("year")}-${part("month")}-${part("day")}T${part("hour")}:${part("minute")}:${part("second")}${offset}`;
+}
+
 export function moments(
   start: string,
   end: string,
   steps: Step[],
+  hotelTimezone?: string,
 ): Partial<Record<Period, string>> {
   const choices: Partial<Record<Period, string>> = {};
-  for (const stamp of [start, ...steps.map((s) => s.at), end]) {
-    if (
-      Date.parse(stamp) >= Date.parse(start) &&
-      Date.parse(stamp) <= Date.parse(end)
-    )
-      choices[periodAt(stamp)] ??= stamp;
-  }
-  // Include unscheduled periods inside the stay without inventing events.
-  const offset = start.slice(-6),
-    sign = offset[0] === "-" ? -1 : 1;
+  const begin = Date.parse(start), finish = Date.parse(end);
+  // Backwards-compatible fallback for older prepared responses without an
+  // IANA hotel timezone. Normal Stage 1 API always supplies hotel_timezone.
+  const offset = start.slice(-6);
+  const sign = offset[0] === "-" ? -1 : 1;
   const minutes =
     sign * (Number(offset.slice(1, 3)) * 60 + Number(offset.slice(4, 6)));
-  for (
-    let ms = Math.ceil(Date.parse(start) / 3600000) * 3600000;
-    ms <= Date.parse(end);
-    ms += 3600000
-  ) {
-    const local =
-      new Date(ms + minutes * 60000).toISOString().slice(0, 19) + offset;
+  const localAt = (ms: number) =>
+    hotelTimezone
+      ? hotelTime(ms, hotelTimezone)
+      : new Date(ms + minutes * 60000).toISOString().slice(0, 19) + offset;
+  for (const stamp of [start, ...steps.map((s) => s.at), end]) {
+    const ms = Date.parse(stamp);
+    if (ms >= begin && ms <= finish) {
+      const local = localAt(ms);
+      choices[periodAt(local)] ??= local;
+    }
+  }
+  // Preview points are timestamps, NOT actions. This never mutates room state.
+  for (let ms = Math.ceil(begin / 3600000) * 3600000; ms <= finish; ms += 3600000) {
+    const local = localAt(ms);
     choices[periodAt(local)] ??= local;
   }
   return choices;
