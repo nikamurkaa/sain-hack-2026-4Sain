@@ -16,8 +16,8 @@ jobs:
           ref: release/sain-final-candidate-20261120
       - name: Download original successful integrated Chromium screenshots
         env:
-          GH_TOKEN: \${{ github.token }}
-        run: gh run download 44819689750 --repo \${{ github.repository }} --name browser-screens --dir /tmp/sain-qa-proof
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 44819689750 --repo ${{ github.repository }} --name browser-screens --dir /tmp/sain-qa-proof
       - name: Import three representative screenshots, no generated artifacts
         run: |
           mkdir -p docs/screenshots
