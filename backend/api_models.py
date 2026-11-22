@@ -89,12 +89,20 @@ class ReconciliationResult(Output):
     next_action_at: str
 
 
+class PreparationDecision(Output):
+    device_id: Literal['light', 'climate', 'curtains', 'sound', 'alarm', 'dnd']
+    source: Literal['profile', 'history', 'default', 'rules']
+    status: Literal['planned', 'warning']
+    reason: str
+
+
 class PreparedView(Output):
     source: Literal['final', 'dev']
     provenance: Literal['prepared']
     guest: Guest
     scenario: Scenario
     last_confirmed: State | None
+    explanations: list[PreparationDecision]
 
 
 class MessageResult(Output):

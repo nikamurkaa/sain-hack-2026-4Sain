@@ -172,7 +172,11 @@ for (let i = 0; i < 4; i++)
     await expect(page.locator(".rows")).toContainText("22 °C");
     await shot(page, 17 + i);
   });
-test("connection, device settings, chat lifecycle, voice review and expiry", async ({
+// The former monolithic 45-second test had >20 image captures, media
+// recording, multi-resolution checks and an expiry assertion under ONE budget.
+// Split by independent user journey, keeping every original assertion and
+// screenshot. No timeout increase, arbitrary sleep or skipped coverage.
+test("connection, devices, chat, unknown POST and explicit reconnect", async ({
   page,
 }) => {
   const c = await fixture(page, "19:48");
@@ -222,6 +226,14 @@ test("connection, device settings, chat lifecycle, voice review and expiry", asy
   await start(page);
   await expect(page.getByText("Заселиться")).toBeVisible();
   await go(page, "Диалог");
+  await expect(page.getByRole("heading", { name: "Ваш номер" })).toBeVisible();
+});
+
+test("voice review and responsive profile after fresh verified session", async ({ page }) => {
+  const c = await fixture(page, "19:48");
+  await start(page);
+  await expect(page.getByText("Заселиться")).toBeVisible();
+  await go(page, "Диалог");
   c.stt = process.env.SAIN_DESKTOP_SHOTS ? 2400 : 850;
   await page.getByLabel("Голосовой ввод").click();
   await expect(page.locator(".record")).toBeVisible();
@@ -251,7 +263,13 @@ test("connection, device settings, chat lifecycle, voice review and expiry", asy
     await page.setViewportSize({ width, height });
     await shot(page, "profile-" + width);
   }
-  await page.setViewportSize({ width: 375, height: 812 });
+  await expect(page.getByRole("heading", { name: "Профиль гостя" })).toBeVisible();
+});
+
+test("responsive room, chat, and authoritative 401 expiry", async ({ page }) => {
+  const c = await fixture(page, "19:48");
+  await start(page);
+  await expect(page.getByText("Заселиться")).toBeVisible();
   await go(page, "Мой номер");
   for (const [width, height] of [[768, 900], [1440, 900], [1920, 1080]] as const) {
     await page.setViewportSize({ width, height });

@@ -957,6 +957,13 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
           <Detail data={prepared.guest.profile} catalog={catalog} />
           <h2>Предпочтения</h2>
           <Detail data={prepared.guest.preferences} catalog={catalog} />
+           <details className="technical-details">
+             <summary>Обоснование настроек</summary>
+             <p>Решения расписания, не подтверждённое состояние устройств.</p>
+             <ul>{prepared.explanations?.map((item, index) => (
+               <li key={index} role={item.status === "warning" ? "alert" : undefined}>{item.reason}</li>
+             ))}</ul>
+           </details>
           <details className="technical-details">
             <summary>Технические сведения о проживании</summary>
             <small>Гость: {prepared.guest.user_id}</small>
@@ -978,6 +985,13 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
           </h1>
           {tabs(false)}
           <Plan steps={steps} period={period} />
+           <details className="technical-details">
+             <summary>Почему выбран этот сценарий</summary>
+             <p>Это запланированные настройки. Фактическое состояние проверьте в «Мой номер».</p>
+             <ul>{prepared.explanations?.map((item, index) => (
+               <li key={index} role={item.status === "warning" ? "alert" : undefined}>{item.reason}</li>
+             ))}</ul>
+           </details>
           <button className="primary bottom" onClick={() => go("room")}>
             В номер <Icon name="arrow-right" />
           </button>

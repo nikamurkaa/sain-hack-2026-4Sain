@@ -39,6 +39,7 @@ export type Prepared = {
   guest: Guest;
   scenario: { steps: Step[] };
   last_confirmed: Snapshot | null;
+  explanations: { device_id: string; source: "profile" | "history" | "default" | "rules"; status: "planned" | "warning"; reason: string }[];
 };
 export type Catalog = {
   tracks: { track_id: string; title: string }[];
