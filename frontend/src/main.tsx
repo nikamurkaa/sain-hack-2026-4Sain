@@ -108,6 +108,8 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const [actionIssue, setActionIssue] = useState<ActionIssue | null>(null);
+  const [aiProof, setAiProof] = useState<{ mode: string; model: string; successful_calls: { chat: number; stt: number; tts: number } } | null>(null);
+  const [proofRevision, refreshProof] = useState(0);
   // A dropped HTTP reply is NOT evidence that an upstream POST was rejected.
   // Fail closed until the authenticated session reveals a pending operation,
   // or a completed response can be independently verified.
@@ -195,6 +197,14 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
       clearTimeout(timer);
     };
   }, [api, revision]);
+  useEffect(() => {
+    if (!info?.live_ai) { setAiProof(null); return; }
+    let current = true;
+    api<{ mode: string; model: string; successful_calls: { chat: number; stt: number; tts: number } }>("ai-status")
+      .then((p) => { if (current) setAiProof(p); })
+      .catch(() => { if (current) setAiProof(null); });
+    return () => { current = false; };
+  }, [api, info?.live_ai, info?.history.length, proofRevision]);
   const steps = prepared?.scenario.steps ?? [];
   const points = useMemo(
     () =>
@@ -721,6 +731,8 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
     return (
       <MobileStay
         token={token}
+        aiProof={aiProof}
+        refreshProof={() => refreshProof((n) => n + 1)}
         page={page as "room" | "welcome" | "plan" | "chat" | "virtual"}
         info={info}
         prepared={prepared}
@@ -766,6 +778,12 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
   const chat = (
     <section className="chat">
       <h2>Диалог</h2>
+      {info.live_ai && <details className="ai-proof">
+        <summary>Live AI · проверить обращения</summary>
+        <p>{aiProof ? `Модель: ${aiProof.model}; успешные ответы — chat ${aiProof.successful_calls.chat}, STT ${aiProof.successful_calls.stt}, TTS ${aiProof.successful_calls.tts}.` : "Нет подтверждённой статистики."}</p>
+        <button type="button" onClick={() => refreshProof((n) => n + 1)}>Обновить</button>
+        <small>Устройства — локальный программный симулятор. Счётчики: только валидные ответы провайдера.</small>
+      </details>
       <div
         className="log"
         role="log"
