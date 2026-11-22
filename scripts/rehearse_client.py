@@ -13,6 +13,7 @@ from scripts.offline_guard import FAKE_ENV
 from tests.helpers import CATALOG, FakeModel
 from tests.offline_cases import CASES
 from tests.simulator import Simulator
+from backend.clients import ModelClient
 
 
 class RehearsalModel(FakeModel):
@@ -88,8 +89,16 @@ class RehearsalModel(FakeModel):
         return "Сделай попрохладнее"
 
 
-def build_rehearsal():
-    os.environ.update(FAKE_ENV)
+def build_rehearsal(*, live=False):
+    if live:
+        # Only organizer credentials stay in the local operator environment.
+        # The room is still our isolated, synthetic simulator.
+        if not os.getenv('LLM_API_KEY') or not os.getenv('LLM_MODEL'):
+            raise RuntimeError('LIVE mode requires LLM_API_KEY and LLM_MODEL in local environment')
+        os.environ.update({key: value for key, value in FAKE_ENV.items()
+                           if not key.startswith('LLM_')})
+    else:
+        os.environ.update(FAKE_ENV)
     from main import app as backend
 
     dev, final = Simulator(), Simulator()
@@ -167,7 +176,7 @@ def build_rehearsal():
             transport=httpx.MockTransport(dispatch)
         ) as upstream, httpx.AsyncClient(
             transport=httpx.ASGITransport(app=backend), base_url="http://offline.invalid"
-        ) as internal:
+        ) as internal, httpx.AsyncClient(trust_env=False, follow_redirects=False) as provider:
             backend.state.http, backend.state.model = upstream, model
             app.state.rehearsal_faults = faults
             app.state.rehearsal_simulator = dev
@@ -175,6 +184,10 @@ def build_rehearsal():
                                            json={"case": 2, "dataset_code": "offline-final"})
             response.raise_for_status()
             final.closed = True
+            if live:
+                # Never use FakeModel for live user messages or microphone STT.
+                # Only the synthetic fixture bootstrap above is deterministic.
+                backend.state.model = ModelClient(provider)
             yield
 
     wrapper = FastAPI(lifespan=lifespan)
