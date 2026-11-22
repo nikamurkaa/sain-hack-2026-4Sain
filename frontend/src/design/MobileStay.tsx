@@ -74,6 +74,8 @@ export function Hit({
 }
 type Props = {
   token: string;
+  aiProof: { mode: string; model: string; successful_calls: { chat: number; stt: number; tts: number } } | null;
+  refreshProof: () => void;
   page: "room" | "chat" | "virtual" | "welcome" | "plan";
   info: Session;
   prepared: Prepared;
@@ -420,6 +422,14 @@ export function MobileStay(p: Props) {
         <p role="status" className="last-reading">
           {p.liveNote}
         </p>
+      )}
+      {p.page === "chat" && p.info.live_ai && (
+        <details className="mobile-ai-proof">
+          <summary>LIVE AI · реальные обращения</summary>
+          <p>{p.aiProof ? `Chat ${p.aiProof.successful_calls.chat} · STT ${p.aiProof.successful_calls.stt} · TTS ${p.aiProof.successful_calls.tts}` : "Нет подтверждённой статистики."}</p>
+          <button type="button" onClick={p.refreshProof}>Обновить</button>
+          <small>Устройства: локальный симулятор</small>
+        </details>
       )}
       {p.page === "chat" && !p.allowed && (
         <p className="read-caption">Сеанс доступен только для просмотра.</p>
