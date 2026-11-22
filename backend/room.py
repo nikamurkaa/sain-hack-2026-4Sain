@@ -13,7 +13,9 @@ class Room:
         body = {"record_id": record_id, "kind": kind}
         if run_id:
             body["run_id"] = run_id
-        # Upstream has no documented idempotency key or session lookup for a lost POST response.\n        # Never retry a session-creating side effect on transport uncertainty.\n        session = await client.request("POST", "/room/session", body=body)
+        # Upstream has no documented idempotency key or session lookup for a lost POST response.
+        # Never retry a session-creating side effect on transport uncertainty.
+        session = await client.request("POST", "/room/session", body=body)
         if not isinstance(session.get("session_id"), str) or not isinstance(session.get("initial_state"), dict):
             raise ServiceError("UPSTREAM_FORMAT", "Симулятор вернул некорректный сеанс.")
         return cls(client, session)
