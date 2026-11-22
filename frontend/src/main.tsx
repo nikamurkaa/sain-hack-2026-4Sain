@@ -172,6 +172,9 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
             String(prepared.guest.stay.check_in_at ?? info.at),
             info.until,
             prepared.scenario.steps,
+            typeof prepared.guest.stay.hotel_timezone === "string"
+              ? prepared.guest.stay.hotel_timezone
+              : undefined,
           )
         : {},
     [info, prepared],
