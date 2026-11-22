@@ -82,7 +82,7 @@ export function hotelTime(ms: number, hotelTimezone: string): string {
   const part = (name: string) => parts.find((p) => p.type === name)?.value ?? "";
   const tz = part("timeZoneName");
   const offset = tz === "GMT" ? "+00:00" : tz.replace(/^GMT/, "");
-  if (!/^[+-]\\d{2}:\\d{2}$/.test(offset))
+  if (!/^[+-]\d{2}:\d{2}$/.test(offset))
     throw new RangeError("Unsupported IANA offset for hotel time");
   return `${part("year")}-${part("month")}-${part("day")}T${part("hour")}:${part("minute")}:${part("second")}${offset}`;
 }
