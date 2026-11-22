@@ -68,7 +68,25 @@ class Room:
         # Local session boundaries serialize same-room commands; /run records
         # continue to use independent Room instances for parallel guests.
         async with self._execute_lock:
-            return await self._execute_locked(commands, at, operation_id)
+            # Capture only records created by THIS invocation. The session route
+            # holds its own lock until its no-await cancellation bookkeeping is
+            # complete. No other action may overtake a cancelled POST.
+            known = set(self.operations)
+            try:
+                return await self._execute_locked(commands, at, operation_id)
+            except asyncio.CancelledError:
+                # A lost response after a possible upstream POST is not a
+                # rollback. Finalize in-process evidence synchronously before
+                # releasing the Room lock; never start a background POST.
+                for identifier, record in self.operations.items():
+                    if identifier not in known and record["status"] == "in_progress":
+                        record["status"] = "uncertain"
+                        record["error"] = (
+                            "action", "ACTION_UNCERTAIN",
+                            "Выполнение прервано. Результат неизвестен; "
+                            "проверьте состояние номера без повторной отправки.", 409,
+                        )
+                raise
 
     async def _execute_locked(self, commands, at, operation_id=None):
         """Safely execute an ordered saga, never pretending upstream is atomic.
