@@ -413,7 +413,7 @@ def record_cancelled_action(session, known_operations, fingerprint, key, attempt
     """
     candidates = [
         (identifier, record)
-        for identifier, record in session.room.operations.items()
+        for identifier, record in getattr(session.room, 'operations', {}).items()
         if identifier not in known_operations
     ]
     for identifier, record in candidates:
@@ -506,7 +506,7 @@ async def message(body: MessageInput, idempotency_key: str = Header(min_length=8
         ensure_safe_action_time(session, body.at)
         uncertain = ServiceError('MESSAGE_UNCERTAIN', 'Результат не подтверждён. Проверьте состояние комнаты.', 409)
         session.messages[idempotency_key] = (fingerprint, uncertain)
-        known_operations = set(session.room.operations)
+        known_operations = set(getattr(session.room, 'operations', {}))
         try:
             texts = [body.text]
             reply, actual = await session.solution.message(session.room, session.stay['user_id'], texts, body.at,
@@ -580,7 +580,7 @@ async def set_device(body: DeviceInput, idempotency_key: str = Header(min_length
         uncertain = ServiceError('ACTION_UNCERTAIN', 'Результат не подтверждён. Проверьте состояние номера.', 409)
         session.messages[idempotency_key] = (fingerprint, uncertain)
         command = {'device_id': body.device_id, 'values': changes, 'at': body.at}
-        known_operations = set(session.room.operations)
+        known_operations = set(getattr(session.room, 'operations', {}))
         try:
             actual = await session.room.execute([command], body.at)
         except asyncio.CancelledError:
