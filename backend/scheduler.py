@@ -1,5 +1,5 @@
 """Расписание по правилам R1–R8 версии gen-case2-draft-2026-11-14."""
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from backend.core import check_values, iso, moment
@@ -35,8 +35,15 @@ def bedtime(user, stay):
 def build_scenario(user, stay, prefs, devices, rules):
     if {r["rule_id"] for r in rules} != {"R" + str(i) for i in range(1, 9)}:
         raise ValueError("Неизвестный набор правил сна")
-    start, wake = moment(stay["check_in_at"]), moment(stay["target_wake_at"])
-    bed = bedtime(user, stay)
+    # All schedule arithmetic uses absolute instants in UTC, never fixed
+    # check-in/wake offsets or ZoneInfo wall-time timedelta arithmetic.
+    # Convert each scheduled instant back to the hotel's IANA zone only
+    # when serializing it. Otherwise spring-forward yields nonexistent times
+    # and fall-back may move events in the wrong chronological order.
+    hotel_zone = ZoneInfo(stay["hotel_timezone"])
+    start = moment(stay["check_in_at"]).astimezone(timezone.utc)
+    wake = moment(stay["target_wake_at"]).astimezone(timezone.utc)
+    bed = bedtime(user, stay).astimezone(timezone.utc)
     steps = []
 
     def add(at, device, values):
@@ -44,7 +51,7 @@ def build_scenario(user, stay, prefs, devices, rules):
         if at > wake:
             return
         check_values(devices, device, values)
-        steps.append({"at": iso(at), "device_id": device, "values": values})
+        steps.append({"at": iso(at.astimezone(hotel_zone)), "device_id": device, "values": values})
 
     evening = max(start, bed - timedelta(minutes=60))
     if start <= bed:
@@ -59,7 +66,7 @@ def build_scenario(user, stay, prefs, devices, rules):
     add(sound_start, "sound", sound)
     if sound["volume"]:
         add(sound_start + timedelta(minutes=sound["timer_minutes"]), "sound", {"volume": 0, "timer_minutes": 0})
-    add(start, "alarm", {"at": iso(wake), "mode": prefs["alarm_mode"], "window_minutes": 0})
+    add(start, "alarm", {"at": iso(wake.astimezone(hotel_zone)), "mode": prefs["alarm_mode"], "window_minutes": 0})
     # R6: three rising light steps within 15–30 minutes before wake, OR
     # open the curtains within that same window. Never backdate an event to
     # before check-in and never silently count two rises as three.
