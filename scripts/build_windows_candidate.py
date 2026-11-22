@@ -43,7 +43,7 @@ def tracked():
 
 def package():
     sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
-    ci_sha = os.getenv("GITHUB_SHA")
+    ci_sha = os.getenv("SAIN_SOURCE_SHA") or os.getenv("GITHUB_SHA")
     if ci_sha and ci_sha != sha:
         raise RuntimeError("GitHub run SHA does not match checked-out source")
     if not (ROOT / "frontend/dist/index.html").is_file():
