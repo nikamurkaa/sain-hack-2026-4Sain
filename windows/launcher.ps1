@@ -26,8 +26,9 @@ function Open-Port([int]$port) {
 Write-Host 'SAIN SMART ROOM · 4SAIN · LOCAL PORTFOLIO DEMO' -ForegroundColor Cyan
 Write-Host '1 = REHEARSAL / автономный синтетический номер, FakeLLM, без API организаторов'
 Write-Host '2 = STAND / официальный стенд (только временный ГОСТЕВОЙ токен)'
+Write-Host '3 = LIVE AI / настоящий AI, STT и TTS + ЛОКАЛЬНЫЙ симулятор номера'
 $choice=Read-Host 'Выберите режим (1 / 2)'
-if ($choice -notin @('1','2')) { throw 'Введите 1 или 2.' }
+if ($choice -notin @('1','2','3')) { throw 'Введите 1, 2 или 3.' }
 $py=Python
 if (-not (Test-Path -LiteralPath (Join-Path $root 'frontend\dist\index.html'))) { throw 'Не найден frontend\dist\index.html.' }
 if (-not (Open-Port 4173)) { throw 'Порт 4173 занят. Остановите предыдущий сервер через STOP.cmd.' }
@@ -37,8 +38,19 @@ $mode='stand'
 $pythonExe=$py.Exe
 $pythonArgs=@($py.Args)
 $rehearsal=$null
-if ($choice -eq '1') {
-  $mode='rehearsal'
+if ($choice -eq '1' -or $choice -eq '3') {
+  $mode=$(if($choice -eq '3'){'live'}else{'rehearsal'})
+  if ($choice -eq '3') {
+    if (-not $env:LLM_API_KEY) {
+      $secure=Read-Host 'Введите разрешённый временный AI-ключ (не отображается)' -AsSecureString
+      $ptr=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+      try { $env:LLM_API_KEY=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr) }
+      finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr) }
+    }
+    if (-not $env:LLM_API_KEY) { throw 'Для LIVE AI требуется LLM_API_KEY.' }
+    if (-not $env:LLM_MODEL) { $env:LLM_MODEL='gpt-6-luna' }
+    if (-not $env:LLM_BASE_URL) { $env:LLM_BASE_URL='https://bifrost.be-healthy.tech/v1' }
+  }
   if (-not (Open-Port 8765)) { throw 'Порт 8765 занят. Запустите STOP.cmd.' }
   $venv=Join-Path $root '.venv'
   $venvPy=Join-Path $venv 'Scripts\python.exe'
@@ -55,7 +67,8 @@ if ($choice -eq '1') {
   }
   $pythonExe=$venvPy
   $pythonArgs=@()
-  $rehearsal=Start-Process -FilePath $venvPy -ArgumentList @('-m','scripts.rehearse_client') -WorkingDirectory $root -PassThru -RedirectStandardOutput (Join-Path $runDir 'rehearsal.out') -RedirectStandardError (Join-Path $runDir 'rehearsal.err')
+  $runner=$(if($choice -eq '3'){'scripts.live_client'}else{'scripts.rehearse_client'})
+  $rehearsal=Start-Process -FilePath $venvPy -ArgumentList @('-m',$runner) -WorkingDirectory $root -PassThru -RedirectStandardOutput (Join-Path $runDir 'rehearsal.out') -RedirectStandardError (Join-Path $runDir 'rehearsal.err')
   $ready=$false
   for ($i=0; $i -lt 60; $i++) {
     Start-Sleep -Milliseconds 250
@@ -72,9 +85,10 @@ $proxy=Start-Process -FilePath $pythonExe -ArgumentList $serverArgs -WorkingDire
 Start-Sleep -Seconds 1
 if ($proxy.HasExited) { throw 'Клиентский сервер не запустился. См. .runtime\client.err.' }
 Write-Host ('SAIN работает: http://127.0.0.1:4173 (' + $mode + ')') -ForegroundColor Green
-if ($mode -eq 'rehearsal') {
-  Write-Host 'Синтетический токен: откройте CMD в этой папке и запустите:'
+if ($mode -eq 'rehearsal' -or $mode -eq 'live') {
+  Write-Host 'Локальный гостевой токен: откройте CMD в этой папке и запустите:'
   Write-Host '.venv\Scripts\python.exe -m scripts.client_access dev --stay stay_test'
+  if($mode -eq 'live'){Write-Host 'ЖИВОЙ AI: да. Устройства: программный локальный симулятор; НЕ реальные гостиничные устройства.'}
 } else {
   Write-Host 'Вводите только разрешённый временный клиентский токен. Командный ключ в браузер не вводить.'
 }
