@@ -1,8 +1,29 @@
+import { deviceNames } from "./model";
 export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
     super(message);
+    this.name = "ApiError";
     this.status = status;
+  }
+}
+
+/** Explicitly recognized *action* outcomes, not all HTTP 409 responses. */
+export type ActionErrorKind = "partial" | "uncertain" | "conflict" | "failed";
+export type ConfirmedDevice = keyof typeof deviceNames;
+export class ActionApiError extends ApiError {
+  readonly kind: ActionErrorKind;
+  readonly code: string;
+  readonly operationId: string;
+  readonly confirmedDevices: readonly ConfirmedDevice[];
+  constructor(status: number, message: string, code: string, kind: ActionErrorKind,
+              operationId: string, confirmedDevices: readonly ConfirmedDevice[]) {
+    super(status, message);
+    this.name = "ActionApiError";
+    this.code = code;
+    this.kind = kind;
+    this.operationId = operationId;
+    this.confirmedDevices = Object.freeze([...confirmedDevices]);
   }
 }
 const errors: Record<number, string> = {
@@ -15,6 +36,45 @@ const errors: Record<number, string> = {
   422: "Проверьте данные запроса.",
   429: "Достигнут лимит. Подождите минуту.",
 };
+function object(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown> : null;
+}
+function safeMessage(body: Record<string, unknown> | null): string {
+  const message = body?.message;
+  return typeof message === "string" && message.length <= 240 &&
+    !/[\r\n]|https?:\/\/|Bearer|sk-[a-z0-9]|traceback|api[_-]?key|token=/i.test(message)
+      ? message.trim() : "";
+}
+const recognized: Record<string, ActionErrorKind> = {
+  ACTION_PARTIAL: "partial",
+  ACTION_UNCERTAIN: "uncertain",
+  ACTION_CONFLICT: "conflict",
+  ACTION_FAILED: "failed",
+};
+const deviceIDs = Object.keys(deviceNames);
+function validatedOperationId(raw: unknown): raw is string {
+  return typeof raw === "string" && raw.length >= 1 && raw.length <= 128 &&
+    /^[A-Za-z0-9_-]+$/.test(raw) && !/(?:bearer|secret|token|password)/i.test(raw);
+}
+/** Never derive an action confirmation from an untrusted/error-shaped JSON body. */
+export function parseActionFailure(status: number, value: unknown): ApiError {
+  const body = object(value);
+  const message = safeMessage(body) || errors[status] || "Сервис временно недоступен.";
+  const code = body?.code;
+  const kind = typeof code === "string" ? recognized[code] : undefined;
+  const op = body?.operation_id;
+  const rawDevices = body?.confirmed_devices;
+  if (status === 409 && kind && validatedOperationId(op) &&
+      Array.isArray(rawDevices) && rawDevices.length <= 6 &&
+      rawDevices.every((id: unknown) => typeof id === "string" && deviceIDs.includes(id)) &&
+      new Set(rawDevices).size === rawDevices.length &&
+      (kind !== "partial" || rawDevices.length > 0)) {
+    return new ActionApiError(status, message, code as string, kind, op,
+      rawDevices as ConfirmedDevice[]);
+  }
+  return new ApiError(status, message);
+}
 export function client(token: string, signal: AbortSignal) {
   return async function request<T>(
     path: string,
@@ -33,17 +93,7 @@ export function client(token: string, signal: AbortSignal) {
     });
     if (!response.ok) {
       const body: unknown = await response.json().catch(() => ({}));
-      // Prefer the server's precise response, but never echo secrets or traces.
-      const explanation =
-        body && typeof body === "object" && "message" in body &&
-        typeof body.message === "string" && body.message.length <= 240 &&
-        !/[\r\n]|https?:\/\/|Bearer|sk-[a-z0-9]|traceback|api[_-]?key|token=/i.test(body.message)
-          ? body.message.trim()
-          : "";
-      throw new ApiError(
-        response.status,
-        explanation || errors[response.status] || "Сервис временно недоступен.",
-      );
+      throw parseActionFailure(response.status, body);
     }
     if (response.status === 204) return undefined as T;
     const data = await response.json();
