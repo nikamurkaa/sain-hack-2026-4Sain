@@ -2,7 +2,7 @@
 
 **22 ноября 2026 · команда 4Sain · [Draft PR №20](https://github.com/nikamurkaa/sain-hack-2026-4Sain/pull/20) · Stage 1 only.**
 
-**Решение по независимому отчёту** [SAIN_Stage1_Final_Independent_ReReview.md](../../../SAIN_Stage1_Final_Independent_ReReview.md): исходный повторный вердикт `REQUEST CHANGES BEFORE MERGE` верен для `fb3b082d0a457be10a462c468c565147bcedb423`. Исполнитель исправил подтверждённый P1 MR-NEW-01 и оба P2 MR-NEW-02/03. **Это не независимый APPROVE и не разрешение на merge.** Новый точный integration HEAD сверяется по актуальному [PR №20](https://github.com/nikamurkaa/sain-hack-2026-4Sain/pull/20); документационный коммит не может заранее содержать свой собственный SHA. Exact-HEAD backend/frontend/Windows run IDs для финального коммита закрепляются в описании PR после их успешного завершения. Проверенный преддокументационный код: `53b96202fa5ef4a1b2d265c86e42d1d1763daf52`.
+**Решение по независимому отчёту** `SAIN_Stage1_Final_Independent_ReReview(2).md` (отдельно предоставленный независимый отчёт, не файл репозитория): исходный повторный вердикт `REQUEST CHANGES BEFORE MERGE` верен для `fb3b082d0a457be10a462c468c565147bcedb423`. Исполнитель исправил подтверждённый P1 MR-NEW-01 и оба P2 MR-NEW-02/03. **Это не независимый APPROVE и не разрешение на merge.** Новый точный integration HEAD сверяется по актуальному [PR №20](https://github.com/nikamurkaa/sain-hack-2026-4Sain/pull/20); документационный коммит не может заранее содержать свой собственный SHA. Exact-HEAD backend/frontend/Windows run IDs для финального коммита закрепляются в описании PR после их успешного завершения. Проверенный преддокументационный код: `53b96202fa5ef4a1b2d265c86e42d1d1763daf52`.
 
 ## 1. Root cause и исходный RED
 
