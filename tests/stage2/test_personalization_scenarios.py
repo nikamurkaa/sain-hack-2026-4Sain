@@ -26,7 +26,7 @@ AFTER_ARRIVAL = "2026-11-12T20:45:00+03:00"
 
 def note(data, event_id, text, at="2026-11-11T18:00:00+03:00", uid="guest_test", source="hotel"):
     data["events"].append({"event_id": event_id, "source": source, "user_id": uid,
-                           "started_at": at, "payload": {"text": text}})
+                           "started_at": at, "ended_at": None, "type": "note", "payload": {"text": text}})
 
 
 class EvidenceModel:
@@ -196,5 +196,4 @@ def test_two_guests_same_event_id_and_time_but_different_preferences_never_mix()
             resolver.resolve("guest_B", AT, "2026-11-11"))
         assert a["temperature"] == "cool" and b["temperature"] == "warm"
         assert len(model.calls) == 2 and all(len(row) == 1 for row in model.calls)
-        assert all(item["id"] == "event:same-id" for row in model.calls for item in [])
     asyncio.run(check())
