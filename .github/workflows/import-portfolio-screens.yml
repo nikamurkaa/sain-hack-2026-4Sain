@@ -1,0 +1,32 @@
+name: One-time portfolio preview import
+on:
+  push:
+    branches: [release/sain-final-candidate-20261120]
+    paths: [.github/workflows/import-portfolio-screens.yml]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release/sain-final-candidate-20261120
+      - name: Download original successful integrated Chromium screenshots
+        env:
+          GH_TOKEN: \${{ github.token }}
+        run: gh run download 44819689750 --repo \${{ github.repository }} --name browser-screens --dir /tmp/sain-qa-proof
+      - name: Import three representative screenshots, no generated artifacts
+        run: |
+          mkdir -p docs/screenshots
+          cp '/tmp/sain-qa-proof/evidence/quality-gate/screen-Мой_номер-375.png' docs/screenshots/mobile-room.png
+          cp '/tmp/sain-qa-proof/evidence/quality-gate/screen-Мой_номер-1440.png' docs/screenshots/desktop-room.png
+          cp '/tmp/sain-qa-proof/evidence/quality-gate/screen-Диалог-375.png' docs/screenshots/mobile-dialog.png
+          file docs/screenshots/*.png
+          git add docs/screenshots
+          if ! git diff --cached --quiet; then
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'docs: include three verified browser screenshots for portfolio'
+            git push origin HEAD:refs/heads/release/sain-final-candidate-20261120
+          fi
