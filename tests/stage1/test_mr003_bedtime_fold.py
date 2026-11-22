@@ -69,3 +69,18 @@ def test_regular_moscow_night_and_r6_always_chronological():
     steps = build_scenario(user, stay, prefs(), data["devices"], data["sleep_rules"])
     assert [utc(moment(s["at"])) for s in steps] == sorted(utc(moment(s["at"])) for s in steps)
     assert len([s for s in steps if s["device_id"] == "light" and s["values"].get("brightness") in (10,30,60)]) == 3
+
+
+@pytest.mark.parametrize("hotel,home,wake,expected", [
+    ("Europe/Berlin", "America/New_York", "2026-11-13T07:00:00+01:00",
+     datetime(2026, 11, 13, 3, 0, tzinfo=timezone.utc)),  # R8 -1 real hour
+    ("America/New_York", "Asia/Tokyo", "2026-11-13T07:00:00-05:00",
+     datetime(2026, 11, 12, 15, 0, tzinfo=timezone.utc)),  # R8 +1 real hour
+])
+def test_r8_shift_is_one_real_utc_hour_not_an_ambiguous_wall_hour(hotel, home, wake, expected):
+    data, user, stay = setup(hotel, wake, "23:00", home_zone=home)
+    actual = bedtime(user, stay)
+    assert utc(actual) == expected
+    steps = build_scenario(user, stay, prefs(), data["devices"], data["sleep_rules"])
+    assert [utc(moment(s["at"])) for s in steps] == sorted(utc(moment(s["at"])) for s in steps)
+    assert all(hotel_moment(s["at"], hotel) for s in steps)

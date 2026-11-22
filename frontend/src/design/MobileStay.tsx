@@ -143,11 +143,13 @@ export function MobileStay(p: Props) {
           ? 2 + mode * 2
           : p.page === "virtual"
             ? 17 + periodIndex(p.period)
-            : p.error || p.actionIssue
-              ? p.info.history.length
-                ? 28
-                : 16
-              : p.pending
+            : p.actionIssue
+              ? 9 // Partial/conflict is NOT a network-disconnect screen.
+              : p.error
+                ? p.info.history.length
+                  ? 28
+                  : 16
+                : p.pending
                 ? 25
                 : last?.reply.response_class === "refused"
                   ? p.info.history.length === 1
@@ -291,7 +293,8 @@ export function MobileStay(p: Props) {
     if (p.page !== "chat") return;
     if (name === "Сделай попрохладнее")
       return {
-        hidden: !p.allowed,
+        // Never offer a new command in front of unresolved action evidence.
+        hidden: !p.allowed || !!p.actionIssue,
         onClick: () => p.send("Сделай попрохладнее"),
       };
     if (name === "Запрос")
