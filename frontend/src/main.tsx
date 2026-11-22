@@ -1,6 +1,6 @@
 import { createRoot } from "react-dom/client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { client, ApiError, ActionApiError, parseActionFailure } from "./api";
+import { client, ApiError, ActionApiError, parseActionFailure, instant } from "./api";
 import { verifiedReconciliation } from "./temporalRecovery";
 import { actionIssue as describeActionIssue } from "./actionFeedback";
 import type { ActionIssue } from "./actionFeedback";
@@ -107,6 +107,10 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const [actionIssue, setActionIssue] = useState<ActionIssue | null>(null);
+  // A dropped HTTP reply is NOT evidence that an upstream POST was rejected.
+  // Fail closed until the authenticated session reveals a pending operation,
+  // or a completed response can be independently verified.
+  const [unansweredPost, setUnansweredPost] = useState(false);
   const liveRevision = useRef(0),
     recoveryRevision = useRef(0),
     currentIssue = useRef<ActionIssue | null>(null),
@@ -120,6 +124,7 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
       setPending(null);
       setDraft("");
       setActionIssue(null);
+      setUnansweredPost(false);
       currentIssue.current = null;
       recoveryRevision.current++;
       return true;
@@ -142,6 +147,7 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
     setSnapshot(null);
     setStale(false);
     setActionIssue(null);
+    setUnansweredPost(false);
     currentIssue.current = null;
     recoveryRevision.current++;
     (async () => {
@@ -290,6 +296,7 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
           currentIssue.current?.operationId !== issue.operationId) return;
       setSnapshot(verified.snapshot);
       setStale(false);
+      setUnansweredPost(false);
       const accepted = { ...issue, checked: true };
       currentIssue.current = accepted;
       setActionIssue(accepted);
@@ -306,6 +313,55 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
         ? { ...prev, checked: false } : prev);
     }
   }
+  // A 500, timeout or browser network abort may hide a completed POST.
+  // /session serializes behind the in-flight action, so the returned
+  // pending_action belongs to the authoritative same-token Room journal.
+  async function recoverUnansweredPost(expectedSuccess?: string) {
+    setUnansweredPost(true);
+    setStale(true);
+    try {
+      const updated = await api<Session>("session", {
+        signal: AbortSignal.timeout(4000),
+      });
+      setInfo(updated);
+      const pendingResult = parseActionFailure(409, updated.pending_action);
+      if (updated.reconciliation_required) {
+        if (pendingResult instanceof ActionApiError) {
+          const issue = describeActionIssue(pendingResult);
+          recoveryRevision.current++;
+          currentIssue.current = issue;
+          setActionIssue(issue);
+          setPending(null);
+          setError("");
+          await refreshActual(issue); // GET only; no resubmission of POST
+          return;
+        }
+        setError("Исход операции неизвестен. Сверка ещё недоступна; новые команды заблокированы.");
+        setPending(null);
+        return;
+      }
+      const latest = updated.history.at(-1);
+      // Only an already recorded successful message can clear the
+      // transport-uncertain guard in the absence of server pending evidence.
+      if (expectedSuccess && latest?.reply.response_class === "done" &&
+          latest.utterances.join(" ") === expectedSuccess &&
+          updated.actions.includes("state")) {
+        const live = await api<Snapshot>("state", {
+          signal: AbortSignal.timeout(4000),
+        });
+        if (instant(live.at) === null || instant(live.at) !== instant(updated.at)) return;
+        setSnapshot(live);
+        setStale(false);
+        setPending(null);
+        setError("");
+        setUnansweredPost(false);
+      }
+    } catch (err) {
+      expiredError(err);
+      // Never unblock based solely on a network error, cancelled fetch or
+      // successful GET at an unrelated virtual time.
+    }
+  }
   function dismissActionIssue() {
     if (!actionIssue?.checked) return;
     recoveryRevision.current++;
@@ -315,7 +371,8 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
     setPending(null);
     // Preserve user-entered NEW text; never submit it automatically.
   }
-  const blockedByRecovery = !!(actionIssue && !actionIssue.checked) ||
+  const blockedByRecovery = unansweredPost ||
+    !!(actionIssue && !actionIssue.checked) ||
     !!info?.reconciliation_required;
   const canSubmit = allowed && !busy && !pending && !blockedByRecovery && !!draft.trim();
   async function send(text: string, retry?: Attempt) {
@@ -334,6 +391,7 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
     recoveryRevision.current++;
     currentIssue.current = null;
     setActionIssue(null);
+    setUnansweredPost(false);
     follow.current = true;
     setError("");
     go("chat");
@@ -359,6 +417,7 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
         throw Error("response");
       setSnapshot({ at: attempt.at, state: result.state });
       setStale(false);
+      setUnansweredPost(false);
       setDraft("");
       setPending(null);
       setInfo(
@@ -398,29 +457,9 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
         await refreshActual(issue);
         return;
       }
-      setError(problem(e));
+      setError("Ответ команды не получен. Проверяем, могло ли действие выполниться.");
       setDraft(attempt.text);
-      setStale(true);
-      try {
-        const recovery = { signal: AbortSignal.timeout(4000) };
-        const updated = await api<Session>("session", recovery);
-        // Recover authoritative history when the response to a command was lost.
-        setInfo(updated);
-        const delivered = updated.history.length > info.history.length &&
-          updated.history.at(-1)?.utterances.join(" ") === attempt.text;
-        if (delivered) {
-          setPending(null);
-          setError("");
-          setDraft("");
-        }
-        if (updated.actions.includes("state")) {
-          const live = await api<Snapshot>("state", recovery);
-          setSnapshot(live);
-          setStale(false);
-        }
-      } catch (err) {
-        expiredError(err);
-      }
+      await recoverUnansweredPost(attempt.text);
     } finally {
       lock.current = false;
       setBusy(false);
@@ -434,6 +473,7 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
     recoveryRevision.current++;
     currentIssue.current = null;
     setError("");
+    setUnansweredPost(false);
     setActionIssue(null);
     go("chat");
     try {
@@ -465,16 +505,11 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
         await refreshActual(issue);
         return;
       }
-      // Do not blindly retry a possibly delivered operation.
-      setError(problem(e) + " Проверьте состояние номера перед повтором.");
-      setStale(true);
-      try {
-        const latest = await api<Snapshot>("state", { signal: AbortSignal.timeout(4000) });
-        setSnapshot(latest);
-        setStale(false);
-        const session = await api<Session>("session", { signal: AbortSignal.timeout(4000) });
-        setInfo(session);
-      } catch (_) { /* Keep last known state explicitly stale. */ }
+      // Transport error is not proof that the operation failed. Check
+      // the authenticated pending operation FIRST; never trust default T1
+      // /state as a receipt for a cancelled action at T2.
+      setError("Ответ настройки не получен. Для безопасности требуется сверка номера.");
+      await recoverUnansweredPost("Ручная настройка: " + id);
     } finally {
       lock.current = false;
       setBusy(false);
