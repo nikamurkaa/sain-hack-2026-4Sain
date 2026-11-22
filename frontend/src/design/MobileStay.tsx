@@ -1,5 +1,6 @@
 import { useState, useSyncExternalStore } from "react";
 import { ActionNotice } from "../ActionNotice";
+import { SpeechReply } from "../SpeechReply";
 import type { ActionIssue } from "../actionFeedback";
 import type { ReactNode } from "react";
 import {
@@ -72,6 +73,7 @@ export function Hit({
   );
 }
 type Props = {
+  token: string;
   page: "room" | "chat" | "virtual" | "welcome" | "plan";
   info: Session;
   prepared: Prepared;
@@ -195,6 +197,7 @@ export function MobileStay(p: Props) {
           <article key={i} className="exchange">
             <p>{h.utterances.join(" ")}</p>
             <p>{h.reply.text}</p>
+            <SpeechReply token={p.token} replyIndex={i} />
           </article>
         ))}
       </div>
