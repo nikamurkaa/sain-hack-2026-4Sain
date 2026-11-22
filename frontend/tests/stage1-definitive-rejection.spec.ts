@@ -59,7 +59,7 @@ for (const [width,height] of [[320,568],[375,812],[1440,900]] as const) {
       expect(wirePosts).toBe(1);
       await expect(page.getByRole("alert")).toContainText("Проверьте");
       await expect(draft).toHaveValue("Сделай попрохладнее");
-      await draft.fill("Сделай чуть прохладнее");
+      await draft.fill("Сделай потеплее");
       await expect(button).toBeEnabled();
       await expect(page.getByRole("button",{name:"Повторить",exact:true})).toHaveCount(0);
       expect(wirePosts).toBe(1);
