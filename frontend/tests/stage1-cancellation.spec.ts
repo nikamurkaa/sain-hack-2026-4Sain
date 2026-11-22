@@ -98,6 +98,9 @@ for (const size of [
       await page.reload();
       await page.getByLabel("Временный токен гостя").fill(token);
       await page.getByRole("button",{name:"Подключиться",exact:true}).click();
+      await expect(page.getByRole("button",{name:"Заселиться"})).toBeVisible();
+      await page.getByRole("button",{name:"Меню"}).click();
+      await page.getByRole("navigation").getByRole("button",{name:"Диалог",exact:true}).click();
       const resumed=page.locator('[data-action-kind="uncertain"]');
       await expect(resumed).toBeVisible();
       await expect(resumed.getByRole("button",{name:"Закрыть уведомление"})).toBeDisabled();
