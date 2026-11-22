@@ -1,4 +1,4 @@
-import { deviceNames } from "./model";
+import { deviceNames } from "./model.ts";
 export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
