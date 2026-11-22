@@ -33,7 +33,9 @@ test("Stage 2: six-device planned explanations have verifiable provenance on mob
   await expect(page.getByText(/R3: на ночь выбрано/)).toBeVisible();
 
   await page.setViewportSize({ width: 1440, height: 900 });
-  await expect(page.getByText("Почему выбран этот сценарий", { exact: true })).toBeVisible();
+  const desktopSummary = page.getByText("Почему выбран этот сценарий", { exact: true });
+  await expect(desktopSummary).toBeVisible();
+  await desktopSummary.click();
   await expect(page.getByText(/R3: на ночь выбрано/)).toBeVisible();
   const confirmed = await request.get(api + "/state", { headers: auth });
   expect(confirmed.status()).toBe(200);
