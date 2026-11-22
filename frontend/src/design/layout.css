@@ -1,0 +1,618 @@
+@font-face {
+  font-family: Inter;
+  src: url(/media/figma/Inter.woff2) format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+.design-shell {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  margin: auto;
+  background: #100e0e;
+}
+.design-defs,
+.design-defs > svg {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.design-frame {
+  position: relative;
+  width: 375px;
+  height: 812px;
+  overflow: hidden;
+  transform-origin: top left;
+  background: linear-gradient(126deg, #100e0e, #0c0b0b);
+  font-family: Manrope, sans-serif;
+}
+.design-widget,
+.design-widget:is(button, div) {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  min-width: 0;
+  min-height: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
+}
+.widget-art {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+.design-label {
+  display: block;
+  padding: 0;
+  margin: 0;
+  white-space: pre-line;
+  overflow-wrap: break-word;
+  pointer-events: none;
+}
+.design-indicator {
+  display: block;
+  pointer-events: none;
+}
+.design-indicator.indicator-meter:before,
+.design-indicator.indicator-meter i {
+  position: absolute;
+  left: 0;
+  top: calc(50% - 2px);
+  height: 4px;
+  border-radius: 5px;
+  background: #55443c;
+}
+.design-indicator.indicator-meter:before {
+  content: "";
+  width: 100%;
+}
+.design-indicator.indicator-meter i {
+  background: #fabb91;
+}
+.design-indicator b {
+  border-radius: 100%;
+  background: #ffdbc4;
+}
+.design-indicator.indicator-switch {
+  border-radius: 100px;
+  background: #52443d;
+}
+.design-indicator.indicator-switch.on {
+  background: #f7c9ab;
+}
+.design-indicator.indicator-switch b {
+  background: #fcf9f7;
+}
+.design-hit {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  border-radius: 20px;
+}
+.design-widget:focus-visible,
+.design-hit:focus-visible {
+  outline: 2px solid #fdcfab;
+  outline-offset: 1px;
+}
+.design-widget input,
+.design-widget textarea,
+.design-widget select {
+  font:
+    14px Manrope,
+    sans-serif;
+  position: absolute;
+  background: transparent;
+  border: 0;
+  color: #fcf9f7;
+  margin: 0;
+  padding: 0;
+}
+.design-widget textarea {
+  resize: none;
+}
+.design-widget:disabled {
+  opacity: 1;
+}
+
+.design-label.original {
+  white-space: pre;
+  overflow-wrap: normal;
+}
+.design-frame .mode-caption {
+  position: absolute;
+  top: 59px;
+  left: 62px;
+  width: 203px;
+  text-align: center;
+  font:
+    9px/12px Manrope,
+    sans-serif;
+  color: #b6a59c;
+}
+.design-frame nav,
+.history-panel {
+  position: absolute;
+  inset: 80px 12px auto;
+  z-index: 10;
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid #685044;
+  border-radius: 20px;
+  background: #241d1a;
+  box-shadow: 0 12px 64px #000a;
+}
+.design-frame .personal-plan {
+  position: absolute;
+  inset: 326px 16px 128px;
+  overflow-y: auto;
+}
+.personal-plan .wave {
+  display: none;
+}
+.personal-plan .timeline {
+  margin-top: 14px;
+}
+.design-tabs {
+  display: flex;
+  height: 100%;
+  border-radius: 30px;
+  background: #29221e;
+  padding: 2px;
+}
+.personal-plan .design-tabs {
+  height: 38px;
+}
+.design-tabs button {
+  flex: 1;
+  border: 0;
+  font: 14px Manrope;
+  padding: 0;
+  background: transparent;
+}
+.design-tabs button[aria-pressed="true"] {
+  background: #f8c9ab;
+  color: #16100d;
+}
+.design-tabs button:disabled {
+  color: #93847e;
+}
+.read-failure,
+.read-caption,
+.last-reading,
+.dismiss-message,
+.alarm-cancel {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  top: 414px;
+  padding: 12px;
+  background: #28211e;
+  border-radius: 16px;
+  font: 14px/1.45 Manrope;
+}
+.read-caption {
+  top: 700px;
+}
+.last-reading {
+  top: 653px;
+  text-align: center;
+  padding: 5px;
+}
+.dismiss-message {
+  top: 664px;
+  left: 221px;
+}
+.alarm-cancel {
+  top: 520px;
+}
+.design-composer input {
+  left: 16px;
+  top: 0;
+  width: 69%;
+  height: 100%;
+  font: 14px Manrope;
+}
+.design-composer button {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 48px;
+  width: 40px;
+  background: transparent;
+  border: 0;
+}
+.design-composer button:last-child {
+  right: 0;
+  width: 48px;
+}
+.design-widget .transcript-edit,
+.design-widget .alarm-value,
+.design-widget .degree-value,
+.design-widget .track-value {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+}
+.design-widget .transcript-edit {
+  padding: 10px;
+  color: #21140c;
+}
+.design-widget .degree-value {
+  inset: 0 64px;
+  width: 129px;
+  font: 700 25px Unbounded;
+}
+.design-widget .alarm-value {
+  font: 700 36px Unbounded;
+}
+.design-widget .track-value {
+  left: 34%;
+  width: 63%;
+  font: 700 13px Unbounded;
+}
+.design-widget .volume-range {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.01;
+}
+.design-widget .choice-value {
+  inset: 0 12px 0 auto;
+  max-width: 61%;
+}
+.history-panel {
+  top: 110px;
+  bottom: 100px;
+  display: flex;
+  flex-direction: column;
+}
+.history-panel [role="log"] {
+  overflow: auto;
+}
+.design-widget .retry-message {
+  position: absolute;
+  bottom: 9%;
+  left: 12%;
+  width: 76%;
+  background: #f8c9ab;
+  color: #21140c;
+}
+.design-frame .design-widget.reply {
+  padding: 0;
+  background: none;
+  border: none;
+  max-width: none;
+}
+.design-frame .latest-request .design-label,
+.design-frame .reply .design-label {
+  width: calc(100% - 24px) !important;
+  max-height: 100%;
+  overflow: auto;
+  pointer-events: auto;
+}
+.shell.page-voice:has(.design-shell),
+.shell.page-settings:has(.design-shell) {
+  margin: 0;
+  padding: 0;
+  max-width: none;
+}
+.responsive-widget {
+  width: 100%;
+  position: relative;
+  min-width: 0;
+}
+.desktop-hero {
+  border-radius: 20px;
+  overflow: hidden;
+  margin: 18px 0;
+}
+@media (min-width: 650px) {
+  body {
+    background: linear-gradient(115deg, #14100f, #0c0b0b 80%);
+    font-family: Manrope, sans-serif;
+  }
+  .shell {
+    max-width: 1552px;
+    padding: 32px clamp(28px, 4vw, 72px) 42px;
+  }
+  header {
+    padding-bottom: 18px;
+    border-bottom: 1px solid #392d28;
+  }
+  header button:last-child {
+    box-shadow: none;
+  }
+  .dashboard .devices {
+    gap: 12px;
+  }
+  .desktop-devices .device {
+    min-height: 0;
+  }
+  .dashboard .chat,
+  .dashboard aside {
+    border: 1px solid #392e29;
+    border-radius: 24px;
+    background: linear-gradient(155deg, #201a18, #151110);
+    padding: 20px;
+  }
+  .dashboard .chat h2,
+  .dashboard aside h2 {
+    font:
+      700 18px/1.3 Unbounded,
+      sans-serif;
+  }
+  .dashboard .chat {
+    min-height: 420px;
+  }
+  .dashboard > .desktop-chat {
+    padding: 0;
+  }
+  .dashboard h1 {
+    font:
+      700 clamp(26px, 2.5vw, 42px)/1.12 Unbounded,
+      sans-serif;
+  }
+  .dashboard .log {
+    min-height: 220px;
+  }
+}
+.design-shell,
+.responsive-widget {
+  overflow: clip;
+}
+
+.independent-meter {
+  pointer-events: none;
+}
+.device .design-label:not(.original),
+.hero-card .design-label:not(.original),
+.desktop-hero .design-label:not(.original) {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+.personal-plan .timeline {
+  margin: 14px 0 0 5px;
+  border-color: #bd927b;
+  padding-left: 16px;
+}
+.personal-plan .timeline time {
+  font:
+    600 12px/18px Unbounded,
+    sans-serif;
+  color: #fcf9f7;
+}
+.personal-plan .timeline article > div {
+  border-radius: 17px;
+  background: linear-gradient(110deg, #28221f, #201b19);
+  min-height: 57px;
+  padding: 10px 16px;
+  gap: 18px;
+}
+.personal-plan .timeline article b {
+  font: 600 13px/1.3 Manrope;
+}
+.personal-plan .timeline article small {
+  font: 400 11px/1.35 Manrope;
+}
+
+.degree-reading .design-label {
+  white-space: nowrap;
+}
+.design-frame .dismiss-message {
+  left: auto;
+  right: 20px;
+  top: 75px;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.frame-paint {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.design-frame:is([data-frame="16"], [data-frame="28"]) .last-reading {
+  top: 154px;
+  left: 133px;
+  right: 16px;
+  margin: 0;
+  padding: 3px 6px;
+  font-size: 10px;
+  line-height: 14px;
+}
+.design-shell {
+  max-width: 430px;
+}
+.design-frame .history-panel[open] {
+  position: absolute;
+  inset: 92px 12px 82px;
+  margin: 0 auto;
+  width: calc(100% - 24px);
+  max-height: 75dvh;
+  color: #fcf9f7;
+  overflow: auto;
+}
+.history-panel::backdrop {
+  background: #0c0b0bb8;
+}
+.history-panel .exchange,
+.log,
+.shell dd,
+.shell aside,
+.timeline section {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.design-widget[role="heading"] .design-label:not(.original) {
+  width: calc(375px - 56px) !important;
+  overflow: hidden;
+}
+.design-widget button:focus-visible,
+.design-widget input:focus-visible,
+.design-widget select:focus-visible {
+  outline: 2px solid #ffccaa;
+  outline-offset: 2px;
+}
+@supports (padding: env(safe-area-inset-bottom)) {
+  .design-shell {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+@media (min-width: 650px) and (max-width: 1099px) {
+  .dashboard,
+  .page-chat .dashboard {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 650px) {
+  .shell .settings,
+  .shell .voice {
+    width: min(100%, 720px);
+    margin: 36px auto;
+    padding: clamp(20px, 3vw, 40px);
+    border: 1px solid #392e29;
+    border-radius: 24px;
+    background: linear-gradient(145deg, #211b18, #151110);
+  }
+  .settings .stepper,
+  .settings input,
+  .settings select,
+  .voice textarea {
+    max-width: 100%;
+  }
+}
+@media (forced-colors: active) {
+  .design-widget:focus-visible,
+  .design-hit:focus-visible {
+    outline: 2px solid Highlight;
+  }
+}
+.design-frame
+  .design-widget:is(
+    [aria-label="Меню"],
+    [aria-label="Назад"],
+    [aria-label="Сведения о сеансе"],
+    [aria-label="Профиль гостя"]
+  )::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
+/* P0 V01: legible inactive and disabled virtual-time period labels. */
+.design-tabs button {
+  color: #f9ebe0;
+  font-weight: 650;
+  text-shadow: 0 1px 2px #100e0e;
+}
+.design-tabs button[aria-pressed="true"] {
+  color: #18110d;
+  text-shadow: none;
+}
+.design-tabs button:disabled {
+  color: #b4a49b;
+  opacity: 1;
+  text-shadow: none;
+}
+
+/* P0 V01: Figma decorative SVG must not cover the inactive period labels. */
+.design-widget .design-tabs {
+  position: relative;
+  z-index: 4;
+}
+.design-widget .design-tabs button {
+  display: grid;
+  place-items: center;
+  flex: 1 1 25%;
+  position: relative;
+  z-index: 1;
+  color: #f9ebe0;
+  font: 650 14px/1.2 Manrope, sans-serif;
+  text-align: center;
+  white-space: nowrap;
+}
+.design-widget .design-tabs button[aria-pressed="true"] { color: #1b140f; }
+.design-widget .design-tabs button:disabled { color: #c4b5ab; opacity: 1; }
+
+/* The read-only marker is essential status information, not a decorative caption. */
+.design-frame .mode-caption {
+  z-index: 8;
+  left: 51px;
+  width: 225px;
+  font: 600 10px/14px Manrope, sans-serif;
+  color: #ead9cc;
+  white-space: nowrap;
+}
+
+/* P1 V06: expose the entire selected sound title on compact Figma cards.
+   The second line fits above the meter even on the shorter chat frame;
+   title and aria-label provide a full-text fallback for keyboard/AT users. */
+.device-sound .design-label:last-of-type {
+  white-space: normal !important;
+  text-overflow: clip !important;
+  overflow: visible !important;
+  overflow-wrap: normal;
+  word-break: normal;
+  height: auto !important;
+  max-height: 21px;
+  line-height: 10.5px !important;
+  font-family: Manrope, sans-serif !important;
+  font-size: 10px !important;
+  font-weight: 650 !important;
+}
+.device-sound:focus-visible {
+  outline: 2px solid #fdcfab;
+  outline-offset: 2px;
+}
+
+
+/* P1 V06/C05: the alarm value must remain readable in both half-width cards.
+   Allow two lines instead of clipping the value behind the chevron. */
+.device-alarm .design-label:last-of-type {
+  white-space: normal !important;
+  text-overflow: clip !important;
+  overflow: visible !important;
+  overflow-wrap: anywhere;
+  height: auto !important;
+  max-height: 30px;
+  font-size: 12px !important;
+  line-height: 13px !important;
+  font-family: Manrope, sans-serif !important;
+}
+
+/* Final responsive quality gate: keep a readable two-line track above the
+   live volume meter, including the shorter Figma chat card (screen 09). */
+.device .design-label:first-of-type {
+  width: calc(100% - 62px) !important;
+  height: auto !important;
+  font-size: 11.3px !important;
+  line-height: 13px !important;
+}
+.device-sound .design-label:last-of-type {
+  top: 32px !important;
+  width: calc(100% - 58px) !important;
+  max-height: 24px !important;
+  font-size: 11px !important;
+  line-height: 12px !important;
+  overflow-wrap: anywhere;
+}
+.design-frame .mode-caption {
+  font-size: 11px;
+  line-height: 14px;
+}

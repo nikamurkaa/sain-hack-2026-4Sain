@@ -1,22 +1,28 @@
-# Секреты команды и локальная конфигурация
+# Credentials and local settings
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.pfx
+*.ppk
+*.key
 id_ed25519
 id_ed25519.*
 api.token
 llm.key
 yandex_forms_secret.txt
-.env
-.env.*
-!.env.example
-*.pem
-*.key
-# Комплекты организаторов и архивы
+.stand-access/
+.local/
+# Organizer kits and throwaway archives
 team25/
 team25*/
 *.zip
 *.tar
 *.tar.gz
 *.tgz
-# Локальные инструменты и служебные файлы
+*.bundle
+# Python, runtime, tests
 .venv/
 venv/
 __pycache__/
@@ -26,11 +32,24 @@ __pycache__/
 .ruff_cache/
 .coverage
 htmlcov/
-*.log
+.runtime/
 *.pid
+*.log
+# Frontend generated outputs
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+dist/
+playwright-report/
+test-results/
+frontend/test-results/
+frontend/playwright-report/
+frontend/evidence/
+.npm/
+*.tsbuildinfo
+# Editor and OS
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
-.stand-access/
-.local/

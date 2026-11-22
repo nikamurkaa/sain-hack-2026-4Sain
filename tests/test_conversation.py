@@ -113,7 +113,7 @@ def test_final_session_allows_reads_and_rejects_mutations(monkeypatch):
         assert second.status_code == 201
         assert sim.reads == reads
         assert len(sim.sessions) == 1
-        assert len(app.state.final_session.history) == 0
+        assert app.state.final_session.stay["user_id"] == "guest_test"
         assert set(sim.auth) == {'Bearer final-eval'}
         assert client.post('/api/v1/sessions', headers={'Authorization':'Bearer stranger'},
                            json={'source':'final'}).status_code == 403
