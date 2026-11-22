@@ -72,7 +72,7 @@ def test_missing_single_session_in_60_is_scoped_not_fabricated():
     asyncio.run(run())
 
 
-def test_transient_503_during_session_creation_recovers_all_60():
+def test_transient_503_during_session_creation_does_not_retry_unsafe_post():
     async def run():
         data, _, _ = fixture()
         attempts = Counter()
@@ -87,9 +87,11 @@ def test_transient_503_during_session_creation_recovers_all_60():
         async with httpx.AsyncClient(transport=transport, trust_env=False) as http:
             with patch("backend.clients.asyncio.sleep", new=AsyncMock()):
                 answer = await (await open_solution("offline", "offline-online", http, ScriptedModel())).run()
-        assert attempts["request_0_0"] == 3
-        _assert_integrity(answer, sim)
-        assert len(answer["requests"]) == 60
+        # A 503 may arrive after the upstream committed a session. Without a
+        # documented idempotency key, repeating POST can create a duplicate.
+        assert attempts["request_0_0"] == 1
+        _assert_integrity(answer, sim, missing_requests=("request_0_0",))
+        assert len(answer["requests"]) == 59
     asyncio.run(run())
 
 

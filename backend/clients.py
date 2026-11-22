@@ -17,6 +17,10 @@ class HackClient:
         self.calls = 0
 
     async def request(self, method: str, path: str, *, body=None, params=None, retry=False):
+        # Only safe reads may be retried. A timed-out POST may already have
+        # committed upstream even when the response has been lost.
+        if retry and method.upper() not in ("GET", "HEAD"):
+            raise ServiceError("UNSAFE_RETRY", "Повтор создающей или изменяющей операции запрещён.", 500)
         for attempt in range(3 if retry else 1):
             try:
                 self.calls += 1
