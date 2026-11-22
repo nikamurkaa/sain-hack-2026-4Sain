@@ -783,7 +783,7 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
         <p>{aiProof ? `Модель: ${aiProof.model}; успешные ответы — chat ${aiProof.successful_calls.chat}, STT ${aiProof.successful_calls.stt}, TTS ${aiProof.successful_calls.tts}.` : "Нет подтверждённой статистики."}</p>
         <button type="button" onClick={() => refreshProof((n) => n + 1)}>Обновить</button>
         <small>Устройства — локальный программный симулятор. Счётчики: только валидные ответы провайдера.</small>
-      </details>
+      </details>}
       <div
         className="log"
         role="log"
