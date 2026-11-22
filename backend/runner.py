@@ -4,7 +4,7 @@ import logging
 import time
 from datetime import timedelta
 
-from backend.clients import HackClient
+from backend.clients import HackClient, ModelClient
 from backend.commands import Refusal, plan_commands, success_text
 from backend.core import ServiceError, moment, validate_schema
 from backend.intents import parse_intent
