@@ -1,5 +1,6 @@
 """Подтверждение изменений по состоянию и журналу симулятора."""
 from copy import deepcopy
+import asyncio
 import hashlib
 import json
 from uuid import uuid4
@@ -22,6 +23,8 @@ class Room:
         # In-memory, per-upstream-session diagnostic journal. Restart durability
         # is intentionally NOT promised until an authorized persistent contract.
         self.operations = {}
+        # Serializes read -> POST -> full-state reconciliation per Room instance.
+        self._execute_lock = asyncio.Lock()
 
     @classmethod
     async def create(cls, client, record_id, kind, run_id=None):
@@ -59,6 +62,12 @@ class Room:
             raise ServiceError("SCENARIO_UNCONFIRMED", "Симулятор не подтвердил сохранение расписания.")
 
     async def execute(self, commands, at, operation_id=None):
+        # Local session boundaries serialize same-room commands; /run records
+        # continue to use independent Room instances for parallel guests.
+        async with self._execute_lock:
+            return await self._execute_locked(commands, at, operation_id)
+
+    async def _execute_locked(self, commands, at, operation_id=None):
         """Safely execute an ordered saga, never pretending upstream is atomic.
 
         POST /action is not blindly retried. Each acknowledged action is checked
@@ -83,7 +92,10 @@ class Room:
                                 operation_id, earlier["confirmed_devices"])
 
         if len(self.operations) >= 100:
-            self.operations.pop(next(iter(self.operations)))
+            # Dropping old operation IDs would turn a replay into another POST.
+            # Fail closed until session expiry / a supported durable journal.
+            raise ServiceError("OPERATION_LIMIT",
+                               "Журнал операций заполнен. Создайте новую демосессию.", 429)
         record = {
             "fingerprint": fingerprint,
             "status": "in_progress",
