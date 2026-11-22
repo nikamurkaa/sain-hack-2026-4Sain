@@ -35,3 +35,35 @@ At integrated code SHA `7a3efc7fa52d5a02312db254d75c4e049c783bf0`, [Python backe
 - External official services, tokens, expert handoff, merger and direct main writes explicitly prohibited.
 
 **Final verdict: STAGE 2 — NOT READY.** See integration readiness and next-stage backlog.
+
+
+---
+
+## 2026-11-22 — Completion and targeted integration hardening
+
+**Code snapshot under test:** `c7cb43b1f89e6fb283ddc7cd294ab18f2635eba1`. Main base remains `2ccad73652a20f93eb93e70e466e958cc731d705`. In the integrated tree, **9/9 PR #21 and 4/4 PR #22 changed files match their respective latest feature-branch blob SHAs exactly**, including the 24 golden nights. No blind re-merge was performed.
+
+### Browser failure: root cause and RED→GREEN evidence
+
+- **RED:** [Chromium CI attempt 1 on source `53d7546d`](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45055737867) timed out at 45 s, `frontend/tests/screens.spec.ts:175` (46 passed, 1 failed). [Failure artifact](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45055737867/artifacts/14766964369) was downloaded and inspected. It contains captures through `evidence/28.png`, the profile/room/chat responsive captures and a final error-context snapshot still at the chat screen, but no `29.png` final-expiry frame.
+- The old monolithic test combined initial loading, three settings screens, several simulated messages, an aborted POST, explicit reconnect, microphone review, multiple viewport screenshots and 401 expiry into **one** 45-second budget. No specific failed backend assertion was recorded. Starlette `No response returned` messages appeared during requests/disconnects; the stack traces alone do not establish causality.
+- **Independent reproducibility check:** reran the original failed job **on the unchanged source SHA** (same run, attempt 2), which returned **SUCCESS**. This is evidence of intermittent timing/budget exhaustion, not a deterministic product regression.
+- **Fixture/test fix:** commit `d65c09e5139907bba742146582d14dca9a5f9441` split the long test into three independent journeys while preserving the original checks and screenshot targets. No timeout extension, disabled test, artificial sleep or weakened assertion. [Exact-SHA Chromium + Firefox CI](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45061740676) succeeded with **49/49 each**.
+- A second **RED test-fixture failure** at `eb8491de`: 475 passed/1 failed because a newly synthesized note omitted the official dataset's required `type` and `ended_at`. This was test-fixture invalidity, not product behavior. Commit `c69b29ac37e743566bcadae5926d762b12c572d7` corrected the event schema; [Python CI](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45062162529) returned **476 passed, 1 warning**, plus both normal and bounded offline 10/60.
+
+### Additional integrated acceptance tests
+
+| Gate | Exact test path | Independent oracle / observed effect | Scope status |
+|---|---|---|---|
+| All 19 categories | `tests/stage2/test_simulator_full_state.py` | Local FastAPI → MockSimulator; handwritten 6-device expected snapshots, done/refused, upstream POST counts | PASS within scripted category input |
+| Device limits | same | Six fields × min/max; identical response/GET state, unchanged unrelated fields | PASS local |
+| Stateful requests | same | Cool → cool again → bedtime → warmer → all off, compare all fields after each action | PASS local |
+| Personalization | `tests/stage2/test_personalization_scenarios.py` | Profile vs history, newest hotel behavior, transient note, dislikes, no evidence, two identical IDs, actual home/yesterday commands | PASS in fixed test-extractor conditions |
+| Simultaneous sessions | `tests/stage2/test_simulator_full_state.py` | Two distinct users, independent source-based temperature and concurrent FastAPI manual POSTs; simulator states isolated | PASS local |
+| Faults | `tests/stage2/test_fault_injection_gate.py` | Accepted first action/rejected second, lost response after accepted POST, cancellation, 422, same-key concurrent send, GET reconciliation | PASS local |
+| Sleep scenarios | `test_sleep_criteria_matrix.py`, `test_synthetic_journeys.py` | 24 golden R1–R8 nights, 32 cross-zone combinations, explicit Berlin DST, 10/60 regression | PASS for realizable scripted conditions |
+| React explanations | `frontend/tests/stage2-explanations.spec.ts` | Local backend six-source preparation and mobile/desktop rationale; actual room state from GET | PENDING final browser CI |
+
+**Boundaries:** Real NLU/LLM, adversarial unseen Russian text and STT are Stage 3, not measured here; private 86-item holdout is kept outside GitHub and never used to tune these tests. An R6 interval earlier than check-in is physically impossible and correctly marked as a warning. Native Windows execution, external API entitlement, durable multiworker recovery and production operation are not claimed.
+
+The earlier **NOT READY** verdict above reflects an older integration head. A final acceptance decision must be taken from the exact HEAD outcomes and signoff table in `SAIN_Stage2_Integration_Readiness.md` and PR #23, not from historical CI.

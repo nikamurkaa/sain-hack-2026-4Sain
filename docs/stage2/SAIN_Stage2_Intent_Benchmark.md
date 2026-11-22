@@ -22,3 +22,24 @@ At integrated code SHA `7a3efc7fa52d5a02312db254d75c4e049c783bf0`, [Python CI](h
 
 ## Proper Stage 3 acceptance criteria
 Freeze hidden paraphrases separately from public code and tuning. Measure by intent and final room-state exactness, refusal precision, multi-turn context, compound commands, all six devices, timeout/errors and privacy isolation with real authorized LLM + local simulator. Report version, seed, total N, real model ID, thresholds and confidence intervals. Do not call organizer proxy or publish private credentials.
+
+
+---
+
+## Post-hardening measurement: source `c7cb43b1f89e6fb283ddc7cd294ab18f2635eba1`
+
+| Test gate | Count / cases | Oracle | Status |
+|---|---:|---|---|
+| Structured action families | 19 | Handwritten complete six-device expected state | PASS on local Python CI |
+| Actual FastAPI + MockSimulator category round trips | 19 | Re-read all six systems; compare `reply.response_class`, full state and upstream POST count | PASS local |
+| Explicit device boundaries | 6 device fields × 2 endpoints = 12 cases | Test fixture prestate + handwritten changed field, unchanged-field equality | PASS local |
+| Context-sensitive sequence on one live room | 5 consecutive scripted commands | Handwritten expected state after **each** action | PASS local |
+| Pre-existing negative ambiguity/boundary tests | 10 + 5 numeric deltas | Structured `Intent` planner, not semantic inference | PASS local |
+| Independent R1–R8 golden nights | 24 plus 1 deliberately corrupted scenario | `scripts.sleep_audit` and fixed manually resolved R8 bedtimes | PASS realizable cases |
+| Synthetic stays/timezones | 32, plus 2 Berlin DST transitions | Chronology, catalog bounds, valid offsets | PASS scope-limited |
+| Preference and fault injection | See personalization/regression reports | Local FastAPI and source-verified synthetic facts | PASS tested paths |
+| Blind unseen Russian NLU/STT | **0** in Stage 2 | Real model is intentionally out of scope | NOT TESTED |
+
+Historical offline 10/60 `C=S=x=1.0` is a **ScriptedModel** fixture outcome, never an estimated official score. Current expected states do **not** call the planner to generate the oracle; the input state is read from the simulator and the required effect is fixed by the test. More requests for genuinely unseen language, typos and multi-turn LLM inference belong to Stage 3 only.
+
+[RED test-fixture evidence](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45062027042): 1 failed / 475 passed due to missing official event fields. [GREEN corrected fixture](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45062162529): **476 passed**; source `c69b29ac`. No hidden 86-item benchmark file exists in the public tree.

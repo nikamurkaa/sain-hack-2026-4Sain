@@ -52,3 +52,49 @@ All 19 statuses remain PARTIAL even after test success: the deterministic oracle
 | External final deployment / score | Official stand forbidden | No upstream calls | NOT TESTED |
 
 No 100% official compliance claim is justified by these bounded results.
+
+
+---
+
+## Targeted hardening evidence at code snapshot `c7cb43b1f89e6fb283ddc7cd294ab18f2635eba1`
+
+This supplements the 19-family table above rather than changing the meaning of an overall official-compliance result. On a fixed local scripted category input, `test_simulator_full_state.py` sends requests through real FastAPI and a local MockSimulator, then compares **every field of all six devices** to an independently handwritten expected snapshot. It verifies the `done/refused` class and counts actual simulator POSTs. Negative cases must leave all fields untouched. For `like_home`/`like_yesterday`, the missing-data cases correctly refuse, while `test_personalization_scenarios.py` separately proves successful real simulator effects when verifiable history exists.
+
+| Requirement / ID | Executable evidence | Code | Local structural/action status | Overall official status |
+|---|---|---|---|---|
+| 1 brighter | 19-category full-state test index 0 | `backend/commands.py` | PASS | PARTIAL — real NLU unmeasured |
+| 2 dimmer | index 1 | same | PASS | PARTIAL |
+| 3 warmer | index 2 | same | PASS | PARTIAL |
+| 4 cooler | index 3 | same | PASS | PARTIAL |
+| 5 all_off | index 4 | same | PASS | PARTIAL |
+| 6 sound_on | index 5, catalog track | same | PASS | PARTIAL |
+| 7 quieter | index 6 | same | PASS | PARTIAL |
+| 8 curtains | index 7, boundary tests | same | PASS | PARTIAL |
+| 9 alarm_set | index 8 | same | PASS | PARTIAL |
+| 10 alarm_shift | index 9 | same | PASS | PARTIAL |
+| 11 alarm_cancel | index 10 | same | PASS | PARTIAL |
+| 12 going_to_bed | index 11 and 5-step sequence | same | PASS | PARTIAL |
+| 13 woke_up | index 12 | same | PASS | PARTIAL |
+| 14 like_yesterday | index 13 refusal + evidence-backed positive simulator action | `backend/preferences.py`, `commands.py` | PASS tested conditions | PARTIAL |
+| 15 do_not_disturb | index 14 | `commands.py` | PASS | PARTIAL |
+| 16 like_home | index 15 refusal + evidence-backed positive simulator action | `preferences.py`, `commands.py` | PASS tested conditions | PARTIAL |
+| 17 out_of_scope | index 16, zero POST | `commands.py` | PASS | PARTIAL |
+| 18 invalid_value | index 17, boundary tests | `commands.py` | PASS | PARTIAL |
+| 19 medical | index 18, zero POST | `commands.py` | PASS | PARTIAL |
+
+| Rules / systems | Independent test | Local result and qualification |
+|---|---|---|
+| R1 | 24 golden overnights + independent sleep audit | PASS for 24 valid patterns |
+| R2 | Same + offline 10/60 | PASS for tested valid stays |
+| R3 | Same + profile/history change scenarios | PASS within test-extractor model |
+| R4 | Golden with and without favorite sound | PASS |
+| R5 | Golden with light and both modes | PASS |
+| R6 | Golden dawn + specific impossible late-check-in assertion | PASS where feasible; **PARTIAL** globally, no invented events before check-in |
+| R7 | Golden DND through sleep, manual bed override | PASS for tested schedules |
+| R8 | Two manually resolved home time-zone golden bedtimes + 32 synthetic zone combinations + DST tests | PASS for tested timezones/horizons |
+| Six systems: light/climate/curtains/sound/alarm/DND | `test_simulator_full_state.py` GET after every action, all fields compared including unchanged | PASS local full-state and no-extra-change gate |
+| Uncertain/partial/fault actions | `test_fault_injection_gate.py`, Stage 1 cancellation/temporal tests | PASS local; upstream real-world atomicity NOT TESTED |
+| Prepared rationale | `backend/explanations.py` and browser stage2-explanations test | PASS in Python; browser check requires final successful E2E |
+| Model language-generalization | Never supplied hidden input to real model | NOT TESTED (Stage 3) |
+
+No evidence above proves official SAIN hidden-score accuracy or generalized Russian NLU.
