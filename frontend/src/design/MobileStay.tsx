@@ -153,13 +153,8 @@ export function MobileStay(p: Props) {
                       ? 10
                       : 26
                     : 9;
-  const displayName = p.prepared.guest.profile.display_name;
-  const guest =
-    typeof displayName === "string" && displayName.trim()
-      ? displayName.trim().slice(0, 20) +
-        (displayName.trim().length > 20 ? "…" : "") +
-        ",\n"
-      : "";
+  // The official Case2 user schema has no display_name field. Never infer a
+  // person's name from user_id or leave the example Figma name in real UI.
   const status = p.info.source === "final" ? "Финальный номер" : "Демо-номер";
   const selectPeriod = (availability: boolean) => (
     <div className="design-tabs">
@@ -201,7 +196,8 @@ export function MobileStay(p: Props) {
     const name = w.name,
       value = w.texts[0]?.value ?? "";
     if (name === "Алина,") {
-      if (p.page === "virtual") return { role: "heading" };
+      if (p.page === "virtual")
+        return { ...fixed("Ваш номер"), role: "heading" };
       const title =
         p.page === "plan"
           ? "Ваш план на " +
@@ -213,7 +209,7 @@ export function MobileStay(p: Props) {
             : "Ваш номер";
       return {
         ...fixed(
-          guest + (guest ? title[0].toLowerCase() + title.slice(1) : title),
+          title,
         ),
         role: "heading",
       };
