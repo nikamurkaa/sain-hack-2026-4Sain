@@ -69,6 +69,14 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_response(response.status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(content)))
+            # Preserve ONLY the backend's tightly scoped pre-action
+            # rejection certificate. A transparent JSON proxy otherwise
+            # silently erased the proof and left React fail-closed forever.
+            certified = response.getheader("X-Sain-Rejection-Class")
+            if (response.status == 422 and
+                    path.path in ("/api/v1/messages", "/api/v1/devices") and
+                    certified in ("prehandler", "domain")):
+                self.send_header("X-Sain-Rejection-Class", certified)
             if self.server.upstream == ORIGINS["rehearsal"]:
                 self.send_header("X-Sain-Rehearsal", "1")
             self.end_headers()
