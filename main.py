@@ -352,8 +352,9 @@ async def message(body: MessageInput, idempotency_key: str = Header(min_length=8
             if old[0] != fingerprint:
                 raise ServiceError('IDEMPOTENCY_CONFLICT', 'Этот ключ уже использован для другого сообщения.', 409)
             if isinstance(old[1], ServiceError):
-                error = old[1]
-                raise ServiceError(error.code, error.message, error.status)
+                # Keep ActionFailure metadata (confirmed devices + operation ID).
+                # Recreating a plain ServiceError erased the partial result.
+                raise old[1]
             return old[1]
         require_writable(session)
         if len(session.messages) >= 100:
@@ -394,8 +395,7 @@ async def set_device(body: DeviceInput, idempotency_key: str = Header(min_length
             if previous[0] != fingerprint:
                 raise ServiceError('IDEMPOTENCY_CONFLICT', 'Ключ уже использован для другой настройки.', 409)
             if isinstance(previous[1], ServiceError):
-                err = previous[1]
-                raise ServiceError(err.code, err.message, err.status)
+                raise previous[1]
             return previous[1]
         require_writable(session)
         if len(session.messages) >= 100:
