@@ -55,7 +55,12 @@ async def private_responses(request, call_next):
 
 @app.exception_handler(ServiceError)
 async def service_error(request, exc):
-    return JSONResponse(status_code=exc.status, content={'status': 'error', 'code': exc.code, 'message': exc.message})
+    content = {'status': 'error', 'code': exc.code, 'message': exc.message}
+    # Expose only bounded, non-sensitive action reconciliation metadata.
+    if isinstance(getattr(exc, 'operation_id', None), str):
+        content['operation_id'] = exc.operation_id
+        content['confirmed_devices'] = list(getattr(exc, 'confirmed_devices', ()))[:6]
+    return JSONResponse(status_code=exc.status, content=content)
 
 
 def bearer(authorization: str | None = Header(default=None)):
@@ -369,7 +374,7 @@ async def message(body: MessageInput, idempotency_key: str = Header(min_length=8
                 note_upstream_error(session, exc)
                 if exc.status == 409:
                     session.read_only = True
-            session.messages[idempotency_key] = (fingerprint, ServiceError(exc.code, exc.message, exc.status))
+            session.messages[idempotency_key] = (fingerprint, exc)
             raise
 
 
@@ -418,7 +423,7 @@ async def set_device(body: DeviceInput, idempotency_key: str = Header(min_length
             note_upstream_error(session, exc)
             if exc.status == 409 and exc.code.startswith(('UPSTREAM_', 'RUN_')):
                 session.read_only = True
-            session.messages[idempotency_key] = (fingerprint, ServiceError(exc.code, exc.message, exc.status))
+            session.messages[idempotency_key] = (fingerprint, exc)
             raise
         reply = {'role': 'agent', 'at': body.at,
                  'text': success_text([command], session.solution.data['tracks']), 'response_class': 'done'}
