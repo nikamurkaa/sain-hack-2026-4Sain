@@ -385,7 +385,9 @@ export function MobileStay(p: Props) {
       <small className="mode-caption" aria-label={p.badge}>
         {p.info.source === "final"
           ? "Финальный гость · просмотр"
-          : p.info.rehearsal
+          : p.info.live_ai
+            ? "LIVE AI · локальный симулятор"
+            : p.info.rehearsal
             ? p.allowed ? "Репетиция · управление" : "Репетиция · просмотр"
             : p.allowed ? "Демо-номер · управление" : "Демо-номер · просмотр"}
       </small>
