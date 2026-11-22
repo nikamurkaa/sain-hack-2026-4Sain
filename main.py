@@ -20,7 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 
 from backend.clients import ModelClient
 from backend.api_models import RunAnswer, SessionCreated, Conversation, PreparedView, Guest, Scenario, Catalog, State, MessageResult, Transcription
-from backend.core import ServiceError, moment, check_values
+from backend.core import ServiceError, moment, hotel_moment, check_values
 from backend.runner import open_solution
 from backend.commands import _local_alarm, success_text
 
@@ -287,7 +287,12 @@ async def catalog(session=Depends(client_session)):
 
 
 def check_time(session, at):
-    value = moment(at)
+    try:
+        zone = session.stay.get('hotel_timezone')
+        value = hotel_moment(at, zone) if zone else moment(at)
+    except (ValueError, KeyError):
+        raise ServiceError('INVALID_TIME',
+                           'Дата, время или UTC-offset не совпадают с часовым поясом отеля.', 422) from None
     if not moment(session.room.session['from']) <= value <= moment(session.room.session['until']):
         raise ServiceError('TIME_OUTSIDE_SESSION', 'Время выходит за пределы проживания.', 422)
 
