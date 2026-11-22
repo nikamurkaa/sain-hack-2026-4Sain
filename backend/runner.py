@@ -42,7 +42,8 @@ class Solution:
 
     async def message(self, room, user_id, texts, at, base_state=None, history=None):
         try:
-            intent = await parse_intent(self.model, texts, self.data['intents'], self.data['tracks'], history)
+            intent = await parse_intent(self.model, texts, self.data['intents'], self.data['tracks'], history,
+                                        force_model=isinstance(self.model, ModelClient))
             prefs = {}
             if intent.intent in ('going_to_bed', 'woke_up', 'like_home', 'like_yesterday', 'sound_on'):
                 prefs = await self.prefs(user_id, at)
