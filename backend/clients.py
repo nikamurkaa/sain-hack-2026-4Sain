@@ -52,6 +52,7 @@ class HackClient:
                 value = response.json()
                 if not isinstance(value, dict):
                     raise ValueError("object required")
+                self.successful['chat'] += 1
                 return value
             except ValueError:
                 raise ServiceError("UPSTREAM_FORMAT", "Сервис вернул некорректный ответ.") from None
@@ -76,6 +77,8 @@ class ModelClient:
         self.speech_starts: deque[float] = deque()
         self.calls = 0
         self.tokens = 0
+        # Per-process success receipts only; no prompts, transcripts, keys or raw audio.
+        self.successful = {'chat': 0, 'stt': 0, 'tts': 0}
 
     def record_usage(self, response):
         if not isinstance(response, dict):
@@ -131,6 +134,7 @@ class ModelClient:
             if not isinstance(text, str) or not text.strip() or len(text.strip()) > 2000:
                 raise ValueError("invalid transcription")
             self.record_usage(raw)
+            self.successful['stt'] += 1
             return text.strip()
         except (ValueError, KeyError, TypeError):
             raise ServiceError("SPEECH_FORMAT", "Речь не распознана. Повторите запись или введите текст.", 502) from None
@@ -167,6 +171,7 @@ class ModelClient:
             and (audio[1] & 0xE0) == 0xE0)
         ):
             raise ServiceError("TTS_FORMAT", "Сервис вернул некорректный MP3.", 502)
+        self.successful['tts'] += 1
         return audio
 
     async def json(self, instruction: str, payload: dict, output_tokens=3500):
