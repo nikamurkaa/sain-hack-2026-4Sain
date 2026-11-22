@@ -15,6 +15,7 @@ export type Reply = { text: string; response_class: "done" | "refused" };
 export type Exchange = { at: string; utterances: string[]; reply: Reply };
 export type Session = {
   rehearsal?: boolean;
+  live_ai?: boolean;
   source: "dev" | "final";
   stay_id: string;
   at: string;
