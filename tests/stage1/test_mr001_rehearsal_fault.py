@@ -48,6 +48,10 @@ def test_backend_real_http_fault_evidence_replay_and_no_unsafe_post(phrase, code
         # A lost GET is retried safely and may still be unavailable; no action
         # is reissued as part of reconciliation.
         actual = api.get("/api/v1/state", headers=auth)
+        if phrase == "Проверка частичного выполнения без состояния":
+            assert actual.status_code == 502, actual.text
+            assert sim.actions == first_posts
+            actual = api.get("/api/v1/state", headers=auth)
         assert actual.status_code == 200, actual.text
         assert actual.json()["state"]["light"]["brightness"] == 0
         assert sim.actions == first_posts
