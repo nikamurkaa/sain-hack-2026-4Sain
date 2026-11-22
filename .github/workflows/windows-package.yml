@@ -7,6 +7,7 @@ on:
       - 'windows/**'
       - 'scripts/build_windows_candidate.py'
       - 'docs/WINDOWS_ACCEPTANCE_GUIDE_RU.md'
+      - 'docs/stage1/integration/**'
       - '.github/workflows/windows-package.yml'
   push:
     tags: ['v*-hackathon']

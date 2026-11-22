@@ -10,12 +10,26 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 12
+    env:
+      SAIN_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Verify exact source SHA (never synthetic PR merge)
+        run: |
+          ACTUAL="$(git rev-parse HEAD)"
+          printf 'Expected source SHA: %s\\nActual source SHA:   %s\\n' "$SAIN_SOURCE_SHA" "$ACTUAL"
+          test "$ACTUAL" = "$SAIN_SOURCE_SHA"
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
       - run: python -m pip install -r requirements-dev.txt
+      - name: Audit Python dependency graph (public advisory database)
+        run: python -m pip install pip-audit==2.10.1 && python -m pip_audit -r requirements.txt
+      - name: Verify tracked tree contains no obvious secret material
+        run: python -m scripts.stage1_security_gate
       - run: python -m pytest -q
       - run: python -m scripts.check_offline
       - name: Offline /run under 1 CPU and 512 MiB

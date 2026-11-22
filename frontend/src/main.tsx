@@ -1,6 +1,10 @@
 import { createRoot } from "react-dom/client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { client, ApiError } from "./api";
+import { client, ApiError, ActionApiError, DefinitiveApiError, parseActionFailure, instant } from "./api";
+import { verifiedReconciliation } from "./temporalRecovery";
+import { actionIssue as describeActionIssue } from "./actionFeedback";
+import type { ActionIssue } from "./actionFeedback";
+import { ActionNotice } from "./ActionNotice";
 import { moments, periodAt, periods, titles, time } from "./model";
 import type {
   Session,
@@ -102,7 +106,14 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
     [pending, setPending] = useState<Attempt | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const [actionIssue, setActionIssue] = useState<ActionIssue | null>(null);
+  // A dropped HTTP reply is NOT evidence that an upstream POST was rejected.
+  // Fail closed until the authenticated session reveals a pending operation,
+  // or a completed response can be independently verified.
+  const [unansweredPost, setUnansweredPost] = useState(false);
   const liveRevision = useRef(0),
+    recoveryRevision = useRef(0),
+    currentIssue = useRef<ActionIssue | null>(null),
     lock = useRef(false),
     chatLog = useRef<HTMLDivElement>(null),
     follow = useRef(true);
@@ -112,11 +123,19 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
       setPage("welcome");
       setPending(null);
       setDraft("");
+      setActionIssue(null);
+      setUnansweredPost(false);
+      currentIssue.current = null;
+      recoveryRevision.current++;
       return true;
     }
     return false;
   };
-  useEffect(() => () => controller.abort(), [controller]);
+  useEffect(() => () => {
+    recoveryRevision.current++;
+    currentIssue.current = null;
+    controller.abort();
+  }, [controller]);
   useEffect(() => {
     let current = true;
     const initialRead = liveRevision.current;
@@ -127,6 +146,10 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
     setPrepared(undefined);
     setSnapshot(null);
     setStale(false);
+    setActionIssue(null);
+    setUnansweredPost(false);
+    currentIssue.current = null;
+    recoveryRevision.current++;
     (async () => {
       const [session, view, cat] = await Promise.all([
         api<Session>("session"),
@@ -135,6 +158,13 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
       ]);
       if (!current) return;
       setInfo(session);
+      const pending = parseActionFailure(409, session.pending_action);
+      if (session.reconciliation_required && pending instanceof ActionApiError) {
+        const issue = describeActionIssue(pending);
+        currentIssue.current = issue;
+        setActionIssue(issue);
+        setStale(true);
+      }
       setPrepared(view);
       setCatalog(cat);
       setSnapshot(view.last_confirmed);
@@ -146,7 +176,7 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
         setPending(null);
         setDraft("");
       }, session.expires_in * 1000);
-      if (session.actions.includes("state"))
+      if (!session.reconciliation_required && session.actions.includes("state"))
         try {
           const live = await api<Snapshot>("state");
           if (current && initialRead === liveRevision.current) {
@@ -172,6 +202,9 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
             String(prepared.guest.stay.check_in_at ?? info.at),
             info.until,
             prepared.scenario.steps,
+            typeof prepared.guest.stay.hotel_timezone === "string"
+              ? prepared.guest.stay.hotel_timezone
+              : undefined,
           )
         : {},
     [info, prepared],
@@ -246,11 +279,141 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
     info.can_send_requests &&
     info.actions.includes("message") &&
     !expired;
+  // Reconciliation is bound to a SERVER-OWNED operation and attempted_at.
+  // A default /state or a virtual preview 200 is NEVER proof of this action.
+  async function refreshActual(issue: ActionIssue | null = currentIssue.current) {
+    if (!issue || controller.signal.aborted) return;
+    const generation = ++recoveryRevision.current;
+    setStale(true);
+    try {
+      const raw = await api<unknown>(
+        "reconciliation?" + new URLSearchParams({ operation_id: issue.operationId }), {
+          signal: AbortSignal.timeout(4000),
+        });
+      const verified = verifiedReconciliation(issue, raw);
+      if (!verified) throw new Error("Reconciliation belongs to a different operation or instant");
+      if (controller.signal.aborted || generation !== recoveryRevision.current ||
+          currentIssue.current?.operationId !== issue.operationId) return;
+      setSnapshot(verified.snapshot);
+      setStale(false);
+      setUnansweredPost(false);
+      const accepted = { ...issue, checked: true };
+      currentIssue.current = accepted;
+      setActionIssue(accepted);
+      setInfo((prev) => prev ? {
+        ...prev, next_action_at: verified.nextActionAt,
+        reconciliation_required: false, pending_action: null,
+      } : prev);
+    } catch (e) {
+      if (controller.signal.aborted || generation !== recoveryRevision.current ||
+          currentIssue.current?.operationId !== issue.operationId) return;
+      expiredError(e);
+      setStale(true);
+      setActionIssue((prev) => prev && prev.operationId === issue.operationId
+        ? { ...prev, checked: false } : prev);
+    }
+  }
+  /** A definitive rejection concerns THIS HTTP request only. Even if the
+   * server certifies pre-action rejection, check same-token /session before
+   * clearing the guard: another concurrent request could have pending effects.
+   */
+  async function handleDefinitiveRejection(error: DefinitiveApiError) {
+    setPending(null);
+    setError(error.message);
+    setUnansweredPost(true);
+    try {
+      const updated = await api<Session>("session", { signal: AbortSignal.timeout(4000) });
+      if (controller.signal.aborted) return;
+      setInfo(updated);
+      if (updated.reconciliation_required) {
+        const pending = parseActionFailure(409, updated.pending_action);
+        if (pending instanceof ActionApiError) {
+          const issue = describeActionIssue(pending);
+          recoveryRevision.current++;
+          currentIssue.current = issue;
+          setActionIssue(issue);
+          await refreshActual(issue);
+        } else {
+          setError("Другая операция ожидает проверки. Управление пока заблокировано.");
+        }
+        return;
+      }
+      if (currentIssue.current && !currentIssue.current.checked) return;
+      setUnansweredPost(false);
+    } catch (e) {
+      if (expiredError(e)) return;
+      setError(error.message + " Не удалось проверить доступность сеанса; управление пока заблокировано.");
+    }
+  }
+
+  // A 500, timeout or browser network abort may hide a completed POST.
+  // /session serializes behind the in-flight action, so the returned
+  // pending_action belongs to the authoritative same-token Room journal.
+  async function recoverUnansweredPost(expectedSuccess?: string) {
+    setUnansweredPost(true);
+    setStale(true);
+    try {
+      const updated = await api<Session>("session", {
+        signal: AbortSignal.timeout(4000),
+      });
+      setInfo(updated);
+      const pendingResult = parseActionFailure(409, updated.pending_action);
+      if (updated.reconciliation_required) {
+        if (pendingResult instanceof ActionApiError) {
+          const issue = describeActionIssue(pendingResult);
+          recoveryRevision.current++;
+          currentIssue.current = issue;
+          setActionIssue(issue);
+          setPending(null);
+          setError("");
+          await refreshActual(issue); // GET only; no resubmission of POST
+          return;
+        }
+        setError("Исход операции неизвестен. Сверка ещё недоступна; новые команды заблокированы.");
+        setPending(null);
+        return;
+      }
+      const latest = updated.history.at(-1);
+      // Only an already recorded successful message can clear the
+      // transport-uncertain guard in the absence of server pending evidence.
+      if (expectedSuccess && latest?.reply.response_class === "done" &&
+          latest.utterances.join(" ") === expectedSuccess &&
+          updated.actions.includes("state")) {
+        const live = await api<Snapshot>("state", {
+          signal: AbortSignal.timeout(4000),
+        });
+        if (instant(live.at) === null || instant(live.at) !== instant(updated.at)) return;
+        setSnapshot(live);
+        setStale(false);
+        setPending(null);
+        setError("");
+        setUnansweredPost(false);
+      }
+    } catch (err) {
+      expiredError(err);
+      // Never unblock based solely on a network error, cancelled fetch or
+      // successful GET at an unrelated virtual time.
+    }
+  }
+  function dismissActionIssue() {
+    if (!actionIssue?.checked) return;
+    recoveryRevision.current++;
+    currentIssue.current = null;
+    setActionIssue(null);
+    setError("");
+    setPending(null);
+    // Preserve user-entered NEW text; never submit it automatically.
+  }
+  const blockedByRecovery = unansweredPost ||
+    !!(actionIssue && !actionIssue.checked) ||
+    !!info?.reconciliation_required;
+  const canSubmit = allowed && !busy && !pending && !blockedByRecovery && !!draft.trim();
   async function send(text: string, retry?: Attempt) {
     if (
       !allowed ||
       !info ||
       !text.trim() ||
+      blockedByRecovery ||
       lock.current ||
       (!retry && pending)
     )
@@ -258,12 +421,16 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
     lock.current = true;
     liveRevision.current++;
     setBusy(true);
+    recoveryRevision.current++;
+    currentIssue.current = null;
+    setActionIssue(null);
+    setUnansweredPost(false);
     follow.current = true;
     setError("");
     go("chat");
     const attempt = retry ?? {
       key: crypto.randomUUID(),
-      at: info.at,
+      at: info.next_action_at ?? info.at,
       text: text.trim(),
     };
     setPending(attempt);
@@ -283,6 +450,7 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
         throw Error("response");
       setSnapshot({ at: attempt.at, state: result.state });
       setStale(false);
+      setUnansweredPost(false);
       setDraft("");
       setPending(null);
       setInfo(
@@ -290,6 +458,8 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
           prev && {
             ...prev,
             at: attempt.at,
+            next_action_at: attempt.at,
+            reconciliation_required: false,
             history: [
               ...prev.history,
               {
@@ -302,67 +472,85 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
       );
     } catch (e) {
       if (expiredError(e)) return;
-      setError(problem(e));
-      setDraft(attempt.text);
-      setStale(true);
-      try {
-        const recovery = { signal: AbortSignal.timeout(4000) };
-        const updated = await api<Session>("session", recovery);
-        // Recover authoritative history when the response to a command was lost.
-        setInfo(updated);
-        const delivered = updated.history.length > info.history.length &&
-          updated.history.at(-1)?.utterances.join(" ") === attempt.text;
-        if (delivered) {
-          setPending(null);
-          setError("");
-          setDraft("");
+      if (e instanceof ActionApiError) {
+        const issue = describeActionIssue(e);
+        recoveryRevision.current++;
+        currentIssue.current = issue;
+        setActionIssue(issue);
+        setPending(null); // Never offer a blind whole-request retry after partial/unknown.
+        setDraft("");
+        setError("");
+        setStale(true);
+        try {
+          const updated = await api<Session>("session", { signal: AbortSignal.timeout(4000) });
+          setInfo(updated);
+        } catch (err) {
+          expiredError(err);
         }
-        if (updated.actions.includes("state")) {
-          const live = await api<Snapshot>("state", recovery);
-          setSnapshot(live);
-          setStale(false);
-        }
-      } catch (err) {
-        expiredError(err);
+        await refreshActual(issue);
+        return;
       }
+      setDraft(attempt.text);
+      if (e instanceof DefinitiveApiError) {
+        await handleDefinitiveRejection(e);
+        return;
+      }
+      setError("Ответ команды не получен. Проверяем, могло ли действие выполниться.");
+      await recoverUnansweredPost(attempt.text);
     } finally {
       lock.current = false;
       setBusy(false);
     }
   }
   async function applySetting(id: string, values: Record<string, string | number | boolean | null>) {
-    if (!allowed || !info || lock.current || pending) return;
+    if (!allowed || !info || lock.current || pending || blockedByRecovery) return;
     lock.current = true;
     liveRevision.current++;
     setBusy(true);
+    recoveryRevision.current++;
+    currentIssue.current = null;
     setError("");
+    setUnansweredPost(false);
+    setActionIssue(null);
     go("chat");
     try {
       const result = await api<{ reply: Reply; state: Room }>("devices", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
-        body: JSON.stringify({ at: info.at, device_id: id, values }),
+        body: JSON.stringify({ at: info.next_action_at ?? info.at, device_id: id, values }),
       });
       if (result.reply.response_class !== "done" || !result.state) throw new Error("unconfirmed");
-      setSnapshot({ at: info.at, state: result.state });
+      setSnapshot({ at: info.next_action_at ?? info.at, state: result.state });
       setStale(false);
       setInfo((prev) => prev && {
-        ...prev,
+        ...prev, at: info.next_action_at ?? info.at,
+        next_action_at: info.next_action_at ?? info.at,
         history: [...prev.history, {
-          at: info.at, utterances: ["Ручная настройка: " + id], reply: result.reply,
+          at: info.next_action_at ?? info.at,
+          utterances: ["Ручная настройка: " + id], reply: result.reply,
         }],
       });
     } catch (e) {
-      // Do not blindly retry a possibly delivered operation.
-      setError(problem(e) + " Проверьте состояние номера перед повтором.");
-      setStale(true);
-      try {
-        const latest = await api<Snapshot>("state", { signal: AbortSignal.timeout(4000) });
-        setSnapshot(latest);
-        setStale(false);
-        const session = await api<Session>("session", { signal: AbortSignal.timeout(4000) });
-        setInfo(session);
-      } catch (_) { /* Keep last known state explicitly stale. */ }
+      if (e instanceof ActionApiError) {
+        const issue = describeActionIssue(e);
+        recoveryRevision.current++;
+        currentIssue.current = issue;
+        setActionIssue(issue);
+        setError("");
+        setPending(null);
+        setDraft("");
+        await refreshActual(issue);
+        return;
+      }
+      if (e instanceof DefinitiveApiError) {
+        await handleDefinitiveRejection(e);
+        return;
+      }
+      // Transport error is not proof that the operation failed. Check
+      // the authenticated pending operation FIRST; never trust default T1
+      // /state as a receipt for a cancelled action at T2.
+      setError("Ответ настройки не получен. Для безопасности требуется сверка номера.");
+      await recoverUnansweredPost("Ручная настройка: " + id);
     } finally {
       lock.current = false;
       setBusy(false);
@@ -465,7 +653,7 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
     </div>
   );
   const openSetting =
-    allowed && !pending && !busy
+    allowed && !pending && !busy && !blockedByRecovery
       ? (id: string) => {
           setDevice(id);
           go("settings", id);
@@ -549,19 +737,24 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
         previewError={previewError}
         retryPreview={() => setPreviewVersion((v) => v + 1)}
         allowed={allowed}
+        canSubmit={canSubmit}
+        blockedByRecovery={blockedByRecovery}
         draft={draft}
         setDraft={setDraft}
         pending={pending}
         busy={busy}
         error={error}
+        actionIssue={actionIssue}
+        refreshActual={() => void refreshActual()}
+        dismissActionIssue={dismissActionIssue}
         send={send}
+        retryAllowed={!!pending && !blockedByRecovery && !busy && allowed}
         retry={() => {
-          if (pending) void send(pending.text, pending);
+          if (pending && !blockedByRecovery && allowed && !busy) void send(pending.text, pending);
         }}
         dismiss={() => {
           setError("");
           setPending(null);
-          setDraft("");
         }}
       />
     );
@@ -590,7 +783,7 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
             />
             {allowed && (
               <button
-                disabled={!allowed}
+                disabled={!allowed || blockedByRecovery}
                 onClick={() => send("Сделай попрохладнее")}
               >
                 Сделай попрохладнее
@@ -619,13 +812,16 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
             )}
           </div>
         )}
-        {error && (
+        {actionIssue ? (
+          <ActionNotice issue={actionIssue} refresh={() => void refreshActual()}
+                        dismiss={dismissActionIssue} disabled={busy} />
+        ) : error && (
           <div className="error" role="alert">
             {error}
-            {pending && (
+            {pending && !blockedByRecovery && (
               <>
                 <button
-                  disabled={busy || !allowed}
+                  disabled={busy || !allowed || blockedByRecovery}
                   onClick={() => send(pending.text, pending)}
                 >
                   Повторить
@@ -671,7 +867,8 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
           </button>
           <button
             aria-label="Отправить просьбу"
-            disabled={!!pending || !draft.trim()}
+            aria-describedby={blockedByRecovery ? "sain-action-hint" : undefined}
+            disabled={!canSubmit}
           >
             <Icon name="send" />
           </button>

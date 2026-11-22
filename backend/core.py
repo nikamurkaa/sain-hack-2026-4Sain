@@ -1,6 +1,7 @@
 """Общие проверки времени, данных и параметров устройств."""
 from copy import deepcopy
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from pathlib import Path
 from functools import lru_cache
 import json
@@ -20,6 +21,20 @@ def moment(value: str) -> datetime:
     if not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?[+-]\d{2}:\d{2}", value):
         raise ValueError("Нужна дата со смещением UTC, например 2026-11-12T22:00:00+03:00")
     return datetime.fromisoformat(value)
+
+
+def hotel_moment(value: str, hotel_timezone: str) -> datetime:
+    """Validate a wall clock and its explicit offset against hotel IANA zone.
+
+    Both occurrences of a repeated fall-back hour are accepted when the UTC
+    offset disambiguates them. Nonexistent spring-forward times are rejected.
+    """
+    original = moment(value)
+    local = original.astimezone(ZoneInfo(hotel_timezone))
+    if (original.replace(tzinfo=None) != local.replace(tzinfo=None)
+            or original.utcoffset() != local.utcoffset()):
+        raise ValueError("Local timestamp or offset disagrees with hotel timezone")
+    return local
 
 
 def iso(value: datetime) -> str:

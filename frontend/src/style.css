@@ -950,3 +950,32 @@ h2 {
   .request, .reply, .error { max-width: 95%; }
   .composer input { padding-inline: 5px; }
 }
+
+/* MR-001 action result: preserve original SAIN design system, not generic 409 UX. */
+.action-notice {
+  display: grid;
+  gap: 9px;
+  margin: 6px 0 12px;
+  padding: 17px;
+  color: #fcf9f7;
+  background: linear-gradient(145deg, #30241f, #1d1816);
+  border: 1px solid #a07b66;
+  border-radius: 18px;
+  box-shadow: 0 12px 36px #0008;
+}
+.action-notice h3 { margin: 0; font-size: 17px; line-height: 1.3; }
+.action-notice p { margin: 0; font-size: 13px; line-height: 1.5; }
+.action-notice strong { color: #ffe1cd; }
+.action-notice .action-verification { color: #efd0b9; }
+.action-notice-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.action-notice button {
+  border: 1px solid #a07b66;
+  border-radius: 10px;
+  background: #3b2b24;
+  color: #ffe1cd;
+  text-align: center;
+  padding: 9px 10px;
+}
+.action-notice button:first-child { background: #e8bd9e; color: #211713; }
+.action-notice button:focus-visible { outline: 2px solid #ffe3b7; outline-offset: 3px; }
+.action-notice button:disabled { opacity: .55; }

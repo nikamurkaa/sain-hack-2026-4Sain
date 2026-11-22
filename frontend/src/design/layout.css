@@ -616,3 +616,46 @@
   font-size: 11px;
   line-height: 14px;
 }
+
+/* MR-NEW-03: in-flow status panel instead of overlaying alarm/DND cards.
+   At 320x568/200% zoom the page remains scrollable and all focus targets
+   stay in DOM order; SAIN's Figma-based device layout itself is unchanged. */
+.mobile-action-flow {
+  width: min(100%, 640px);
+  margin: 0 auto;
+  padding: 12px 12px 0;
+}
+.mobile-action-flow .action-notice {
+  position: static;
+  max-height: none;
+  overflow: visible;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.mobile-action-flow .action-notice-actions {
+  display: grid;
+  gap: 8px;
+}
+.mobile-action-flow .action-notice button {
+  min-height: 44px;
+  font-size: 13px;
+}
+
+/* Recovery is not a clickable send affordance. The original Figma artwork
+   includes the warm send circle behind a transparent HTML button, so native
+   :disabled alone did not visibly dim it on 320px devices. */
+.design-composer.recovery-blocked button:last-child:disabled {
+  cursor: not-allowed;
+}
+.design-composer.recovery-blocked button:last-child:disabled::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 100%;
+  background: rgba(12, 11, 11, .53);
+  border: 1px solid rgba(248, 201, 171, .2);
+  pointer-events: none;
+}
+.design-composer.recovery-blocked input {
+  border-bottom: 1px solid rgba(248, 201, 171, .32);
+}

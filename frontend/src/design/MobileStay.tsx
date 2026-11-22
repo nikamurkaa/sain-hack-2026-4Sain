@@ -1,4 +1,6 @@
 import { useState, useSyncExternalStore } from "react";
+import { ActionNotice } from "../ActionNotice";
+import type { ActionIssue } from "../actionFeedback";
 import type { ReactNode } from "react";
 import {
   describe,
@@ -88,13 +90,19 @@ type Props = {
   previewError: string;
   retryPreview: () => void;
   allowed: boolean;
+  canSubmit: boolean;
+  blockedByRecovery: boolean;
   draft: string;
   setDraft: (s: string) => void;
   pending: { text: string } | null;
   busy: boolean;
   error: string;
+  actionIssue: ActionIssue | null;
+  refreshActual: () => void;
+  dismissActionIssue: () => void;
   send: (text: string) => void;
   retry: () => void;
+  retryAllowed: boolean;
   dismiss: () => void;
 };
 const periodIndex = (p: Period) => periods.indexOf(p);
@@ -138,11 +146,13 @@ export function MobileStay(p: Props) {
           ? 2 + mode * 2
           : p.page === "virtual"
             ? 17 + periodIndex(p.period)
-            : p.error
-              ? p.info.history.length
-                ? 28
-                : 16
-              : p.pending
+            : p.actionIssue
+              ? 9 // Partial/conflict is NOT a network-disconnect screen.
+              : p.error
+                ? p.info.history.length
+                  ? 28
+                  : 16
+                : p.pending
                 ? 25
                 : last?.reply.response_class === "refused"
                   ? p.info.history.length === 1
@@ -153,13 +163,8 @@ export function MobileStay(p: Props) {
                       ? 10
                       : 26
                     : 9;
-  const displayName = p.prepared.guest.profile.display_name;
-  const guest =
-    typeof displayName === "string" && displayName.trim()
-      ? displayName.trim().slice(0, 20) +
-        (displayName.trim().length > 20 ? "…" : "") +
-        ",\n"
-      : "";
+  // The official Case2 user schema has no display_name field. Never infer a
+  // person's name from user_id or leave the example Figma name in real UI.
   const status = p.info.source === "final" ? "Финальный номер" : "Демо-номер";
   const selectPeriod = (availability: boolean) => (
     <div className="design-tabs">
@@ -201,7 +206,8 @@ export function MobileStay(p: Props) {
     const name = w.name,
       value = w.texts[0]?.value ?? "";
     if (name === "Алина,") {
-      if (p.page === "virtual") return { role: "heading" };
+      if (p.page === "virtual")
+        return { ...fixed("Ваш номер"), role: "heading" };
       const title =
         p.page === "plan"
           ? "Ваш план на " +
@@ -213,7 +219,7 @@ export function MobileStay(p: Props) {
             : "Ваш номер";
       return {
         ...fixed(
-          guest + (guest ? title[0].toLowerCase() + title.slice(1) : title),
+          title,
         ),
         role: "heading",
       };
@@ -290,7 +296,8 @@ export function MobileStay(p: Props) {
     if (p.page !== "chat") return;
     if (name === "Сделай попрохладнее")
       return {
-        hidden: !p.allowed,
+        // Never offer a new command in front of unresolved action evidence.
+        hidden: !p.allowed || !!p.actionIssue,
         onClick: () => p.send("Сделай попрохладнее"),
       };
     if (name === "Запрос")
@@ -299,19 +306,20 @@ export function MobileStay(p: Props) {
         text: () => p.pending?.text ?? last?.utterances.join(" ") ?? "",
       };
     if (name === "Ответ") {
+      if (p.actionIssue) return { hidden: true };
       if (p.error)
         return {
           role: "alert",
           className: "delivery-error",
-          text: (s, i) => (i === 0 ? p.error : s),
-          children: (
+          text: (s, i) => (i === 0 ? p.error : (p.retryAllowed ? s : "")),
+          children: p.retryAllowed ? (
             <Hit
               label="Повторить"
               box={[w.texts[1].box[0] - 28, w.texts[1].box[1] - 15, 165, 49]}
               onClick={p.retry}
               disabled={p.busy}
             />
-          ),
+          ) : undefined,
         };
       return {
         onClick: !p.busy && last ? () => setHistoryOpen(true) : undefined,
@@ -333,9 +341,9 @@ export function MobileStay(p: Props) {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              p.send(p.draft);
+              if (p.canSubmit) p.send(p.draft);
             }}
-            className="design-composer"
+            className={"design-composer" + (p.blockedByRecovery ? " recovery-blocked" : "")}
           >
             <input
               aria-label="Просьба"
@@ -355,14 +363,22 @@ export function MobileStay(p: Props) {
             />
             <button
               aria-label="Отправить просьбу"
-              disabled={p.busy || !!p.pending || !p.draft.trim()}
+              aria-describedby={p.blockedByRecovery ? "sain-action-hint" : undefined}
+              disabled={!p.canSubmit}
             />
           </form>
         ),
       };
   }
   return (
-    <DesignScreen screen={screen} bind={bind}>
+    <>
+      {p.page === "chat" && p.actionIssue && (
+        <div className="mobile-action-flow">
+          <ActionNotice issue={p.actionIssue} refresh={p.refreshActual}
+                        dismiss={p.dismissActionIssue} disabled={p.busy} />
+        </div>
+      )}
+      <DesignScreen screen={screen} bind={bind}>
       <small className="mode-caption" aria-label={p.badge}>
         {p.info.source === "final"
           ? "Финальный гость · просмотр"
@@ -407,7 +423,8 @@ export function MobileStay(p: Props) {
       )}
       {historyOpen && p.page === "chat" && history}
       {p.overlay}
-    </DesignScreen>
+      </DesignScreen>
+    </>
   );
 }
 export type DesignChrome = {

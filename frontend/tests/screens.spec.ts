@@ -211,7 +211,17 @@ test("connection, device settings, chat lifecycle, voice review and expiry", asy
   await expect(page.getByRole("alert")).toBeVisible();
   await shot(page, 28);
   await page.getByRole("button", { name: "Закрыть", exact: true }).click();
+  // The mocked network abort has no authoritative operation receipt.
+  // Closing the alert must NOT silently enable another write in that token.
+  await page.getByLabel("Просьба", { exact: true }).fill("Новая просьба");
+  await expect(page.getByLabel("Отправить просьбу")).toBeDisabled();
   c.fail = false;
+  // Explicit reconnect to the mock's known clean session, never a retry of
+  // the possibly committed POST; preserves original subsequent UI coverage.
+  await page.reload();
+  await start(page);
+  await expect(page.getByText("Заселиться")).toBeVisible();
+  await go(page, "Диалог");
   c.stt = process.env.SAIN_DESKTOP_SHOTS ? 2400 : 850;
   await page.getByLabel("Голосовой ввод").click();
   await expect(page.locator(".record")).toBeVisible();
@@ -273,7 +283,13 @@ test("first refusal and unknown delivery have their own layouts", async ({
   await page.getByLabel("Отправить просьбу").click();
   await shot(page, 16);
   await page.getByRole("button", { name: "Закрыть", exact: true }).click();
+  await page.getByLabel("Просьба", { exact: true }).fill("Повтори старое действие");
+  await expect(page.getByLabel("Отправить просьбу")).toBeDisabled();
   c.fail = false;
+  await page.reload();
+  await start(page);
+  await expect(page.getByText("Заселиться")).toBeVisible();
+  await go(page, "Диалог");
   await page.getByLabel("Просьба", { exact: true }).fill("Поставь 35 градусов");
   await page.getByLabel("Отправить просьбу").click();
   await shot(page, 15);
