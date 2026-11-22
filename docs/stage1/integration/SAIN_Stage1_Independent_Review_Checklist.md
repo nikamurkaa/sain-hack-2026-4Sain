@@ -113,3 +113,19 @@ Stage 1 restart state remains in-memory; one worker/process only. A new syntheti
 - [ ] Independent reviewer challenges cancellation/temporal oracles and confirms final exact-HEAD backend/frontend/Windows SUCCESS jobs and screenshot artifact.
 - [ ] Independent reviewer and repository owner separately approve any later merge; no self-approval.
 - [ ] Backlog kept explicit: MR-NEW-05 mobile focus CTA, decorative AI orb, Stage 6 persistent journal, native Windows acceptance, physical screen-reader/touch/keyboard verification.
+
+---
+
+## MR-NEW-06 — definitive vs uncertain frontend recovery (2026-11-22)
+
+> Supersedes the earlier cancellation-safe merge-ready status at `d9f3b8e...`: independent re-review **CLOSED MR-NEW-04 and MR-NEW-01** but found a separate **P1 MR-NEW-06**. On pre-handler Pydantic HTTP422 (zero upstream POST), React had treated the definitive validation rejection as a lost-response/uncertain command, disabled all new sends and displayed a dead retry button. This has been addressed without changing temporal/cancellation safety. See [MR-NEW-06 Frontend Recovery Remediation](SAIN_Stage1_MRNEW06_Frontend_Recovery_Remediation.md). Final merge decision still requires an **independent targeted re-review and owner approval**; exact-final-HEAD three-success workflow links are pinned in Draft PR #20.
+
+- [x] Independently supplied `mrnew04_frontend_422_retry_probe.py` source and log inspected: Pydantic text="" HTTP422, no upstream effects or pending, old browser stuck and dead Retry.
+- [x] RED browser tests committed separately before product changes [eeb59f9](https://github.com/nikamurkaa/sain-hack-2026-4Sain/commit/eeb59f94f383fa45bb3c5302ffb8b80b15d1f5b7).
+- [x] Contract: `prehandler` certificate only RequestValidationError before entering handlers; `domain` only known preaction 422 codes. Proxy filters exactly those headers on two write endpoints. No untrusted JSON/HTTP-only classification.
+- [x] Both React action handlers share definitive rejection logic and check /session for other pending issues; editable draft and explicit new Idempotency-Key; unknown transport still fail-closed.
+- [x] Dead mobile retry text+Hit removed in definitive/blocked UI, desktop retry not exposed if forbidden.
+- [x] Node classification matrix + backend TestClient no-effect validation + Chromium/Firefox actual FastAPI browser E2E for 320/375/1440 widths added.
+- [x] MR-NEW-04 cancellation and temporal tests left unchanged and run with entire Stage 1.
+- [ ] Independent reviewer checks final HEAD, actual browser evidence, and certified HTTP422 without external API.
+- [ ] Owner separately authorizes any future merge; Draft PR remains Draft. No Stage 4/6/production claims.

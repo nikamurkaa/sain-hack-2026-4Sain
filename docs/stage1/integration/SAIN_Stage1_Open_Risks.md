@@ -74,3 +74,15 @@ The standalone [remediation report](SAIN_Stage1_Merge_Review_Remediation.md) mus
 | Physical accessibility | NOT TESTED | Browser viewport/keyboard/zoom tests do not replace TalkBack/VoiceOver, on-device keyboard/touch checks. |
 
 **Scope:** original independent MR-NEW-04 P1 must be independently re-reviewed; other P2 and Stage 4/6 items do not become a silent claim of production readiness.
+
+---
+
+## MR-NEW-06 — definitive vs uncertain frontend recovery (2026-11-22)
+
+> Supersedes the earlier cancellation-safe merge-ready status at `d9f3b8e...`: independent re-review **CLOSED MR-NEW-04 and MR-NEW-01** but found a separate **P1 MR-NEW-06**. On pre-handler Pydantic HTTP422 (zero upstream POST), React had treated the definitive validation rejection as a lost-response/uncertain command, disabled all new sends and displayed a dead retry button. This has been addressed without changing temporal/cancellation safety. See [MR-NEW-06 Frontend Recovery Remediation](SAIN_Stage1_MRNEW06_Frontend_Recovery_Remediation.md). Final merge decision still requires an **independent targeted re-review and owner approval**; exact-final-HEAD three-success workflow links are pinned in Draft PR #20.
+
+| MR-NEW-06 guard | LOCAL single-worker addressed, independent re-review pending | `X-Sain-Rejection-Class` is a same-origin server certificate only from preaction Pydantic/body validation or documented preaction `INVALID_TIME/INVALID_VALUE`; proxy forwards on two action endpoints only. On absent marker, malformed body, unexpected code or GET /session failure, UI stays blocked, requiring explicit safety verification. |
+| MR-NEW-06 loss of bearer/auth | Existing accepted limitation | 401 terminates token, 403 not auto-approvable; unknown 429/5xx/action 409 never interpreted as definitive solely by HTTP class. |
+| MR-NEW-04 after frontend change | Remains tested in full source tree | Existing independently accepted T2 post+CancelledError, cached key and mutation floor cannot be bypassed by new validation-only path. |
+
+P2 MR-NEW-05 mobile scroll/focus, decorative AI orb clipping and phone status hierarchy remain Stage 4 backlog; persistent journal Stage 6; native Windows / physical accessibility not tested.

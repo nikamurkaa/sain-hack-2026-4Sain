@@ -79,3 +79,17 @@ This section supersedes any earlier *merge-readiness claim* in the original Stag
 | MR-NEW-04 code checkpoint | `bfff9048c85340f63451bf2c5b373e65eb5ef8e7` | [backend 45037464859](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45037464859) 330 passed, [frontend 45037464823](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45037464823) 43 Chromium/43 Firefox, [Windows 45037464825](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45037464825) success; **checkpoint only**, final docs-commit HEAD and new `Task.cancel()` test must be rechecked |
 
 **Final provenance rule:** final exact HEAD and all three SUCCESS actions available from current Draft PR #20; do not reuse old `def405ffc...` green runs as acceptance of cancellation behavior.
+
+---
+
+## MR-NEW-06 — definitive vs uncertain frontend recovery (2026-11-22)
+
+> Supersedes the earlier cancellation-safe merge-ready status at `d9f3b8e...`: independent re-review **CLOSED MR-NEW-04 and MR-NEW-01** but found a separate **P1 MR-NEW-06**. On pre-handler Pydantic HTTP422 (zero upstream POST), React had treated the definitive validation rejection as a lost-response/uncertain command, disabled all new sends and displayed a dead retry button. This has been addressed without changing temporal/cancellation safety. See [MR-NEW-06 Frontend Recovery Remediation](SAIN_Stage1_MRNEW06_Frontend_Recovery_Remediation.md). Final merge decision still requires an **independent targeted re-review and owner approval**; exact-final-HEAD three-success workflow links are pinned in Draft PR #20.
+
+| MR-NEW-06 definitive HTTP422 REAL browser | `frontend/tests/stage1-definitive-rejection.spec.ts` | RED [45041086124](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45041086124): 3 failed, 43 old passed; real FastAPI Pydantic text="" rejection, no pending/history/action. GREEN code checkpoint [45041721061](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45041721061): 46 Chromium + 46 Firefox; 320×568, 375×812, 1440×900; editable draft, enabled send, new key, explicit POST 200 done; real simulator state change. |
+| MR-NEW-06 manual setting | `tests/stage1/test_mr_new06_definitive.py`, browser device test | POST devices invalid values={} certifies 422; same token no pending/effects, valid manual save with new key succeeds; no automatic POST. |
+| MR-NEW-06 typed error classification | `frontend/tests/stage1-definitive-rejection.test.ts` | Server-certified Pydantic, safe domain refusal, partial/uncertain/conflict, protected 409, 401/403, 429, 500/502, malformed JSON, aborted transport; only certified side-effect-free rejection unlocks after /session. |
+| MR-NEW-06 proxy contract | `frontend/serve.py`, `main.py` | Proxy forwards **only** the two 422 rejection classes on action routes; missing proxy header in first GREEN attempt was detected by real-browser test, not overlooked. |
+| MR-NEW-04 remains PASS | `tests/stage1/test_mr_new04_{cancellation,matrix}.py`, `frontend/tests/stage1-cancellation.spec.ts` | Existing accepted POST at T2 + CancelledError still unresolved until op-based GET, no automatic replay or unsafe T1 write. |
+
+**Final source provenance:** compare current Draft PR #20 HEAD to actual checkout in backend/frontend/Windows jobs. A green intermediate SHA never substitutes for final HEAD.

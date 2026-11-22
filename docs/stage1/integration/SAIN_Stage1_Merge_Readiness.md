@@ -72,3 +72,11 @@ No merge to main, no force push, no official closed /run, no organizer tokens, n
 New decision vocabulary after **all three final exact-HEAD CI SUCCESS**: `READY FOR TARGETED INDEPENDENT RE-REVIEW`; otherwise `NOT READY — CANCELLATION SAFETY BLOCKER REMAINS`. Independent approval and separate owner permission still missing; do not merge.
 
 Prior MR-NEW-01/02/03, MR-001–004 retain their tests, semantics and known single-worker limitations. MR-NEW-05 mobile-focus reminder and decorative AI orb cropping are deferred to Stage 4, SQLite/WAL to Stage 6; no native Windows/physical accessibility/official API claims.
+
+---
+
+## MR-NEW-06 — definitive vs uncertain frontend recovery (2026-11-22)
+
+> Supersedes the earlier cancellation-safe merge-ready status at `d9f3b8e...`: independent re-review **CLOSED MR-NEW-04 and MR-NEW-01** but found a separate **P1 MR-NEW-06**. On pre-handler Pydantic HTTP422 (zero upstream POST), React had treated the definitive validation rejection as a lost-response/uncertain command, disabled all new sends and displayed a dead retry button. This has been addressed without changing temporal/cancellation safety. See [MR-NEW-06 Frontend Recovery Remediation](SAIN_Stage1_MRNEW06_Frontend_Recovery_Remediation.md). Final merge decision still requires an **independent targeted re-review and owner approval**; exact-final-HEAD three-success workflow links are pinned in Draft PR #20.
+
+**MR-NEW-06 final targeted gate:** RED must be a real React + actual loopback FastAPI Pydantic 422 without upstream action; GREEN must show clear editable error, no ghost pending, no dead Retry, a second explicit POST using a new key and actual state change. The same test must keep generic 422 (without verified server marker), ACTION_UNCERTAIN, 500/transport loss fail-closed. In addition, both manual /devices and text /messages require matching contract, and 3 exact-final-HEAD SUCCESS workflows (backend, frontend Chromium+Firefox, Windows ZIP). The original MR-NEW-04 single-worker cancellation, time floor and no-post-retry guarantees must remain green. Final **candidate only**: READY FOR FINAL TARGETED RE-REVIEW, not self-approve, never merge in this task.
