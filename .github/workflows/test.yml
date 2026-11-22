@@ -10,8 +10,18 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 12
+    env:
+      SAIN_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Verify exact source SHA (never synthetic PR merge)
+        run: |
+          ACTUAL="$(git rev-parse HEAD)"
+          printf 'Expected source SHA: %s\\nActual source SHA:   %s\\n' "$SAIN_SOURCE_SHA" "$ACTUAL"
+          test "$ACTUAL" = "$SAIN_SOURCE_SHA"
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'

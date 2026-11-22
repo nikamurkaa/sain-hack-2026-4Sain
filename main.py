@@ -22,7 +22,7 @@ from backend.clients import ModelClient
 from backend.api_models import RunAnswer, SessionCreated, Conversation, PreparedView, Guest, Scenario, Catalog, State, MessageResult, Transcription
 from backend.core import ServiceError, moment, hotel_moment, check_values
 from backend.runner import open_solution
-from backend.commands import _local_alarm, success_text
+from backend.commands import _local_alarm, success_text, Refusal
 
 logging.getLogger('httpx').setLevel(logging.WARNING)
 logging.getLogger('httpcore').setLevel(logging.WARNING)
@@ -410,11 +410,20 @@ async def set_device(body: DeviceInput, idempotency_key: str = Header(min_length
                 zone = ZoneInfo(hotel) if hotel else moment(body.at).tzinfo
                 now = moment(body.at).astimezone(zone)
                 when = _local_alarm(now.date(), changes['at'], zone)
-                if when <= now:
+                if when.astimezone(ZoneInfo('UTC')) <= now.astimezone(ZoneInfo('UTC')):
                     when = _local_alarm(now.date() + timedelta(days=1), changes['at'], zone)
                 changes['at'] = when.isoformat()
+            except Refusal as exc:
+                # A DST gap/fold is a user-domain refusal, not a server fault.
+                # Reserve the idempotency key even on rejection: same payload
+                # replays identical 422; a different payload conflicts.
+                error = ServiceError('INVALID_TIME', str(exc), 422)
+                session.messages[idempotency_key] = (fingerprint, error)
+                raise error from None
             except (ValueError, KeyError, OverflowError):
-                raise ServiceError('INVALID_TIME', 'Укажите допустимое время пробуждения.', 422) from None
+                error = ServiceError('INVALID_TIME', 'Укажите допустимое время пробуждения.', 422)
+                session.messages[idempotency_key] = (fingerprint, error)
+                raise error from None
         try:
             check_values(session.solution.data['devices'], body.device_id, changes)
         except (JsonSchemaValidationError, ValueError, TypeError):

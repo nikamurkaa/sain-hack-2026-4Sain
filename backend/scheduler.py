@@ -15,21 +15,46 @@ def sleep_sound(prefs):
     return {"track_id": prefs["tracks"][0], "volume": prefs["volume"], "timer_minutes": prefs["timer"]}
 
 
+def _home_bedtime(day, clock, zone):
+    """Resolve a wall-clock habit to one real instant, with explicit DST policy.
+
+    No offset accompanies a user's habitual bedtime, so for an ambiguous
+    autumn hour choose the FIRST occurrence (fold=0). For a spring gap,
+    advance to the earliest round-tripped *future* wall time (e.g. 02:30
+    becomes 03:30). Never compare ZoneInfo wall times to order instants.
+    """
+    naive = datetime.combine(day, time.fromisoformat(clock))
+    variants = [naive.replace(tzinfo=zone, fold=fold) for fold in (0, 1)]
+    back = [value.astimezone(timezone.utc).astimezone(zone) for value in variants]
+    valid = [value for value, resolved in zip(variants, back)
+             if resolved.replace(tzinfo=None) == naive]
+    if valid:
+        return min(valid, key=lambda value: value.astimezone(timezone.utc))
+    after_gap = [value for value in back if value.replace(tzinfo=None) > naive]
+    if not after_gap:
+        raise ValueError("Нет допустимого местного времени после перевода часов")
+    return min(after_gap, key=lambda value: value.astimezone(timezone.utc))
+
+
 def bedtime(user, stay):
-    wake = moment(stay["target_wake_at"]).astimezone(ZoneInfo(stay["hotel_timezone"]))
+    hotel = ZoneInfo(stay["hotel_timezone"])
+    wake = moment(stay["target_wake_at"]).astimezone(hotel)
+    wake_utc = wake.astimezone(timezone.utc)
     home = ZoneInfo(user.get("timezone") or stay["hotel_timezone"])
     candidates = []
     for day_shift in range(-2, 2):
-        home_bed = datetime.combine(wake.date() + timedelta(days=day_shift),
-                                   time.fromisoformat(user.get("weekday_bedtime") or "23:00"), home)
-        local_bed = home_bed.astimezone(wake.tzinfo)
+        home_bed = _home_bedtime(
+            wake.date() + timedelta(days=day_shift),
+            user.get("weekday_bedtime") or "23:00", home)
+        local_bed = home_bed.astimezone(hotel)
         difference = (local_bed.utcoffset() - home_bed.utcoffset()).total_seconds() / 3600
-        # Сначала перевод домашнего времени в пояс отеля, затем поправка R8.
+        # R8 +/- 1 hour is an elapsed UTC hour, not an ambiguous wall-hour.
+        candidate_utc = local_bed.astimezone(timezone.utc)
         if abs(difference) >= 3:
-            local_bed += timedelta(hours=-1 if difference > 0 else 1)
-        if local_bed < wake:
-            candidates.append(local_bed)
-    return max(candidates)
+            candidate_utc += timedelta(hours=-1 if difference > 0 else 1)
+        if candidate_utc < wake_utc:
+            candidates.append(candidate_utc)
+    return max(candidates).astimezone(hotel)
 
 
 def build_scenario(user, stay, prefs, devices, rules):
