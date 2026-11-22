@@ -342,7 +342,12 @@ async def state(at: str | None = None, session=Depends(client_session)):
             raise
         session.connection_status = 'available'
         snapshot = {'at': at, 'state': actual}
-        if not is_preview:
+        if (not is_preview
+                and not any(not issue['verified'] for issue in session.action_issues.values())
+                and (not session.last_confirmed
+                     or moment(at) >= moment(session.last_confirmed['at']))):
+            # A default read at the older last-done clock cannot downgrade a
+            # T2 recovery snapshot, even after explicit reconciliation.
             session.last_confirmed = snapshot
         return snapshot
 
@@ -431,7 +436,10 @@ async def reconciliation(operation_id: str, session=Depends(client_session)):
         # assert that a previously unknown POST succeeded or was exactly once.
         snapshot = {'at': at, 'state': actual}
         issue['verified'] = True
-        session.last_confirmed = snapshot
+        issue['snapshot'] = snapshot
+        if (not session.last_confirmed
+                or moment(at) >= moment(session.last_confirmed['at'])):
+            session.last_confirmed = snapshot
         session.connection_status = 'available'
         next_at = session.at
         if session.mutation_floor and moment(session.mutation_floor) > moment(next_at):
