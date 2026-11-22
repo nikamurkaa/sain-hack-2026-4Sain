@@ -1,6 +1,9 @@
 import { createRoot } from "react-dom/client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { client, ApiError } from "./api";
+import { client, ApiError, ActionApiError } from "./api";
+import { actionIssue as describeActionIssue } from "./actionFeedback";
+import type { ActionIssue } from "./actionFeedback";
+import { ActionNotice } from "./ActionNotice";
 import { moments, periodAt, periods, titles, time } from "./model";
 import type {
   Session,
@@ -102,6 +105,7 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
     [pending, setPending] = useState<Attempt | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const [actionIssue, setActionIssue] = useState<ActionIssue | null>(null);
   const liveRevision = useRef(0),
     lock = useRef(false),
     chatLog = useRef<HTMLDivElement>(null),
@@ -112,6 +116,7 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
       setPage("welcome");
       setPending(null);
       setDraft("");
+      setActionIssue(null);
       return true;
     }
     return false;
@@ -249,11 +254,32 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
     info.can_send_requests &&
     info.actions.includes("message") &&
     !expired;
+  // Only a GET can refresh the confirmed actual snapshot. No action POST here.
+  async function refreshActual() {
+    setStale(true);
+    try {
+      const actual = await api<Snapshot>("state", { signal: AbortSignal.timeout(4000) });
+      setSnapshot(actual);
+      setStale(false);
+      setActionIssue((prev) => prev ? { ...prev, checked: true } : null);
+    } catch (e) {
+      expiredError(e);
+      setStale(true);
+    }
+  }
+  function dismissActionIssue() {
+    if (!actionIssue?.checked) return;
+    setActionIssue(null);
+    setError("");
+    setPending(null);
+    setDraft("");
+  }
   async function send(text: string, retry?: Attempt) {
     if (
       !allowed ||
       !info ||
       !text.trim() ||
+      !!(actionIssue && !actionIssue.checked) ||
       lock.current ||
       (!retry && pending)
     )
@@ -261,6 +287,7 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
     lock.current = true;
     liveRevision.current++;
     setBusy(true);
+    setActionIssue(null);
     follow.current = true;
     setError("");
     go("chat");
@@ -305,6 +332,22 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
       );
     } catch (e) {
       if (expiredError(e)) return;
+      if (e instanceof ActionApiError) {
+        const issue = describeActionIssue(e);
+        setActionIssue(issue);
+        setPending(null); // Never offer a blind whole-request retry after partial/unknown.
+        setDraft("");
+        setError("");
+        setStale(true);
+        try {
+          const updated = await api<Session>("session", { signal: AbortSignal.timeout(4000) });
+          setInfo(updated);
+        } catch (err) {
+          expiredError(err);
+        }
+        await refreshActual();
+        return;
+      }
       setError(problem(e));
       setDraft(attempt.text);
       setStale(true);
@@ -334,11 +377,12 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
     }
   }
   async function applySetting(id: string, values: Record<string, string | number | boolean | null>) {
-    if (!allowed || !info || lock.current || pending) return;
+    if (!allowed || !info || lock.current || pending || (actionIssue && !actionIssue.checked)) return;
     lock.current = true;
     liveRevision.current++;
     setBusy(true);
     setError("");
+    setActionIssue(null);
     go("chat");
     try {
       const result = await api<{ reply: Reply; state: Room }>("devices", {
@@ -356,6 +400,14 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
         }],
       });
     } catch (e) {
+      if (e instanceof ActionApiError) {
+        setActionIssue(describeActionIssue(e));
+        setError("");
+        setPending(null);
+        setDraft("");
+        await refreshActual();
+        return;
+      }
       // Do not blindly retry a possibly delivered operation.
       setError(problem(e) + " Проверьте состояние номера перед повтором.");
       setStale(true);
@@ -468,7 +520,7 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
     </div>
   );
   const openSetting =
-    allowed && !pending && !busy
+    allowed && !pending && !busy && (!actionIssue || actionIssue.checked)
       ? (id: string) => {
           setDevice(id);
           go("settings", id);
@@ -557,6 +609,9 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
         pending={pending}
         busy={busy}
         error={error}
+        actionIssue={actionIssue}
+        refreshActual={() => void refreshActual()}
+        dismissActionIssue={dismissActionIssue}
         send={send}
         retry={() => {
           if (pending) void send(pending.text, pending);
@@ -622,7 +677,10 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
             )}
           </div>
         )}
-        {error && (
+        {actionIssue ? (
+          <ActionNotice issue={actionIssue} refresh={() => void refreshActual()}
+                        dismiss={dismissActionIssue} disabled={busy} />
+        ) : error && (
           <div className="error" role="alert">
             {error}
             {pending && (
@@ -674,7 +732,7 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
           </button>
           <button
             aria-label="Отправить просьбу"
-            disabled={!!pending || !draft.trim()}
+            disabled={!!pending || !draft.trim() || !!(actionIssue && !actionIssue.checked)}
           >
             <Icon name="send" />
           </button>
