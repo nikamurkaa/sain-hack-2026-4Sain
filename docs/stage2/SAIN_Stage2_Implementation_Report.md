@@ -8,7 +8,8 @@ Original main: `2ccad73652a20f93eb93e70e466e958cc731d705`. Integration base is t
 | 19 intent action categories | `tests/stage2/test_action_benchmark.py` | Independent complete-state oracle and expected response class, PR #22 | PARTIAL — no genuine NLU measurement |
 | Negative, ambiguous, bounds | same | 10 refusal/ambiguity/conflict cases | PARTIAL — structured executor only |
 | Multi-step action sequence | same | Unexpected sequence and unchanged-field comparison | PARTIAL — structured executor only |
-| Sleep/time matrix | `tests/stage2/test_synthetic_journeys.py` | 32 synthetic zone/preference combinations + 2 DST transitions | PARTIAL — independent full R1–R8 reference not yet created |
+| Sleep/time matrix | `tests/stage2/test_synthetic_journeys.py` | 32 synthetic zone/preference combinations + 2 DST transitions; additional 24 independently specified R1–R8 overnight cases | PARTIAL — independent full R1–R8 reference not yet created |
+| Golden sleep-rule oracle (24 cases) | `tests/stage2/test_sleep_criteria_matrix.py` | Two explicit R8 bedtimes × 3 temperatures × 2 sound modes × 2 alarm modes; independent R1–R7 audit | PARTIAL until integrated SHA checks |
 | Personalized evidence freshness | `backend/preferences.py` | Cache keys now contain user/profile and evidence content; Stage 2 regression test | PASS after exact-SHA Python CI, pending integrated proof |
 | Privacy/guest isolation | `backend/core.py`, `backend/preferences.py` | Existing per-user evidence filter + new regression | PARTIAL — in-process scope only |
 | Explainable scenarios | `backend/explanations.py`, `main.py`, `backend/api_models.py` | Planned reasons for 6 systems, source category, R6 warning; React plan/profile | PARTIAL until integrated browser CI |

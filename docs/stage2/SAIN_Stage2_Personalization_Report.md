@@ -10,7 +10,7 @@
 ## Improvements
 - Fixed stale source cache: cache key now includes per-user profile and note **content**, not only IDs/times. Changes to a note under the same ID/timestamp cannot return stale preference decisions.
 - Added `/api/v1/prepared.explanations` for six devices: rule references, source category, planned-only status, and R6 constraint warning; raw notes and source IDs are not returned by this field.
-- Added tests for edited notes, edited profile, cross-guest isolation, missing vs configured preferences and unrealizable dawn.
+- Added tests for edited notes, edited profile, cross-guest isolation, missing vs configured preferences, profile-dislike source class and unrealizable dawn.
 - React displays planned reasons in plan/profile and mobile without replacing GET-verified actual device state.
 
 ## Unresolved, with honest scope

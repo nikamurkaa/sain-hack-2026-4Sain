@@ -29,13 +29,13 @@ All 19 statuses remain PARTIAL even after test success: the deterministic oracle
 
 | Rule/system | Official requirement | Evidence | Status |
 |---|---|---|---|
-| R1 | Light 10–30% / ≤2700 K during 60m pre-bed | Existing sleep audit + Stage 1 regression | PARTIAL |
+| R1 | Light 10–30% / ≤2700 K during 60m pre-bed | Existing sleep audit + Stage 1 regression + 24 golden overnights + 24 golden Stage 2 overnights | PARTIAL |
 | R2 | Night brightness 0, curtains ≤10 | Existing sleep audit + Stage 1 regression | PARTIAL |
-| R3 | 17–18/19–20/21–22 °C based on preferences | Existing sleep audit + Stage 2 synthetic | PARTIAL |
+| R3 | 17–18/19–20/21–22 °C based on preferences | Existing sleep audit + 24 golden Stage 2 overnights | PARTIAL |
 | R4 | Preferred track, volume 1–30, timer ≤45 or off | Existing sleep audit + Stage 2 synthetic | PARTIAL |
 | R5 | Target wake, gentle alarm in light mode | Existing sleep audit + Stage 1 regression | PARTIAL |
 | R6 | 3 light rises OR curtains during pre-wake 15–30m | Stage 1 no-backdate + new explicit warning | PARTIAL; impossible late arrival disclosed |
-| R7 | DND from bedtime to wake | Existing sleep audit | PARTIAL |
+| R7 | DND from bedtime to wake | Existing sleep audit + 24 golden overnights | PARTIAL |
 | R8 | ≥3-hour timezone change capped at 1-hour bedtime adjustment | Stage 1 UTC/DST fixes + Stage 2 property matrix | PARTIAL |
 | Light | Current value from GET state, not scheduled preview | `Room.state`, React snapshot | PARTIAL |
 | Climate | Current value from GET state | same | PARTIAL |

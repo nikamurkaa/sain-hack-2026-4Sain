@@ -9,7 +9,7 @@ Every PASS refers only to its named test and exact SHA; green on one feature bra
 | HTTP422 definitive rejection | `tests/stage1/test_mr_new06_definitive.py`, frontend `stage1-definitive-rejection` | Invalid-value text improvement | PARTIAL (integrated browser CI pending) |
 | Idempotency/replay | `tests/stage1/test_session_post_retries.py`, `test_mr_new04_matrix.py` | No mutation protocol modifications | PARTIAL |
 | Partial / uncertain saga | `tests/stage1/test_partial_operations.py`, `tests/test_integration.py` | No simulator write path changed | PARTIAL |
-| R1–R8, R6 late stay | `tests/test_logic.py`, `scripts/sleep_audit.py`, `tests/stage1/test_r6_short_stay.py` | Explicit R6 impossibility explanation | PARTIAL |
+| R1–R8, R6 late stay | `tests/test_logic.py`, `scripts/sleep_audit.py`, `tests/stage1/test_r6_short_stay.py` | Explicit R6 impossibility explanation; 24 independent R1–R8 golden overnight checks | PARTIAL |
 | Profile/history isolation | `tests/test_logic.py`, `tests/test_conversation.py` | Evidence-content cache + per-guest test | PARTIAL |
 | 19 categories and no extraneous changes | `scripts/check_offline.py` (ScriptedModel) | Independent structured action oracle | PARTIAL; no live NLU score |
 | Six device actual state | `backend/room.py` GET full-state equality | Explanations say 'planned' only | PARTIAL |

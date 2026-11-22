@@ -9,6 +9,7 @@ The primary benchmark in PR #22 evaluates **structured intent → command planni
 | Refusal / ambiguous / bounds | Negative, unsupported, clarification and out-of-range | 10 | PARTIAL until CI |
 | Explicit numeric deltas | Warm/cool/brighter/dimmer/quieter | 5 | PARTIAL until CI |
 | Unexpected sequence | Five sequential structured commands | 1 | PARTIAL until CI |
+| Independent R1–R8 golden oracles | 2 home timezones × 3 temperatures × 2 sound habits × 2 alarm modes, plus an intentionally corrupted scenario | 24 + 1 negative | PARTIAL until CI |
 | Synthetic personalization/timezone | Cross product of 4 hotel zones × 2 home zones × 2 thermal classes × 2 sound habits | 32 | PARTIAL until CI |
 | DST | Berlin forward/backward transitions | 2 | PARTIAL until CI |
 | Independent unseen Russian phrasing | A blinded private set evaluated by real LLM/NLU | 0 executed | NOT TESTED |

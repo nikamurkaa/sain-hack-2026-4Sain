@@ -6,7 +6,7 @@ Base main `2ccad73652a20f93eb93e70e466e958cc731d705`. Feature PR #21 head `c5177
 ## Required exact-SHA checks
 - [ ] Python 3.11 full pytest and new Stage 2 tests
 - [ ] Offline 10/60 under normal and 1 CPU / 512 MiB
-- [ ] R1–R8 and synthetic DST
+- [ ] R1–R8 golden 24-case suite, 32 synthetic stays and DST
 - [ ] Six-device complete state and negative cases
 - [ ] Multi-guest isolation and failure injection
 - [ ] Stage 1 temporal, cancellation and idempotency

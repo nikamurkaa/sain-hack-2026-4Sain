@@ -76,3 +76,13 @@ def test_other_guest_notes_never_reach_resolver():
         assert (await r.resolve("guest_test", AT, "2026-11-11"))["temperature"] == "cool"
         assert (await r.resolve("second", AT, "2026-11-11"))["temperature"] == "warm"
     asyncio.run(check())
+
+
+def test_profile_dislike_provenance_is_not_mislabeled_as_history():
+    d = dataset()
+    p = prefs()
+    p["alarm_mode"] = "light"
+    p["sources"] = {"alarm_mode": {"source": "profile:dislikes", "quote": "не люблю звонки"}}
+    steps = build_scenario(d["users"][0], d["stays"][0], p, d["devices"], d["sleep_rules"])
+    decisions = preparation_explanations(d["users"][0], d["stays"][0], p, steps)
+    assert next(x for x in decisions if x["device_id"] == "alarm")["source"] == "profile"
