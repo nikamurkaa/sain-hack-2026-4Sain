@@ -10,7 +10,7 @@
 |:---:|:---:|
 | ![Мобильная версия](docs/screenshots/mobile-room.png) | ![Контекстный диалог](docs/screenshots/mobile-dialog.png) |
 
-**[Figma · 29 экранов]([https://www.figma.com/design/GH3nRXnqWn7eoiMWwNfeCa/SAIN-Smart-Room-%E2%80%94-UI-Design?node-id=0-1](https://vk.ru/away.php?to=https%3A%2F%2Fwww.figma.com%2Fdesign%2Fz5s6MFxKIDC6P9ECm4CbuO%2F4SAIN%3Fnode-id%3D0-1%26t%3DhTDRRXS2El9j37Cj-1&utf=1))** · **[Windows ZIP](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45254804178/artifacts/14855564345)** · **[macOS ZIP](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45254804079/artifacts/14858781298)** · **[Технический handoff](docs/release/FINAL_TECHNICAL_HANDOFF.md)**
+**[Figma · 29 экранов](https://www.figma.com/design/z5s6MFxKIDC6P9ECm4CbuO/4SAIN?node-id=0-1&p=f&t=0IT5kqCK4JA5mGU4-0)** · **[Windows ZIP](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45254804178/artifacts/14855564345)** · **[macOS ZIP](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45254804079/artifacts/14858781298)** · **[Технический handoff](docs/release/FINAL_TECHNICAL_HANDOFF.md)**
 
 ## Возможности
 
@@ -67,7 +67,7 @@
 ## Источники
 
 - [Официальное задание кейса №2](docs/requirements-traceability.md), инструкции SAIN × Школа 21 от 16.11.2026, схемы `backend/schemas/`.
-- [Оригинальный дизайн 4Sain (Figma)]([https://www.figma.com/design/GH3nRXnqWn7eoiMWwNfeCa/SAIN-Smart-Room-%E2%80%94-UI-Design?node-id=0-1](https://vk.ru/away.php?to=https%3A%2F%2Fwww.figma.com%2Fdesign%2Fz5s6MFxKIDC6P9ECm4CbuO%2F4SAIN%3Fnode-id%3D0-1%26t%3DhTDRRXS2El9j37Cj-1&utf=1)), ресурсы в `frontend/`.
+- [Оригинальный дизайн 4Sain (Figma)](https://www.figma.com/design/z5s6MFxKIDC6P9ECm4CbuO/4SAIN?node-id=0-1&p=f&t=0IT5kqCK4JA5mGU4-0), ресурсы в `frontend/`.
 - Python/JS-зависимости и версии: `requirements*.txt`, `frontend/package*.json`; лицензии шрифтов Manrope/Unbounded/Inter лежат рядом с ресурсами.
 
 ## Журнал решений
