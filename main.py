@@ -431,6 +431,10 @@ def ensure_safe_action_time(session, at):
 def register_action_failure(session, error, attempted_at):
     if not isinstance(error, ActionFailure):
         return
+    if getattr(session.room, 'operations', {}).get(error.operation_id, {}).get('storage_failed'):
+        # An in-memory simulator write without a durable receipt cannot be
+        # safely continued; manual reset is required. GET remains available.
+        session.read_only = True
     # The trusted request instant is checked against the Room journal; the
     # consumer cannot choose or forge reconciliation time via a query string.
     if not error.attempted_at or moment(error.attempted_at) != moment(attempted_at):
@@ -578,6 +582,8 @@ async def message(body: MessageInput, idempotency_key: str = Header(min_length=8
             raise
         except ServiceError as exc:
             register_action_failure(session, exc, body.at)
+            if exc.code == 'STORAGE_UNAVAILABLE':
+                session.read_only = True
             if exc.code.startswith(('UPSTREAM_', 'RUN_')):
                 note_upstream_error(session, exc)
                 if exc.status == 409:
@@ -647,6 +653,8 @@ async def set_device(body: DeviceInput, idempotency_key: str = Header(min_length
             raise
         except ServiceError as exc:
             register_action_failure(session, exc, body.at)
+            if exc.code == 'STORAGE_UNAVAILABLE':
+                session.read_only = True
             if exc.code.startswith(('UPSTREAM_', 'RUN_')):
                 note_upstream_error(session, exc)
                 if exc.status == 409:
