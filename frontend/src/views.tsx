@@ -544,7 +544,9 @@ export function Settings({
             <strong>{Number(val) === Number(values.temperature_c) ? "Текущая настройка" : "Изменение климата"}</strong>
             <p>
               {Number.isFinite(Number(val)) && val.trim() !== ""
-                ? `${Number(values.temperature_c)} °C → ${Number(val)} °C`
+                ? Number(val) === Number(values.temperature_c)
+                  ? `${Number(val)} °C`
+                  : `${Number(values.temperature_c)} °C → ${Number(val)} °C`
                 : "Введите температуру"}
             </p>
             <small>Изменение вступит в силу только после подтверждения номером.</small>
