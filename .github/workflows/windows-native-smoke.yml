@@ -88,6 +88,13 @@ jobs:
             catch [System.Net.Sockets.SocketException] { }
             finally { $tcp.Dispose() }
           }
+      - name: Native Windows crash-safe guest restart and idempotency
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dest = Join-Path $env:RUNNER_TEMP 'SAIN Live Native Test'
+          & (Join-Path $dest '.venv\Scripts\python.exe') -m scripts.check_persistence_process
+          if ($LASTEXITCODE -ne 0) { throw 'Native SQLite process acceptance failed' }
       - name: LIVE without key fails closed (no fake fallback)
         shell: powershell
         run: |
