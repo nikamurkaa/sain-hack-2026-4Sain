@@ -6,6 +6,7 @@ credentials are used. Run: python -m scripts.check_persistence_process
 from __future__ import annotations
 
 import hashlib
+from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
@@ -29,6 +30,17 @@ SETTINGS = [
     ("alarm", {"at": "06:40", "mode": "both"}),
     ("dnd", {"enabled": True}),
 ]
+
+
+@contextmanager
+def dbopen(path):
+    """SQLite context managers commit but do NOT close on Windows."""
+    connection = sqlite3.connect(path)
+    try:
+        with connection:
+            yield connection
+    finally:
+        connection.close()
 
 
 def start(path, crash=None):
@@ -102,7 +114,7 @@ def apply(token, device, values, key):
 
 
 def action_count(path, room_id):
-    with sqlite3.connect(path) as db:
+    with dbopen(path) as db:
         row = db.execute("SELECT payload FROM demo_simulator WHERE key='dev'").fetchone()
     sessions = json.loads(row[0])["sessions"]
     return sum(item["kind"] == "action" for item in sessions[room_id]["entries"])
@@ -110,7 +122,7 @@ def action_count(path, room_id):
 
 def room_id_for(path, token):
     digest = hashlib.sha256(token.encode()).hexdigest()
-    with sqlite3.connect(path) as db:
+    with dbopen(path) as db:
         row = db.execute("SELECT payload FROM demo_sessions WHERE token_hash=?", (digest,)).fetchone()
     assert row, "Session hash is not persisted"
     return json.loads(row[0])["room"]["session_id"]
@@ -172,7 +184,7 @@ def run():
             assert state(b) == baseline_b
             assert request("GET", "/api/v1/session", final)["read_only"]
             assert path.is_file()
-            with sqlite3.connect(path) as db:
+            with dbopen(path) as db:
                 assert db.execute("PRAGMA user_version").fetchone()[0] == 1
                 assert db.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
                 assert db.execute("SELECT COUNT(*) FROM demo_sessions").fetchone()[0] == 3
@@ -202,7 +214,7 @@ def run():
             assert request("GET", "/api/v1/session", a)["history"][-1]["utterances"] == ["Ещё немного"]
             # Expiry persisted as epoch, never as process-local monotonic seconds.
             stop(proc)
-            with sqlite3.connect(path) as db:
+            with dbopen(path) as db:
                 db.execute("UPDATE demo_sessions SET expires_at=0 WHERE token_hash=?",
                            (hashlib.sha256(final.encode()).hexdigest(),))
             proc = start(path)
@@ -226,7 +238,7 @@ def run():
             proc = start(path)
             recovered_pending(post, "persist-crash-after", 99, path, 17, 1)
             # Zero silent retries, consistent SQLite, and no raw guest tokens stored.
-            with sqlite3.connect(path) as db:
+            with dbopen(path) as db:
                 assert db.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
                 rows = db.execute("SELECT token_hash,payload FROM demo_sessions").fetchall()
                 for key_hash, raw in rows:
