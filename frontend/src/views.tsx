@@ -551,7 +551,7 @@ export function Settings({
           </div>
         )}
         {id === "alarm" && (
-          <p className="alarm-time-hint" role="status">
+          <p className={"alarm-time-hint" + (values.at ? " has-cancel" : "")} role="status">
             {val ? `Подъём в ${val} · сигнал: ${modes[alarmMode]}` : "Выберите время подъёма"}
           </p>
         )}
