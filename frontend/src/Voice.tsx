@@ -73,6 +73,10 @@ export default function Voice({
         try {
           const text = await transcribe(blob, controller.signal);
           if (!controller.signal.aborted) {
+            if (!text.trim()) {
+              fail("Речь не распознана. Вернитесь к текстовому вводу или запишите просьбу заново.");
+              return;
+            }
             setValue(text);
             setStage("review");
           }
@@ -152,6 +156,17 @@ export default function Voice({
         }}
       >
         <small className="mode-caption">{design.badge}</small>
+        <p
+          className={"voice-state voice-state-" + stage}
+          role={stage === "error" ? "alert" : "status"}
+          aria-live={stage === "error" ? "assertive" : "polite"}
+        >
+          {stage === "start" ? "Подключаем микрофон…"
+            : stage === "record" ? "Идёт запись. Нажмите на микрофон, чтобы завершить."
+            : stage === "wait" ? "Распознаём запись. Пожалуйста, дождитесь текста."
+            : stage === "review" ? "Проверьте текст перед отправкой — команда ещё не выполнена."
+            : error}
+        </p>
         {design.overlay}
       </DesignScreen>
     );
