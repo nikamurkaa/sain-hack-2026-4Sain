@@ -132,7 +132,7 @@ export function DesignWidget({
           <use href={`#s${screen}-${widget.art}`} />
         </svg>
       )}
-      {widget.controls?.map((c, i) => (
+      {!bind.hideArt && widget.controls?.map((c, i) => (
         <IndicatorView key={i} control={c} level={bind.level} />
       ))}
       {bind.content !== undefined
