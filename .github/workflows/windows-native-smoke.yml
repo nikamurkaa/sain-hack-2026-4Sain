@@ -4,6 +4,8 @@ on:
     paths:
       - 'windows/**'
       - 'scripts/build_windows_candidate.py'
+      - 'macos/**'
+      - 'scripts/build_macos_candidate.py'
       - '.github/workflows/windows-native-smoke.yml'
   workflow_dispatch:
 permissions:
