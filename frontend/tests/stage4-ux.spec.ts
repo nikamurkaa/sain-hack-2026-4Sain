@@ -84,6 +84,9 @@ test("Stage 4 Phase 2: alarm draft has accessible signal and a real time control
   const input = page.getByLabel("Время пробуждения");
   const save = page.getByRole("button", { name: "Сохранить" });
   await expect(input).toBeVisible();
+  // A preconfigured stay may already have a valid alarm; explicitly clear
+  // the native time field before asserting the disabled visual state.
+  await input.fill("");
   await expect(save).toBeDisabled();
   await expect(save).toHaveCSS("opacity", "0.48");
   await input.fill("07:45");
