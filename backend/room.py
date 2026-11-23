@@ -178,6 +178,14 @@ class Room:
                 self.checkpoint()
                 await self.client.request("POST", self.path + "/action", body=command)
             except ServiceError as exc:
+                if exc.code == "STORAGE_UNAVAILABLE":
+                    # The synthetic device might already have mutated in RAM
+                    # even when its durable simulator checkpoint failed.
+                    # Never report this as a definitive upstream rejection.
+                    record["storage_failed"] = True
+                    fail("ACTION_UNCERTAIN", "uncertain",
+                         "Локальное хранилище не подтвердило операцию. "
+                         "Сеанс заблокирован; изменение не повторялось.")
                 if exc.code != "UPSTREAM_UNCERTAIN":
                     if record["confirmed_devices"]:
                         names = ", ".join(record["confirmed_devices"])
