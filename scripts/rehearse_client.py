@@ -14,6 +14,7 @@ from tests.helpers import CATALOG, FakeModel
 from tests.offline_cases import CASES
 from tests.simulator import Simulator
 from backend.clients import ModelClient
+from scripts.demo_persistence import DemoStore
 
 
 class RehearsalModel(FakeModel):
@@ -89,7 +90,7 @@ class RehearsalModel(FakeModel):
         return "Сделай попрохладнее"
 
 
-def build_rehearsal(*, live=False):
+def build_rehearsal(*, live=False, persist_path=None):
     if live:
         # Only organizer credentials stay in the local operator environment.
         # The room is still our isolated, synthetic simulator.
@@ -167,6 +168,7 @@ def build_rehearsal(*, live=False):
                 })
                 faults["mode"] = None
                 faults["injected"] += 1
+                if store is not None: store.save_simulator(dev)
                 return response
         return dev(request)
 
@@ -178,17 +180,30 @@ def build_rehearsal(*, live=False):
             transport=httpx.ASGITransport(app=backend), base_url="http://offline.invalid"
         ) as internal, httpx.AsyncClient(trust_env=False, follow_redirects=False) as provider:
             backend.state.http, backend.state.model = upstream, model
+            # Default is durable only for the actual standalone offline launcher.
+            # No official API or REAL AI traffic/state is persisted.
+            store = DemoStore(persist_path) if persist_path and not live else None
+            backend.state.demo_store = store
+            if store is not None:
+                store.restore_simulator(dev)
+                dev.persist_hook = store.save_simulator
             app.state.rehearsal_faults = faults
             app.state.rehearsal_simulator = dev
             response = await internal.post("/run", headers={"Authorization": "Bearer evaluation"},
                                            json={"case": 2, "dataset_code": "offline-final"})
             response.raise_for_status()
             final.closed = True
+            if store is not None:
+                store.restore_sessions(backend, dev, model, upstream)
             if live:
                 # Never use FakeModel for live user messages or microphone STT.
                 # Only the synthetic fixture bootstrap above is deterministic.
                 backend.state.model = ModelClient(provider)
-            yield
+            try:
+                yield
+            finally:
+                if store is not None:
+                    store.close()
 
     wrapper = FastAPI(lifespan=lifespan)
     @wrapper.middleware("http")
@@ -202,4 +217,8 @@ def build_rehearsal(*, live=False):
 
 
 if __name__ == "__main__":
-    uvicorn.run(build_rehearsal(), host="127.0.0.1", port=8765, access_log=False)
+    from pathlib import Path
+    db_path = os.environ.get("SAIN_DEMO_STATE_DB") or str(
+        Path(__file__).resolve().parents[1] / ".sain-state" / "demo.sqlite3")
+    uvicorn.run(build_rehearsal(persist_path=db_path), host="127.0.0.1",
+                port=8765, access_log=False)
