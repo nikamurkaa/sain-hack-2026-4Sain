@@ -18,7 +18,7 @@ async function go(page:Page,name:string){await page.getByRole('button',{name:'М
 test('V08/V14/V13: important screens at mobile, tablet, desktop and 200% CSS zoom',async({page,request})=>{
   test.setTimeout(120000);await enter(page,request);
   const measures:object[]=[];
-  for(const [w,h] of [[375,812],[768,1024],[1024,768],[1440,900],[1920,1080]] as const){
+  for(const [w,h] of [[320,568],[375,812],[390,844],[768,1024],[1024,768],[1440,900],[1920,1080]] as const){
     await page.setViewportSize({width:w,height:h});
     for(const screen of ['Мой номер','Диалог','Виртуальное время','Профиль гостя']){
       await go(page,screen);
@@ -54,7 +54,7 @@ test('V08/V14/V13: important screens at mobile, tablet, desktop and 200% CSS zoo
   await page.keyboard.press('Enter');await expect(page.getByRole('navigation')).toBeVisible();
   await page.keyboard.press('Escape');await expect(page.getByRole('navigation')).toHaveCount(0);
   const out=shotFile('a11y-zoom-responsive-metrics.json');if(out)writeFileSync(out,JSON.stringify(measures,null,2));
-  expect(measures).toHaveLength(22);
+  expect(measures).toHaveLength(30);
 });
 test('V04/C07: final read-only marker and keyboard route remain explicit',async({page,request})=>{
   await enter(page,request,'final');
