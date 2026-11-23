@@ -73,14 +73,15 @@ def package():
         "Для локального токена в CMD из корня архива выполните "
         r".venv\Scripts\python.exe -m scripts.client_access dev --stay stay_test"
         "\n\nПолная пошаговая инструкция: WINDOWS_ACCEPTANCE_GUIDE_RU.md. "
-        "Остановка: STOP.cmd; сброс репетиции: RESET_TEST_STATE.cmd.\n"
+        "Остановка: STOP.cmd; сброс данных только с подтверждением: RESET_TEST_STATE.cmd. "
+        "Незавершённые гостевые сеансы восстанавливаются из локальной SQLite базы после STOP/START.\n"
     ).encode("utf-8")
     content["BUILD_INFO.txt"] = (
         f"SAIN Smart Room / 4Sain / {'Windows Live AI Demo' if NAME.startswith('SAIN-Smart-Room-Live') else 'Windows Portfolio Demo'}\n"
         f"GitHub source SHA: {sha}\n"
         "Built from GitHub Actions checkout with npm ci + npm test + npm run build.\n"
         "CI workflow: windows-package.yml; browser E2E separately checked by frontend.yml.\n"
-        "Windows native launch: NOT YET VERIFIED. Final guest: READ ONLY.\n"
+        "Windows native launch requires separate exact-SHA CI acceptance. Final guest: READ ONLY.\n"
         "REHEARSAL: FakeLLM + MockSimulator. STAND: official temporary GUEST token only.\n"
         "No official /run, production deploy, or organizer quota used in packaging.\n"
     ).encode("utf-8")
