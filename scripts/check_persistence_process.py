@@ -221,6 +221,43 @@ def run():
             request("GET", "/api/v1/session", final, expected=401)
             assert state(a)["climate"]["temperature_c"] == context["state"]["climate"]["temperature_c"]
             stop(proc)
+            # Simulate crash AFTER the durable Room operation completed, but
+            # BEFORE the guest-facing response/ack was persisted. The Room
+            # ledger must not convert it to a client-confirmed success.
+            proc = start(path)
+            lost = issue()
+            apply(lost, "light", {"brightness": 39}, "persist-receipt-lost")
+            room_id = room_id_for(path, lost)
+            assert action_count(path, room_id) == 1
+            stop(proc)
+            digest = hashlib.sha256(lost.encode()).hexdigest()
+            with dbopen(path) as db:
+                raw = db.execute("SELECT payload FROM demo_sessions WHERE token_hash=?",
+                                 (digest,)).fetchone()[0]
+                snapshot = json.loads(raw)
+                snapshot["messages"]["persist-receipt-lost"]["outcome"] = {
+                    "type": "error", "code": "ACTION_UNCERTAIN",
+                    "message": "Receipt checkpoint interrupted.", "status": 409}
+                snapshot["history"] = []
+                db.execute("UPDATE demo_sessions SET payload=? WHERE token_hash=?",
+                           (json.dumps(snapshot, ensure_ascii=False), digest))
+            proc = start(path)
+            pending = request("GET", "/api/v1/session", lost)
+            assert pending["reconciliation_required"] is True
+            assert pending["pending_action"]["code"] == "ACTION_UNCERTAIN"
+            retry = request("POST", "/api/v1/devices", lost, key="persist-receipt-lost",
+                            payload={"device_id": "light", "values": {"brightness": 39}, "at": AT},
+                            expected=409)
+            assert retry["code"] == "ACTION_UNCERTAIN"
+            assert action_count(path, room_id) == 1
+            denied = request("POST", "/api/v1/devices", lost, key="persist-no-premature-followup",
+                             payload={"device_id": "light", "values": {"brightness": 48}, "at": AT},
+                             expected=409)
+            assert denied["code"] == "RECOVERY_REQUIRED"
+            opid = pending["pending_action"]["operation_id"]
+            assert request("GET", "/api/v1/reconciliation?operation_id=" + opid, lost)["verified"] is True
+            assert action_count(path, room_id) == 1
+            stop(proc)
             # Deterministic process exit AFTER WAL reservation but BEFORE action POST.
             proc = start(path, "before_post")
             pre = issue()
