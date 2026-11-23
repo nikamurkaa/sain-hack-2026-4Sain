@@ -711,10 +711,10 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 10px;
+  gap: 7px;
   overflow: auto;
-  padding: 15px 14px;
-  font: 14px/1.4 Manrope, sans-serif;
+  padding: 12px 14px;
+  font: 13px/1.4 Manrope, sans-serif;
   color: #fff0e7;
   overflow-wrap: anywhere;
 }
@@ -785,4 +785,11 @@
     transition: none !important;
     animation: none !important;
   }
+}
+
+.design-frame .delivery-error-content .delivery-dismiss {
+  color: #ffe9d9;
+  background: transparent;
+  border: 1px solid #9f7664;
+  min-height: 44px;
 }
