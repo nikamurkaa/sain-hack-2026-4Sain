@@ -421,15 +421,9 @@ export function Settings({
                 ),
               };
             if (name === "Ответ") {
-              if (w.box[1] > 420) return { hidden: true };
-              return {
-                text: () => "Сохранить",
-                onClick: save,
-                disabled:
-                  !val ||
-                  Number(val) < (range?.minimum ?? 16) ||
-                  Number(val) > (range?.maximum ?? 26),
-              };
+              // Figma drawings show "Applying" / "Applied" before there is
+              // any simulator receipt. Neither is a real application state.
+              return { hidden: true };
             }
           }
           if (id === "alarm") {
@@ -447,7 +441,16 @@ export function Settings({
               };
             if (name.startsWith("Timeline Card")) {
               if (w.texts[0].value === "Повтор")
-                return { text: () => "Повтор недоступен", level: null };
+                return {
+                  hideArt: true,
+                  className: "unavailable-option",
+                  content: (
+                    <div className="alarm-repeat-unavailable">
+                      <strong>Повтор недоступен</strong>
+                      <small>Симулятор не поддерживает эту настройку</small>
+                    </div>
+                  ),
+                };
               if (w.texts[0].value === "Звук")
                 return {
                   text: (v, i) => (i === 0 ? "Сигнал" : ""),
@@ -536,6 +539,18 @@ export function Settings({
         }}
       >
         <small className="mode-caption">{design.badge}</small>
+        {id === "climate" && (
+          <button
+            type="button"
+            className="mobile-climate-save"
+            disabled={!val.trim() || !Number.isFinite(Number(val)) ||
+              Number(val) < (range?.minimum ?? 16) ||
+              Number(val) > (range?.maximum ?? 26)}
+            onClick={save}
+          >
+            Сохранить <span aria-hidden="true">→</span>
+          </button>
+        )}
         {id === "alarm" && values.at && (
           <button
             className="alarm-cancel"
