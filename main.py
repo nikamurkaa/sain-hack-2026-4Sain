@@ -229,7 +229,7 @@ def checkpoint(session):
         hook()
 
 
-def client_session(token=Depends(bearer)):
+async def client_session(token=Depends(bearer)):
     key = hashlib.sha256(token.encode()).hexdigest()
     session = app.state.sessions.get(key)
     outdated = session and session.presentation and session.presentation is not app.state.final_session
