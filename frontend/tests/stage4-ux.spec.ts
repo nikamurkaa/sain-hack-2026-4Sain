@@ -68,10 +68,13 @@ test("Stage 4: core mobile controls remain scroll-reachable at 320x568", async (
   await page.setViewportSize({ width: 320, height: 568 });
   await connect(page);
   await navigate(page, "Диалог");
+  const dock = page.locator(".compact-chat-dock");
+  await expect(dock).toBeVisible();
   const composer = page.getByRole("textbox", { name: "Просьба" });
   await expect(composer).toBeVisible();
-  await composer.scrollIntoViewIfNeeded();
+  // Test without scrolling: the short-screen fix is a fixed, reachable composer.
   await expect(composer).toBeInViewport();
+  await expect(page.getByRole("button", { name: "Отправить просьбу" })).toBeInViewport();
   const width = await page.evaluate(() => document.documentElement.scrollWidth);
   expect(width).toBeLessThanOrEqual(321);
 });
