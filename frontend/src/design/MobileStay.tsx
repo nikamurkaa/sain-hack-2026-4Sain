@@ -398,6 +398,7 @@ export function MobileStay(p: Props) {
           hideArt: true,
           onClick: () => setHistoryOpen(true),
           label: "Команда отклонена. Открыть полный ответ",
+          description: last.reply.text,
           className: "reply refused explicit-refusal",
           content: (
             <span className="refusal-content">
