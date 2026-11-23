@@ -34,6 +34,8 @@ jobs:
       - name: Audit reachable Git history without exposing secrets
         run: python -m scripts.check_git_history_secrets
       - run: python -m pytest -q
+      - name: Real subprocess SQLite recovery and crash-before/after-POST acceptance
+        run: python -m scripts.check_persistence_process
       - name: Live provider contract over loopback HTTP (NO organizer API)
         run: python -m scripts.check_stage3_http_contract
       - run: python -m scripts.check_offline
