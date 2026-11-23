@@ -299,6 +299,10 @@ export function MobileStay(p: Props) {
       if (value === titles[p.period])
         return { text: (s, i) => (i === 2 ? "(виртуальное время)" : s) };
     }
+    // In screen 16 the standalone Figma Wi-Fi icon overlaps the real
+    // text-first error card. It is decorative and must not mask the message.
+    if (p.page === "chat" && p.error && name === "wifi-off-01")
+      return { hidden: true };
     if (p.page !== "chat") return;
     if (name === "Сделай попрохладнее")
       return {
@@ -329,6 +333,15 @@ export function MobileStay(p: Props) {
                 </button>
               ) : (
                 <small>Перед повторной командой проверьте состояние номера.</small>
+              )}
+              {p.blockedByRecovery ? (
+                <button type="button" className="delivery-dismiss" onClick={p.navigation.menu}>
+                  Меню сеанса
+                </button>
+              ) : (
+                <button type="button" className="delivery-dismiss" onClick={p.dismiss} disabled={p.busy}>
+                  Закрыть
+                </button>
               )}
             </div>
           ),
@@ -449,15 +462,6 @@ export function MobileStay(p: Props) {
       )}
       {p.page === "chat" && !p.allowed && (
         <p className="read-caption">Сеанс доступен только для просмотра.</p>
-      )}
-      {p.page === "chat" && p.error && (
-        <button
-          className="dismiss-message"
-          disabled={p.busy}
-          onClick={p.dismiss}
-        >
-          Закрыть
-        </button>
       )}
       {historyOpen && p.page === "chat" && history}
       {p.overlay}
