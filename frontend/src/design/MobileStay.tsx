@@ -393,6 +393,20 @@ export function MobileStay(p: Props) {
             </div>
           ),
         };
+      if (!p.busy && !p.pending && last?.reply.response_class === "refused")
+        return {
+          hideArt: true,
+          onClick: () => setHistoryOpen(true),
+          label: "Команда отклонена. Открыть полный ответ",
+          className: "reply refused explicit-refusal",
+          content: (
+            <span className="refusal-content">
+              <strong>Команда отклонена</strong>
+              <span>{last.reply.text}</span>
+              <small>Подтверждения изменения настроек нет.</small>
+            </span>
+          ),
+        };
       return {
         onClick: !p.busy && last ? () => setHistoryOpen(true) : undefined,
         label: !p.busy && last ? "Открыть полный ответ" : undefined,
