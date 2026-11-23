@@ -141,6 +141,7 @@ export function MobileStay(p: Props) {
   const room = p.snapshot?.state,
     mode = periodIndex(periodAt(p.info.at));
   const last = p.info.history.at(-1);
+  const scenarioWarnings = p.prepared.explanations?.filter((item) => item.status === "warning") ?? [];
   const screen =
     p.page === "welcome"
       ? 11
@@ -315,16 +316,22 @@ export function MobileStay(p: Props) {
       if (p.error)
         return {
           role: "alert",
+          // The exported screen includes a peach Retry illustration. A safe
+          // retry is only an actual button when the attempt is retryable.
+          hideArt: true,
           className: "delivery-error",
-          text: (s, i) => (i === 0 ? p.error : (p.retryAllowed ? s : "")),
-          children: p.retryAllowed ? (
-            <Hit
-              label="Повторить"
-              box={[w.texts[1].box[0] - 28, w.texts[1].box[1] - 15, 165, 49]}
-              onClick={p.retry}
-              disabled={p.busy}
-            />
-          ) : undefined,
+          content: (
+            <div className="delivery-error-content">
+              <p>{p.error}</p>
+              {p.retryAllowed && !p.blockedByRecovery ? (
+                <button type="button" onClick={p.retry} disabled={p.busy}>
+                  Повторить
+                </button>
+              ) : (
+                <small>Перед повторной командой проверьте состояние номера.</small>
+              )}
+            </div>
+          ),
         };
       return {
         onClick: !p.busy && last ? () => setHistoryOpen(true) : undefined,
@@ -396,6 +403,15 @@ export function MobileStay(p: Props) {
       {p.page === "plan" && (
         <div className="personal-plan">
           {selectPeriod(false)}
+          {scenarioWarnings.length > 0 && (
+            <section className="scenario-warnings" role="alert" aria-label="Предупреждения сценария">
+              <strong>Внимание к настройкам сна</strong>
+              <ul>{scenarioWarnings.map((item, index) => (
+                <li key={item.device_id + "-" + index}>{item.reason}</li>
+              ))}</ul>
+              <small>Это предупреждения плана, а не подтверждение состояния устройств.</small>
+            </section>
+          )}
           <Plan steps={p.prepared.scenario.steps} period={p.period} />
            <details className="technical-details">
              <summary>Почему выбран этот сценарий</summary>
