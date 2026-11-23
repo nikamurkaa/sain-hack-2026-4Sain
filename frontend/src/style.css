@@ -1036,3 +1036,21 @@ h2 {
     transition-duration: .01ms !important;
   }
 }
+
+/* Local post-stay summary: reuse the SAIN warm-dark visual language. */
+.page-home > .home-summary {
+  width: min(100%, 740px);
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  padding-bottom: 70px;
+}
+.home-summary h1, .home-summary h2, .home-summary p { overflow-wrap: anywhere; }
+.home-summary h2 { font-size: clamp(17px, 2.5vw, 23px); margin-top: 10px; }
+.home-summary > button { min-height: 44px; width: fit-content; max-width: 100%; padding-inline: 17px; }
+.home-summary > p[role="alert"] { color: #ffe0cc; }
+.home-summary > p[role="status"] { color: #f8d6bd; }
+@media (max-width: 649px) {
+  .page-home > .home-summary { gap: 12px; padding-inline: 1px; }
+  .home-summary > button { width: 100%; }
+}
