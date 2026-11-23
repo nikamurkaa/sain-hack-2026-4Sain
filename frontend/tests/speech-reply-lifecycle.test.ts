@@ -61,7 +61,8 @@ function harness(latePlay = false) {
     Audio: class {
       currentTime = 0; duration = 100; muted = false; preload = "";
       onpause: (() => void) | null = null; onended: (() => void) | null = null;
-      constructor(public src: string) {}
+      src: string;
+      constructor(src: string) { this.src = src; }
       play() {
         plays.push(guest);
         if (latePlay) { const d = deferred<void>(); playPromises.push(d); return d.promise; }
