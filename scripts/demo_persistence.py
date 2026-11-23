@@ -226,23 +226,31 @@ class DemoStore:
                         "action", "ACTION_UNCERTAIN",
                         "Процесс завершился до подтверждения операции. Сверьте состояние.", 409,
                     )
-                    attempted = record["attempted_at"]
-                    session.action_issues[opid] = {
-                        "code": "ACTION_UNCERTAIN", "status": "uncertain",
-                        "operation_id": opid, "attempted_at": attempted,
-                        "confirmed_devices": record.get("confirmed_devices", []),
-                        "verified": False,
-                    }
-                    if not session.mutation_floor or moment(attempted) > moment(session.mutation_floor):
-                        session.mutation_floor = attempted
-                    request_key = record.get("request_key")
-                    if request_key in session.messages:
-                        fp, _ = session.messages[request_key]
+                # Recovery may itself have crashed after the Room journal
+                # was persisted but before the ClientSession issue was saved.
+                if record["status"] not in ("uncertain", "partial", "conflict"):
+                    continue
+                if opid in session.action_issues:
+                    continue  # Do not reopen a previously reconciled issue.
+                attempted = record["attempted_at"]
+                code = record.get("error", ["action", "ACTION_UNCERTAIN"])[1]
+                session.action_issues[opid] = {
+                    "code": code, "status": record["status"],
+                    "operation_id": opid, "attempted_at": attempted,
+                    "confirmed_devices": record.get("confirmed_devices", []),
+                    "verified": False,
+                }
+                if not session.mutation_floor or moment(attempted) > moment(session.mutation_floor):
+                    session.mutation_floor = attempted
+                request_key = record.get("request_key")
+                if request_key in session.messages:
+                    fp, previous = session.messages[request_key]
+                    if isinstance(previous, ServiceError) or record["status"] == "uncertain":
                         session.messages[request_key] = (
-                            fp, ActionFailure("ACTION_UNCERTAIN",
-                                              "Неизвестен исход операции после аварии.",
-                                              opid, record.get("confirmed_devices", []),
-                                              attempted, record.get("mutation_possible", True)))
+                            fp, ActionFailure(
+                                code, "Неизвестен исход операции после аварии; нужна сверка.",
+                                opid, record.get("confirmed_devices", []),
+                                attempted, record.get("mutation_possible", True)))
             app.state.sessions[token_hash] = session
             self.attach(token_hash, session)
             # Recovery markers themselves are durable across another crash.
