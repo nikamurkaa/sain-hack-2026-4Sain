@@ -58,24 +58,24 @@ def main():
     os.environ["LLM_MODEL"] = "gpt-6-luna"
     os.environ["LLM_BASE_URL"] = f"http://127.0.0.1:{server.server_address[1]}/v1"
     try:
-        with TestClient(build_rehearsal(live=True)) as client:
+        wrapper = build_rehearsal(live=True)
+        with TestClient(wrapper) as client:
             initial = client.post("/api/v1/sessions", headers={
                 "Authorization": "Bearer offline-team"
             }, json={"source": "dev", "stay_id": "stay_test",
                      "dataset_code": "case2-dev-v1"})
             assert initial.status_code == 201, initial.text
             headers = {"Authorization": "Bearer " + initial.json()["session_token"]}
-            from main import app as backend
             before = client.get("/api/v1/state", headers=headers,
                                 params={"at": AT}).json()["state"]
-            actions_before = backend.state.rehearsal_simulator.actions
+            actions_before = wrapper.state.rehearsal_simulator.actions
 
             transcription = client.post("/api/v1/transcriptions",
                                         headers={**headers, "Content-Type": "audio/webm"},
                                         content=b"LOCAL-TEST-AUDIO-NOT-REAL-SPEECH")
             assert transcription.status_code == 200, transcription.text
             assert transcription.json()["text"] == "Сделай попрохладнее"
-            assert backend.state.rehearsal_simulator.actions == actions_before, "STT executed a command!"
+            assert wrapper.state.rehearsal_simulator.actions == actions_before, "STT executed a command!"
 
             command = client.post("/api/v1/messages",
                                   headers={**headers, "Idempotency-Key": "contract-live-001"},
@@ -86,13 +86,13 @@ def main():
             assert state["climate"]["temperature_c"] == before["climate"]["temperature_c"] - 1
             for device in ("light", "sound", "curtains", "alarm", "dnd"):
                 assert state[device] == before[device], f"Unexpected mutation: {device}"
-            assert backend.state.rehearsal_simulator.actions == actions_before + 1
+            assert wrapper.state.rehearsal_simulator.actions == actions_before + 1
 
             tts = client.post("/api/v1/speech", headers=headers, json={"reply_index": 0})
             assert tts.status_code == 200
             assert tts.headers["content-type"] == "audio/mpeg"
             assert tts.content.startswith(b"ID3")
-            assert backend.state.rehearsal_simulator.actions == actions_before + 1
+            assert wrapper.state.rehearsal_simulator.actions == actions_before + 1
 
             counts = client.get("/api/v1/ai-status", headers=headers).json()
             assert counts["mode"] == "live" and counts["devices"] == "local_simulator"
@@ -105,20 +105,20 @@ def main():
                                headers={**headers, "Content-Type": "audio/webm"},
                                content=b"LOCAL-AUDIO")
             assert busy.status_code == 429, busy.text
-            assert backend.state.rehearsal_simulator.actions == actions_before + 1
+            assert wrapper.state.rehearsal_simulator.actions == actions_before + 1
 
             flags["tts"] = 402
             no_budget = client.post("/api/v1/speech",
                                     headers=headers, json={"reply_index": 0})
             assert no_budget.status_code == 402, no_budget.text
-            assert backend.state.rehearsal_simulator.actions == actions_before + 1
+            assert wrapper.state.rehearsal_simulator.actions == actions_before + 1
 
             flags["intent"] = "invalid_provider_intent"
             invalid = client.post("/api/v1/messages",
                                   headers={**headers, "Idempotency-Key": "contract-live-invalid"},
                                   json={"text": "Отладка невалидного ответа", "at": AT})
             assert invalid.status_code >= 400, invalid.text
-            assert backend.state.rehearsal_simulator.actions == actions_before + 1
+            assert wrapper.state.rehearsal_simulator.actions == actions_before + 1
             assert len(client.get("/api/v1/session", headers=headers).json()["history"]) == 1
 
         paths = [entry[0] for entry in recorded]
