@@ -1,3 +1,6 @@
+import hashlib
+import sqlite3
+import time
 """Storage failures are NOT successful/definitively rejected device mutations."""
 from fastapi.testclient import TestClient
 
@@ -70,3 +73,18 @@ def test_failed_simulator_fsync_cannot_become_confirmed_success(tmp_path):
         new = _device(api, auth, "disk-new-action")
         assert new.status_code == 409
         assert new.json()["code"] == "SESSION_READ_ONLY"
+
+
+def test_active_expiry_deletes_guest_row_in_same_event_loop(tmp_path):
+    path = tmp_path / "expiry.sqlite3"
+    with TestClient(build_rehearsal(persist_path=str(path))) as api:
+        auth = _open(api)
+        token_hash = hashlib.sha256(auth["Authorization"][7:].encode()).hexdigest()
+        session = backend.state.sessions[token_hash]
+        session.expires = time.monotonic() - 1
+        response = api.get("/api/v1/session", headers=auth)
+        assert response.status_code == 401, response.text
+        assert response.json()["code"] == "SESSION_EXPIRED"
+        with sqlite3.connect(path) as db:
+            assert db.execute("SELECT COUNT(*) FROM demo_sessions WHERE token_hash=?",
+                              (token_hash,)).fetchone()[0] == 0
