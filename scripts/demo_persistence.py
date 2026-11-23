@@ -160,6 +160,13 @@ class DemoStore:
                                 (token_hash, deadline, json.dumps(payload, ensure_ascii=False)))
         except (sqlite3.DatabaseError, TypeError, ValueError) as exc:
             raise ServiceError("STORAGE_UNAVAILABLE", "Не удалось сохранить гостевой сеанс.", 503) from exc
+        # A deterministic subprocess crash probe; deliberately opt-in and
+        # synthetic-only, after the WAL reservation is durably committed.
+        if os.getenv("SAIN_DEMO_CRASH_PROBE") == "before_post" and any(
+            op.get("status") == "in_progress" and not op.get("mutation_possible")
+            for op in payload["operations"].values()
+        ):
+            os._exit(73)
 
     def delete_session(self, token_hash):
         try:
