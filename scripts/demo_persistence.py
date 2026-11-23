@@ -231,16 +231,31 @@ class DemoStore:
                         "action", "ACTION_UNCERTAIN",
                         "Процесс завершился до подтверждения операции. Сверьте состояние.", 409,
                     )
+                # Crash can occur after Room committed a fully confirmed
+                # operation but BEFORE its ClientSession reply/idempotency
+                # receipt was checkpointed. A previous 'done' Room journal
+                # is not a client receipt: require a GET-only reconciliation.
+                request_key = record.get("request_key")
+                pending_receipt = (
+                    request_key in session.messages
+                    and isinstance(session.messages[request_key][1], ServiceError)
+                    and session.messages[request_key][1].code in (
+                        "MESSAGE_UNCERTAIN", "ACTION_UNCERTAIN"
+                    )
+                )
                 # Recovery may itself have crashed after the Room journal
                 # was persisted but before the ClientSession issue was saved.
-                if record["status"] not in ("uncertain", "partial", "conflict"):
+                if record["status"] not in ("uncertain", "partial", "conflict") and not (
+                    record["status"] == "done" and pending_receipt
+                ):
                     continue
                 if opid in session.action_issues:
                     continue  # Do not reopen a previously reconciled issue.
                 attempted = record["attempted_at"]
-                code = record.get("error", ["action", "ACTION_UNCERTAIN"])[1]
+                code = ("ACTION_UNCERTAIN" if pending_receipt else
+                        record.get("error", ["action", "ACTION_UNCERTAIN"])[1])
                 session.action_issues[opid] = {
-                    "code": code, "status": record["status"],
+                    "code": code, "status": "uncertain" if pending_receipt else record["status"],
                     "operation_id": opid, "attempted_at": attempted,
                     "confirmed_devices": record.get("confirmed_devices", []),
                     "verified": False,
