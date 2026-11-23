@@ -76,7 +76,7 @@ def package():
         "Остановка: STOP.cmd; сброс репетиции: RESET_TEST_STATE.cmd.\n"
     ).encode("utf-8")
     content["BUILD_INFO.txt"] = (
-        "SAIN Smart Room / 4Sain / Windows Portfolio Demo\n"
+        f"SAIN Smart Room / 4Sain / {'Windows Live AI Demo' if NAME.startswith('SAIN-Smart-Room-Live') else 'Windows Portfolio Demo'}\n"
         f"GitHub source SHA: {sha}\n"
         "Built from GitHub Actions checkout with npm ci + npm test + npm run build.\n"
         "CI workflow: windows-package.yml; browser E2E separately checked by frontend.yml.\n"

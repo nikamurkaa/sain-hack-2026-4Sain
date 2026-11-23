@@ -56,6 +56,8 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $dest = Join-Path $env:RUNNER_TEMP 'SAIN Live Native Test'
           Expand-Archive -LiteralPath 'SAIN-Smart-Room-Live-AI-Windows.zip' -DestinationPath $dest -Force
+          $info = Get-Content -LiteralPath (Join-Path $dest 'BUILD_INFO.txt') -Raw
+          if (-not $info.Contains('Windows Live AI Demo')) { throw 'LIVE archive has wrong BUILD_INFO label' }
           try {
             & (Join-Path $dest 'START.cmd') -SelectedMode 1 -NoBrowser -NonInteractive
             if ($LASTEXITCODE -ne 0) { throw "START.cmd failed with exit code $LASTEXITCODE" }
