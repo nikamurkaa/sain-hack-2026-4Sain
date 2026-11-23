@@ -15,6 +15,7 @@ jobs:
     env:
       SAIN_CI: '1'
       LLM_API_KEY: ''
+      SAIN_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@v5
         with:
