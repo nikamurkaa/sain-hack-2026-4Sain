@@ -31,6 +31,12 @@ export default defineConfig({
   webServer: [
     {
       command: "cd .. && python -m scripts.rehearse_client",
+      // Chromium and Firefox are separate test suites. Their synthetic guest
+      // tokens must not persist into each other's finite 8-session fixture.
+      // Cross-process durability is independently tested with a stable DB.
+      env: { SAIN_DEMO_STATE_DB: firefox
+        ? ".runtime/playwright-firefox.sqlite3"
+        : ".runtime/playwright-chromium.sqlite3" },
       url: "http://127.0.0.1:8765/health",
       reuseExistingServer: false,
     },
