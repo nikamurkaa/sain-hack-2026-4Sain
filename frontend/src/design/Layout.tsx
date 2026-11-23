@@ -40,6 +40,8 @@ export type Binding = {
   className?: string;
   role?: string;
   hidden?: boolean;
+  /** Hide imported decorative SVG when it suggests an unavailable action. */
+  hideArt?: boolean;
   content?: ReactNode;
   children?: ReactNode;
 };
@@ -118,7 +120,7 @@ export function DesignWidget({
       className={"design-widget " + (bind.className ?? "")}
       style={rect(widget.box)}
     >
-      {widget.art && (
+      {widget.art && !bind.hideArt && (
         <svg
           aria-hidden="true"
           fill="none"
