@@ -100,7 +100,9 @@ try {
   await go(page, "Диалог");
   await page.getByRole("button", { name: "Диалог · История сообщений" }).click();
   await expect(page.locator(".exchange")).toHaveCount(before.history.length);
+  mkdirSync(join(root, "frontend", "evidence"), { recursive: true });
   await page.screenshot({ path: join(root, "frontend", "evidence", "persistence-reopened.png"), fullPage: true });
+  await page.keyboard.press("Escape");
 
   // Browser switch to another token cannot inherit first guest's settings.
   const nextToken = await issueGuest();
