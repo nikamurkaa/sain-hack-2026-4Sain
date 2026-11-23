@@ -6,6 +6,12 @@ on:
       - 'scripts/build_windows_candidate.py'
       - 'macos/**'
       - 'scripts/build_macos_candidate.py'
+      - 'scripts/check_persistence_process.py'
+      - 'scripts/demo_persistence.py'
+      - 'scripts/rehearse_client.py'
+      - 'backend/**'
+      - 'main.py'
+      - 'frontend/**'
       - '.github/workflows/windows-native-smoke.yml'
   workflow_dispatch:
 permissions:
