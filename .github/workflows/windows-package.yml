@@ -35,11 +35,15 @@ jobs:
         run: npm ci && npm test && npm run build
       - name: Build portable ZIP with checksums
         run: python scripts/build_windows_candidate.py
+      - name: Build LIVE AI Windows ZIP (no credentials bundled)
+        run: SAIN_PACKAGE_LIVE=1 python scripts/build_windows_candidate.py
       - uses: actions/upload-artifact@v4
         with:
           name: sain-windows-demo
           path: |
             SAIN-Smart-Room-Portfolio-Windows.zip
             SAIN-Smart-Room-Portfolio-Windows.zip.sha256
+            SAIN-Smart-Room-Live-AI-Windows.zip
+            SAIN-Smart-Room-Live-AI-Windows.zip.sha256
           if-no-files-found: error
           retention-days: 30

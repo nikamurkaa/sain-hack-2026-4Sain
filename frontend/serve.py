@@ -8,10 +8,11 @@ from urllib.parse import urlsplit
 
 ORIGINS = {
     "rehearsal": "http://127.0.0.1:8765",
+    "live": "http://127.0.0.1:8765",
     "stand": "https://team25.hack.be-healthy.tech",
 }
-READS = {"session", "prepared", "state", "guest", "catalog", "scenario", "reconciliation"}
-WRITES = {"messages", "transcriptions", "devices"}
+READS = {"session", "prepared", "state", "guest", "catalog", "scenario", "reconciliation", "ai-status"}
+WRITES = {"messages", "transcriptions", "devices", "speech"}
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -67,7 +68,7 @@ class Handler(SimpleHTTPRequestHandler):
             response = connection.getresponse()
             content = response.read()
             self.send_response(response.status)
-            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Type", "audio/mpeg" if path.path.endswith("/speech") and response.status == 200 and response.getheader("Content-Type", "").split(";")[0].strip() == "audio/mpeg" else "application/json")
             self.send_header("Content-Length", str(len(content)))
             # Preserve ONLY the backend's tightly scoped pre-action
             # rejection certificate. A transparent JSON proxy otherwise
@@ -79,6 +80,8 @@ class Handler(SimpleHTTPRequestHandler):
                 self.send_header("X-Sain-Rejection-Class", certified)
             if self.server.upstream == ORIGINS["rehearsal"]:
                 self.send_header("X-Sain-Rehearsal", "1")
+            if self.server.demo_mode == "live":
+                self.send_header("X-Sain-Live-AI", "1")
             self.end_headers()
             self.wfile.write(content)
         except (OSError, http.client.HTTPException):
@@ -97,6 +100,7 @@ def main():
         parser.error("Missing dist/index.html. Run npm ci and npm run build, or extract the built client.")
     server = ThreadingHTTPServer(("127.0.0.1", args.port), functools.partial(Handler, directory=dist))
     server.upstream = ORIGINS[args.mode]
+    server.demo_mode = args.mode
     print(f"SAIN {args.mode}: http://127.0.0.1:{server.server_port}", flush=True)
     server.serve_forever()
 

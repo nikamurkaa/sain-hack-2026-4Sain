@@ -76,6 +76,8 @@ class ModelClient:
         self.speech_starts: deque[float] = deque()
         self.calls = 0
         self.tokens = 0
+        # Per-process success receipts only; no prompts, transcripts, keys or raw audio.
+        self.successful = {'chat': 0, 'stt': 0, 'tts': 0}
 
     def record_usage(self, response):
         if not isinstance(response, dict):
@@ -131,9 +133,45 @@ class ModelClient:
             if not isinstance(text, str) or not text.strip() or len(text.strip()) > 2000:
                 raise ValueError("invalid transcription")
             self.record_usage(raw)
+            self.successful['stt'] += 1
             return text.strip()
         except (ValueError, KeyError, TypeError):
             raise ServiceError("SPEECH_FORMAT", "Речь не распознана. Повторите запись или введите текст.", 502) from None
+
+    async def speak(self, text: str) -> bytes:
+        """Actual organizer TTS. Only server-owned confirmed replies may call this."""
+        key = os.getenv("LLM_API_KEY")
+        if not key:
+            raise ServiceError("MODEL_NOT_CONFIGURED", "Не настроена озвучка.", 503)
+        if not text or len(text) > 4096:
+            raise ServiceError("INVALID_SPEECH_TEXT", "Неподходящий текст ответа.", 422)
+        base = os.getenv("LLM_BASE_URL", "https://bifrost.be-healthy.tech/v1").rstrip("/")
+        await self.wait_for_slot(speech=True)
+        self.calls += 1
+        try:
+            response = await self.http.post(
+                base + "/audio/speech",
+                headers={"Authorization": "Bearer " + key},
+                json={"model": "tts-1", "voice": "alloy", "input": text,
+                      "response_format": "mp3"},
+                timeout=httpx.Timeout(90, connect=10),
+            )
+        except httpx.TransportError:
+            raise ServiceError("TTS_UNAVAILABLE", "Озвучка недоступна, текст сохранён.", 503) from None
+        if response.status_code == 402:
+            raise ServiceError("TTS_BUDGET", "Дневной бюджет озвучки исчерпан.", 402)
+        if response.status_code == 429:
+            raise ServiceError("TTS_LIMIT", "Лимит озвучки. Повторите позже.", 429)
+        if response.is_error:
+            raise ServiceError("TTS_UNAVAILABLE", "Озвучка недоступна, текст сохранён.", 503)
+        audio = response.content
+        if not (250 <= len(audio) <= 5_000_000) or not (
+            audio.startswith(b"ID3") or (len(audio) >= 2 and audio[0] == 255
+            and (audio[1] & 0xE0) == 0xE0)
+        ):
+            raise ServiceError("TTS_FORMAT", "Сервис вернул некорректный MP3.", 502)
+        self.successful['tts'] += 1
+        return audio
 
     async def json(self, instruction: str, payload: dict, output_tokens=3500):
         key, model = os.getenv("LLM_API_KEY"), os.getenv("LLM_MODEL")
@@ -178,6 +216,7 @@ class ModelClient:
                 value = json.loads(choice["message"]["content"])
                 if not isinstance(value, dict):
                     raise ValueError("object required")
+                self.successful['chat'] += 1
                 return value
             except (ValueError, KeyError, IndexError, TypeError):
                 raise ServiceError("MODEL_FORMAT", "Не удалось надёжно разобрать сообщение. Уточните просьбу.", 503) from None

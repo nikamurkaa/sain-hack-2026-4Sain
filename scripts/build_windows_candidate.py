@@ -9,7 +9,8 @@ import subprocess
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-NAME = "SAIN-Smart-Room-Portfolio-Windows.zip"
+NAME = ("SAIN-Smart-Room-Live-AI-Windows.zip" if os.getenv("SAIN_PACKAGE_LIVE") == "1"
+        else "SAIN-Smart-Room-Portfolio-Windows.zip")
 IGNORED_PARTS = {".git", ".github", ".venv", ".runtime", "node_modules", "__pycache__", "test-results", ".pytest_cache"}
 FORBIDDEN_ENDINGS = (".pem", ".p12", ".pfx", ".key", ".ppk")
 ROOT_ALIASES = {
@@ -67,7 +68,7 @@ def package():
         "# SAIN Smart Room — проверка на Windows\n\n"
         "Это портфолио-прототип. Нативный Windows запуск проверяется отдельно. "
         "Откройте CHECK_ENV.cmd, затем START.cmd. Режим 1 — локальная репетиция "
-        "с FakeLLM/MockSimulator, режим 2 — официальный стенд с временным ГОСТЕВЫМ токеном. "
+        "с FakeLLM/MockSimulator, режим 2 — официальный стенд с временным ГОСТЕВЫМ токеном, режим 3 — НАСТОЯЩИЙ AI и ЛОКАЛЬНЫЙ симулятор. "
         "Командный ключ никогда не вводить в браузер.\n\n"
         "Для локального токена в CMD из корня архива выполните "
         r".venv\Scripts\python.exe -m scripts.client_access dev --stay stay_test"
@@ -75,7 +76,7 @@ def package():
         "Остановка: STOP.cmd; сброс репетиции: RESET_TEST_STATE.cmd.\n"
     ).encode("utf-8")
     content["BUILD_INFO.txt"] = (
-        "SAIN Smart Room / 4Sain / Windows Portfolio Demo\n"
+        f"SAIN Smart Room / 4Sain / {'Windows Live AI Demo' if NAME.startswith('SAIN-Smart-Room-Live') else 'Windows Portfolio Demo'}\n"
         f"GitHub source SHA: {sha}\n"
         "Built from GitHub Actions checkout with npm ci + npm test + npm run build.\n"
         "CI workflow: windows-package.yml; browser E2E separately checked by frontend.yml.\n"

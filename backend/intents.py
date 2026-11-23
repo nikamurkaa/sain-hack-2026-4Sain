@@ -40,8 +40,9 @@ history — предыдущие просьбы этого же гостя и н
 """
 
 
-async def parse_intent(model, texts, catalog, tracks, history=None):
-    if len(texts) == 1:
+async def parse_intent(model, texts, catalog, tracks, history=None, *, force_model=False):
+    # The LIVE path must visit the real provider even for common short phrases.
+    if not force_model and len(texts) == 1:
         text = texts[0].strip().lower().rstrip('.!?').removeprefix('сделай ').strip()
         common = {'попрохладнее': 'cooler', 'потеплее': 'warmer', 'потише': 'quieter',
                   'поярче': 'brighter', 'потемнее': 'dimmer'}

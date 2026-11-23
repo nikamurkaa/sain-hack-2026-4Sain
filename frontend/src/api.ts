@@ -172,6 +172,8 @@ export function client(token: string, signal: AbortSignal) {
     const data = await response.json();
     if (path === "session" && response.headers.get("X-Sain-Rehearsal") === "1")
       data.rehearsal = true;
+    if (path === "session" && response.headers.get("X-Sain-Live-AI") === "1")
+      data.live_ai = true;
     return data;
   };
 }

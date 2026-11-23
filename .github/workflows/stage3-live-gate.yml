@@ -1,0 +1,37 @@
+name: Stage 3 authorized official dev and AI smoke
+on:
+  pull_request:
+    paths:
+      - 'scripts/stage3_provider_probe.py'
+      - '.github/workflows/stage3-live-gate.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-services:
+    runs-on: ubuntu-latest
+    timeout-minutes: 11
+    env:
+      HACK_TEAM_TOKEN: ${{ secrets.HACK_TEAM_TOKEN }}
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_MODEL: ${{ vars.LLM_MODEL || 'gpt-6-luna' }}
+      SAIN_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -r requirements-dev.txt
+      - name: Official authorized dev first, real chat/TTS/STT second
+        run: python -m scripts.stage3_provider_probe
+      - name: Upload sanitized service evidence (no raw datasets or audio)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage3-real-provider-evidence
+          path: stage3-live-evidence.json
+          if-no-files-found: warn
+          retention-days: 5

@@ -3,12 +3,12 @@ import json
 from pathlib import Path
 from backend.core import default_state, moment
 
-CATALOG = json.loads((Path(__file__).parent / 'catalog.json').read_text())
+CATALOG = json.loads((Path(__file__).parent / 'catalog.json').read_text(encoding="utf-8"))
 AT = '2026-11-12T20:00:00+03:00'
 WAKE = '2026-11-13T07:00:00+03:00'
 
 def dataset():
-    schema = json.loads((Path(__file__).parents[1] / 'backend/schemas/Case2Dataset.json').read_text())
+    schema = json.loads((Path(__file__).parents[1] / 'backend/schemas/Case2Dataset.json').read_text(encoding="utf-8"))
     user = dict.fromkeys(schema['properties']['users']['items']['required'])
     user.update(user_id='guest_test', timezone='Europe/Moscow', weekday_bedtime='23:00', weekday_wake_time='07:00')
     state = default_state(CATALOG['devices'])

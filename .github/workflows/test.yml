@@ -31,6 +31,8 @@ jobs:
       - name: Verify tracked tree contains no obvious secret material
         run: python -m scripts.stage1_security_gate
       - run: python -m pytest -q
+      - name: Live provider contract over loopback HTTP (NO organizer API)
+        run: python -m scripts.check_stage3_http_contract
       - run: python -m scripts.check_offline
       - name: Offline /run under 1 CPU and 512 MiB
         run: |

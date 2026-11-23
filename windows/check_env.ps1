@@ -1,4 +1,4 @@
-$root=Split-Path -Parent $MyInvocation.MyCommand.Path
+﻿$root=Split-Path -Parent $MyInvocation.MyCommand.Path
 Write-Host 'SAIN SMART ROOM: ПРОВЕРКА ОКРУЖЕНИЯ' -ForegroundColor Cyan
 Write-Host ('Папка: ' + $root)
 foreach ($f in @('frontend\dist\index.html','frontend\serve.py','scripts\rehearse_client.py','requirements-dev.txt','BUILD_INFO.txt')) {

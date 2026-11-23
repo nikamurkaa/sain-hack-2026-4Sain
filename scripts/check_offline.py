@@ -30,7 +30,7 @@ async def verify():
         sim.closed = True
         answer = response.json()
         schema = Path(__file__).resolve().parents[1] / 'backend/schemas/Case2Answers.json'
-        Draft202012Validator(json.loads(schema.read_text()), format_checker=FormatChecker()).validate(answer)
+        Draft202012Validator(json.loads(schema.read_text(encoding="utf-8")), format_checker=FormatChecker()).validate(answer)
         if sim.auth != ['Bearer offline-evaluation'] * len(sim.auth) or sim.reads != 1:
             raise ValueError('Нарушена изоляция токена или повторно запрошены данные')
         for key in ('stays','requests'):
