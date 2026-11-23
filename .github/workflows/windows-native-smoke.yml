@@ -65,6 +65,15 @@ jobs:
             if ($api.StatusCode -ne 200) { throw 'FastAPI did not start' }
           }
           finally {
+            # The job has no real secrets and runs REHEARSAL only.
+            # Show the actual Python startup traceback if startup fails.
+            foreach ($log in @('.runtime/rehearsal.err', '.runtime/client.err')) {
+              $path = Join-Path $dest $log
+              if (Test-Path -LiteralPath $path) {
+                Write-Host "Diagnostic: $log"
+                Get-Content -LiteralPath $path -Tail 55
+              }
+            }
             & (Join-Path $dest 'STOP.cmd')
             if ($LASTEXITCODE -ne 0) { throw 'STOP.cmd failed' }
           }
