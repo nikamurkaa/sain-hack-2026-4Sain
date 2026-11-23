@@ -1,4 +1,4 @@
-# Stop only PIDs recorded by this particular SAIN folder.
+﻿# Stop only PIDs recorded by this particular SAIN folder.
 $ErrorActionPreference='Continue'
 $root=Split-Path -Parent $MyInvocation.MyCommand.Path
 $record=Join-Path $root '.runtime\owned-pids.json'
@@ -11,7 +11,7 @@ foreach ($processId in @($data.proxy_pid,$data.rehearsal_pid)) {
   $command=[string]$p.CommandLine
   $exe=[string]$p.ExecutablePath
   $owned=$command.Contains((Join-Path $root 'frontend\serve.py')) -or
-    ($command.Contains('scripts.rehearse_client') -and $exe.StartsWith((Join-Path $root '.venv'),[StringComparison]::OrdinalIgnoreCase))
+    (($command.Contains('scripts.rehearse_client') -or $command.Contains('scripts.live_client')) -and $exe.StartsWith((Join-Path $root '.venv'),[StringComparison]::OrdinalIgnoreCase))
   if ($owned) {
     Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
     Write-Host "Остановлен процесс SAIN $processId"

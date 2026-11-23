@@ -1,4 +1,11 @@
-# Local SAIN launcher. Never writes team secrets; guest tokens stay in the browser process only.
+﻿# Local SAIN launcher. UTF-8 BOM required by Windows PowerShell 5.1.
+# Never writes team secrets; guest tokens stay in the browser process only.
+[CmdletBinding()]
+param(
+  [ValidateSet('1','2','3')][string]$SelectedMode,
+  [switch]$NoBrowser,
+  [switch]$NonInteractive
+)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location -LiteralPath $root
@@ -27,7 +34,9 @@ Write-Host 'SAIN SMART ROOM · 4SAIN · LOCAL PORTFOLIO DEMO' -ForegroundColor C
 Write-Host '1 = REHEARSAL / автономный синтетический номер, FakeLLM, без API организаторов'
 Write-Host '2 = STAND / официальный стенд (только временный ГОСТЕВОЙ токен)'
 Write-Host '3 = LIVE AI / настоящий AI, STT и TTS + ЛОКАЛЬНЫЙ симулятор номера'
-$choice=Read-Host 'Выберите режим (1 / 2)'
+if ($SelectedMode) { $choice = $SelectedMode }
+elseif ($NonInteractive) { throw 'Choose -SelectedMode 1, 2, or 3 in noninteractive mode.' }
+else { $choice = Read-Host 'Выберите режим (1 / 2 / 3)' }
 if ($choice -notin @('1','2','3')) { throw 'Введите 1, 2 или 3.' }
 $py=Python
 if (-not (Test-Path -LiteralPath (Join-Path $root 'frontend\dist\index.html'))) { throw 'Не найден frontend\dist\index.html.' }
@@ -42,6 +51,7 @@ if ($choice -eq '1' -or $choice -eq '3') {
   $mode=$(if($choice -eq '3'){'live'}else{'rehearsal'})
   if ($choice -eq '3') {
     if (-not $env:LLM_API_KEY) {
+      if ($NonInteractive) { throw 'LIVE AI requires LLM_API_KEY. No secret supplied.' }
       $secure=Read-Host 'Введите разрешённый временный AI-ключ (не отображается)' -AsSecureString
       $ptr=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
       try { $env:LLM_API_KEY=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr) }
@@ -92,5 +102,5 @@ if ($mode -eq 'rehearsal' -or $mode -eq 'live') {
 } else {
   Write-Host 'Вводите только разрешённый временный клиентский токен. Командный ключ в браузер не вводить.'
 }
-Start-Process 'http://127.0.0.1:4173'
+if (-not $NoBrowser) { Start-Process 'http://127.0.0.1:4173' }
 Write-Host 'Для завершения используйте STOP.cmd.'

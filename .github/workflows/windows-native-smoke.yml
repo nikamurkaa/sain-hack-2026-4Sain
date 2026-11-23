@@ -1,0 +1,87 @@
+name: Native Windows launcher smoke
+on:
+  pull_request:
+    paths:
+      - 'windows/**'
+      - 'scripts/build_windows_candidate.py'
+      - '.github/workflows/windows-native-smoke.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      SAIN_CI: '1'
+      LLM_API_KEY: ''
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify exact source SHA
+        shell: pwsh
+        env:
+          SAIN_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if ((git rev-parse HEAD).Trim() -ne $env:SAIN_SOURCE_SHA) { throw 'Wrong checked-out commit' }
+      - name: Verify Windows PowerShell 5.1 parser against every launcher script
+        shell: powershell
+        run: |
+          Get-ChildItem windows -Filter '*.ps1' | ForEach-Object {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count) { throw "PowerShell parse failed: $($_.Name) - $($errors -join '; ')" }
+          }
+      - name: Build real Windows distribution
+        shell: pwsh
+        run: |
+          npm --prefix frontend ci
+          npm --prefix frontend run build
+          $env:SAIN_PACKAGE_LIVE = '1'
+          python scripts/build_windows_candidate.py
+          if ($LASTEXITCODE -ne 0) { throw 'ZIP build failed' }
+      - name: Unpack into path with spaces and launch REHEARSAL end to end
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dest = Join-Path $env:RUNNER_TEMP 'SAIN Live Native Test'
+          Expand-Archive -LiteralPath 'SAIN-Smart-Room-Live-AI-Windows.zip' -DestinationPath $dest -Force
+          try {
+            & (Join-Path $dest 'START.cmd') -SelectedMode 1 -NoBrowser -NonInteractive
+            if ($LASTEXITCODE -ne 0) { throw "START.cmd failed with exit code $LASTEXITCODE" }
+            $index = Invoke-WebRequest 'http://127.0.0.1:4173/' -UseBasicParsing -TimeoutSec 15
+            if ($index.StatusCode -ne 200) { throw 'Frontend did not start' }
+            $api = Invoke-WebRequest 'http://127.0.0.1:8765/openapi.json' -UseBasicParsing -TimeoutSec 15
+            if ($api.StatusCode -ne 200) { throw 'FastAPI did not start' }
+          }
+          finally {
+            & (Join-Path $dest 'STOP.cmd')
+            if ($LASTEXITCODE -ne 0) { throw 'STOP.cmd failed' }
+          }
+          Start-Sleep -Seconds 2
+          foreach ($port in @(4173,8765)) {
+            $tcp = New-Object System.Net.Sockets.TcpClient
+            try { $tcp.Connect('127.0.0.1', $port); throw "Port $port left open after STOP.cmd" }
+            catch [System.Net.Sockets.SocketException] { }
+            finally { $tcp.Dispose() }
+          }
+      - name: LIVE without key fails closed (no fake fallback)
+        shell: powershell
+        run: |
+          $dest = Join-Path $env:RUNNER_TEMP 'SAIN Live Native Test'
+          $env:LLM_API_KEY = ''
+          & (Join-Path $dest 'START.cmd') -SelectedMode 3 -NoBrowser -NonInteractive
+          if ($LASTEXITCODE -eq 0) { throw 'LIVE launch succeeded without provider key' }
+          $tcp = New-Object System.Net.Sockets.TcpClient
+          try { $tcp.Connect('127.0.0.1', 8765); throw 'LIVE without key started backend' }
+          catch [System.Net.Sockets.SocketException] { }
+          finally { $tcp.Dispose() }
