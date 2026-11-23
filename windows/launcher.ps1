@@ -69,11 +69,21 @@ if ($choice -eq '1' -or $choice -eq '3') {
     & $pythonExe @pythonArgs -m venv $venv
     if ($LASTEXITCODE -ne 0) { throw 'Не удалось создать .venv.' }
   }
-  & $venvPy -c 'import fastapi,httpx,uvicorn,jsonschema,pytest' 2>$null
-  if ($LASTEXITCODE -ne 0) {
-    Write-Host 'Устанавливаю зависимости (для первого запуска нужен интернет)...'
-    & $venvPy -m pip install --disable-pip-version-check -r (Join-Path $root 'requirements-dev.txt')
-    if ($LASTEXITCODE -ne 0) { throw 'Не удалось установить Python-зависимости.' }
+  # A missing dependency is an expected first-run condition. Windows PowerShell
+  # 5.1 otherwise promotes python's stderr traceback to NativeCommandError
+  # before the exit code can be checked.
+  $previousErrorPreference = $ErrorActionPreference
+  try {
+    $ErrorActionPreference = 'Continue'
+    & $venvPy -c 'import fastapi,httpx,uvicorn,jsonschema,pytest' 2>$null
+    $needsInstall = ($LASTEXITCODE -ne 0)
+    if ($needsInstall) {
+      Write-Host 'Installing Python dependencies (internet required for first launch)...'
+      & $venvPy -m pip install --disable-pip-version-check -r (Join-Path $root 'requirements-dev.txt')
+      if ($LASTEXITCODE -ne 0) { throw 'Python dependency installation failed.' }
+    }
+  } finally {
+    $ErrorActionPreference = $previousErrorPreference
   }
   $pythonExe=$venvPy
   $pythonArgs=@()
