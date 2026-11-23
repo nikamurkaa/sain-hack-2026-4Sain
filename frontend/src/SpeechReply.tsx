@@ -12,6 +12,8 @@ export function SpeechReply({ token, replyIndex }: { token: string; replyIndex: 
   const media = useRef<HTMLAudioElement | null>(null);
   const url = useRef<string | null>(null);
   const pending = useRef<AbortController | null>(null);
+  // Every playback owns a generation. Cleanup or Stop invalidates all awaits.
+  const generation = useRef(0);
 
   useEffect(() => {
     // A React component can be reused for another reply or guest without
@@ -19,6 +21,7 @@ export function SpeechReply({ token, replyIndex }: { token: string; replyIndex: 
     setStatus("idle");
     setError("");
     return () => {
+      generation.current += 1;
       pending.current?.abort();
       pending.current = null;
       if (media.current) {
@@ -35,55 +38,82 @@ export function SpeechReply({ token, replyIndex }: { token: string; replyIndex: 
   }, [token, replyIndex]);
 
   function stop() {
+    generation.current += 1;
+    pending.current?.abort();
+    pending.current = null;
     media.current?.pause();
     if (media.current) media.current.currentTime = 0;
     if (activeAudio === media.current) activeAudio = null;
-    if (media.current) setStatus("ready");
+    setStatus(media.current ? "ready" : "idle");
   }
 
   async function play() {
-    if (muted) return;
+    if (muted || pending.current) return;
+    const ownGeneration = ++generation.current;
+    let controller: AbortController | null = null;
+    const isCurrent = () =>
+      generation.current === ownGeneration && !controller?.signal.aborted;
+
     if (activeAudio && activeAudio !== media.current) activeAudio.pause();
     try {
       if (!media.current) {
-        const abort = new AbortController();
-        pending.current = abort;
+        controller = new AbortController();
+        pending.current = controller;
         setStatus("loading");
         setError("");
         const response = await fetch("/api/v1/speech", {
           method: "POST",
           headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
           body: JSON.stringify({ reply_index: replyIndex }),
-          signal: AbortSignal.any([abort.signal, AbortSignal.timeout(90000)]),
+          signal: AbortSignal.any([controller.signal, AbortSignal.timeout(90000)]),
           cache: "no-store",
           redirect: "error",
         });
+        if (!isCurrent()) return;
         if (!response.ok || !response.headers.get("Content-Type")?.startsWith("audio/mpeg")) {
           throw new Error("TTS is unavailable");
         }
         const blob = await response.blob();
+        // AbortController alone cannot undo a blob() promise already resolved.
+        // Never materialize or play a former guest's response after cleanup.
+        if (!isCurrent()) return;
         if (!blob.size || blob.size > 5000000) throw new Error("Invalid audio");
-        url.current = URL.createObjectURL(blob);
-        const audio = new Audio(url.current);
+        const objectUrl = URL.createObjectURL(blob);
+        if (!isCurrent()) { URL.revokeObjectURL(objectUrl); return; }
+        url.current = objectUrl;
+        const audio = new Audio(objectUrl);
         audio.preload = "auto";
-        audio.onended = () => { setStatus("ready"); if (activeAudio === audio) activeAudio = null; };
-        audio.onpause = () => { if (audio.currentTime < audio.duration) setStatus("ready"); };
+        audio.onended = () => {
+          if (media.current === audio) setStatus("ready");
+          if (activeAudio === audio) activeAudio = null;
+        };
+        audio.onpause = () => {
+          if (media.current === audio && audio.currentTime < audio.duration) setStatus("ready");
+        };
         media.current = audio;
-        pending.current = null;
       }
+      if (!isCurrent()) return;
       const audio = media.current;
       if (!audio) throw new Error("Audio not ready");
       audio.currentTime = 0;
       audio.muted = muted;
       activeAudio = audio;
+      if (!isCurrent()) return;
       await audio.play();
+      if (!isCurrent()) {
+        audio.pause();
+        if (activeAudio === audio) activeAudio = null;
+        return;
+      }
       setStatus("playing");
     } catch {
-      if (!pending.current?.signal.aborted) {
-        // The visible text reply stays on screen even if audio fails.
+      if (isCurrent()) {
+        // Previous guest / canceled operations must not write into new UI.
         setStatus(media.current ? "ready" : "error");
         setError("Не удалось воспроизвести голос. Текст ответа доступен.");
       }
+    } finally {
+      if (controller && pending.current === controller) pending.current = null;
     }
   }
   return (
