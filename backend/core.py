@@ -45,7 +45,7 @@ def iso(value: datetime) -> str:
 
 @lru_cache(maxsize=2)
 def schema_validator(name: str):
-    schema = json.loads((Path(__file__).parent / "schemas" / (name + ".json")).read_text())
+    schema = json.loads((Path(__file__).parent / "schemas" / (name + ".json")).read_text(encoding="utf-8"))
     return Draft202012Validator(schema, format_checker=FormatChecker())
 
 

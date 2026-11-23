@@ -9,6 +9,8 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location -LiteralPath $root
+# Force UTF-8 for Python JSON files regardless of the Windows ANSI code page.
+$env:PYTHONUTF8 = '1'
 function Python {
   $options = @(
     @{Exe='py'; Args=@('-3.11')}, @{Exe='py'; Args=@('-3.12')},
