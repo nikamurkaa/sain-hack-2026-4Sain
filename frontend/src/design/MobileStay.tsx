@@ -24,6 +24,11 @@ import { DesignScreen, rect } from "./Layout";
 import type { Binding, Widget } from "./Layout";
 
 const media = matchMedia("(max-width: 649px)");
+const compactChatMedia = matchMedia("(max-width: 649px) and (max-height: 740px)");
+function subscribeCompactChat(listener: () => void) {
+  compactChatMedia.addEventListener("change", listener);
+  return () => compactChatMedia.removeEventListener("change", listener);
+}
 function subscribe(listener: () => void) {
   media.addEventListener("change", listener);
   return () => media.removeEventListener("change", listener);
@@ -138,6 +143,9 @@ export function deviceLevel(id: string, room: Room | undefined) {
 }
 export function MobileStay(p: Props) {
   const [historyOpen, setHistoryOpen] = useState(false);
+  const compactChat = useSyncExternalStore(
+    subscribeCompactChat, () => compactChatMedia.matches,
+  );
   const room = p.snapshot?.state,
     mode = periodIndex(periodAt(p.info.at));
   const last = p.info.history.at(-1);
@@ -345,7 +353,7 @@ export function MobileStay(p: Props) {
     if (name === "Сделай попрохладнее")
       return {
         // Never offer a new command in front of unresolved action evidence.
-        hidden: !p.allowed || !!p.actionIssue,
+        hidden: !p.allowed || !!p.actionIssue || compactChat,
         className: "suggestion-chip",
         onClick: () => p.send("Сделай попрохладнее"),
       };
@@ -394,7 +402,7 @@ export function MobileStay(p: Props) {
       };
     if (name === "Поле ввода")
       return {
-        hidden: !p.allowed,
+        hidden: !p.allowed || compactChat,
         className: "composer-widget",
         content: renderComposer(false),
       };
@@ -470,7 +478,7 @@ export function MobileStay(p: Props) {
       {historyOpen && p.page === "chat" && history}
       {p.overlay}
       </DesignScreen>
-      {p.page === "chat" && p.allowed && (
+      {p.page === "chat" && p.allowed && compactChat && (
         <div className="compact-chat-dock">
           {renderComposer(true)}
         </div>
