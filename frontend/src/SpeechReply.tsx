@@ -13,15 +13,26 @@ export function SpeechReply({ token, replyIndex }: { token: string; replyIndex: 
   const url = useRef<string | null>(null);
   const pending = useRef<AbortController | null>(null);
 
-  useEffect(() => () => {
-    pending.current?.abort();
-    if (media.current) {
-      media.current.pause();
-      if (activeAudio === media.current) activeAudio = null;
-      media.current.src = "";
-    }
-    if (url.current) URL.revokeObjectURL(url.current);
-  }, []);
+  useEffect(() => {
+    // A React component can be reused for another reply or guest without
+    // unmounting. Never play a previous session's cached response.
+    setStatus("idle");
+    setError("");
+    return () => {
+      pending.current?.abort();
+      pending.current = null;
+      if (media.current) {
+        media.current.pause();
+        if (activeAudio === media.current) activeAudio = null;
+        media.current.onended = null;
+        media.current.onpause = null;
+        media.current.src = "";
+        media.current = null;
+      }
+      if (url.current) URL.revokeObjectURL(url.current);
+      url.current = null;
+    };
+  }, [token, replyIndex]);
 
   function stop() {
     media.current?.pause();
