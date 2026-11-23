@@ -140,8 +140,7 @@ export default function Voice({
             };
           if (w.name === "Попросить номер..." && stage !== "wait")
             return {
-              text: () => error || "Например: «Сделай попрохладнее»",
-              role: error ? "alert" : undefined,
+              text: () => error ? "" : "Например: «Сделай попрохладнее»",
             };
           if (w.name.startsWith("Group "))
             return {
