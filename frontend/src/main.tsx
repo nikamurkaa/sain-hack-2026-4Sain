@@ -632,6 +632,7 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
         )}
       </main>
     );
+  const scenarioWarnings = prepared.explanations?.filter((item) => item.status === "warning") ?? [];
   const badge =
     (info.live_ai ? "LIVE AI · локальный симулятор · " : info.rehearsal ? "Репетиция · " : "") +
     (info.source === "final"
@@ -1004,6 +1005,15 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
               ]
             }
           </h1>
+          {scenarioWarnings.length > 0 && (
+            <section className="scenario-warnings" role="alert" aria-label="Предупреждения сценария">
+              <strong>Внимание к настройкам сна</strong>
+              <ul>{scenarioWarnings.map((item, index) => (
+                <li key={item.device_id + "-" + index}>{item.reason}</li>
+              ))}</ul>
+              <small>Это предупреждения плана, а не подтверждённое состояние номера.</small>
+            </section>
+          )}
           {tabs(false)}
           <Plan steps={steps} period={period} />
            <details className="technical-details">
