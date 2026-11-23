@@ -82,7 +82,10 @@ try {
   await page.getByRole("button", { name: "Сохранить" }).click();
   await expect(climate(page)).toContainText("21 °C");
   await go(page, "Диалог");
-  await page.getByRole("button", { name: "Сделай попрохладнее" }).click();
+  // A confirmed manual setting already populated history; suggestions are
+  // intentionally hidden then. Exercise the actual editable composer.
+  await page.getByRole("textbox", { name: "Просьба", exact: true }).fill("Сделай попрохладнее");
+  await page.getByRole("button", { name: "Отправить просьбу" }).click();
   await expect(climate(page)).toContainText("20 °C");
   const before = await (await fetch(backendUrl + "/api/v1/session", {
     headers: { Authorization: "Bearer " + token },
