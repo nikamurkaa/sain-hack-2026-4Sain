@@ -2,17 +2,15 @@
 
 **Номер, который знает гостя.** Персональный сценарий проживания, управление шестью системами номера и контекстный диалог — в одном интерфейсе.
 
-Независимый fullstack-прототип команды **4Sain** для кейса №2 хакатона **SAIN × Школа 21 «Точка входа»**, существенно доработанный после конкурса. **Не является официальным продуктом SAIN.** В автономном режиме устройства — программный симулятор, не физическое оборудование отеля.
+Независимый fullstack-прототип команды **4Sain** для кейса №2 хакатона **SAIN × Школа 21 «Точка входа»**, доработанный после конкурса. **Не является официальным продуктом SAIN.** В автономном режиме устройства — программный симулятор.
 
-![SAIN Smart Room — настоящий desktop-скриншот](docs/screenshots/desktop-room.png)
+![SAIN Smart Room — desktop-скриншот](docs/screenshots/desktop-room.png)
 
 | Мобильный номер | Диалог |
 |:---:|:---:|
 | ![Мобильная версия](docs/screenshots/mobile-room.png) | ![Контекстный диалог](docs/screenshots/mobile-dialog.png) |
 
-**[Figma · 29 экранов](https://www.figma.com/design/GH3nRXnqWn7eoiMWwNfeCa/SAIN-Smart-Room-%E2%80%94-UI-Design?node-id=0-1)** · **[Windows ZIP](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45254804178/artifacts/14855564345)** · **[macOS ZIP](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45254804079/artifacts/14858781298)** · **[Технический handoff](docs/release/FINAL_TECHNICAL_HANDOFF.md)**
-
-> Архивы из GitHub Actions доступны **до 23.12.2026**; GitHub может попросить войти в аккаунт. После истечения срока сборку можно повторить из исходников. Видеодемонстрацию добавим после записи.
+**[Figma · 29 экранов]([https://www.figma.com/design/GH3nRXnqWn7eoiMWwNfeCa/SAIN-Smart-Room-%E2%80%94-UI-Design?node-id=0-1](https://vk.ru/away.php?to=https%3A%2F%2Fwww.figma.com%2Fdesign%2Fz5s6MFxKIDC6P9ECm4CbuO%2F4SAIN%3Fnode-id%3D0-1%26t%3DhTDRRXS2El9j37Cj-1&utf=1))** · **[Windows ZIP](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45254804178/artifacts/14855564345)** · **[macOS ZIP](https://github.com/nikamurkaa/sain-hack-2026-4Sain/actions/runs/45254804079/artifacts/14858781298)** · **[Технический handoff](docs/release/FINAL_TECHNICAL_HANDOFF.md)**
 
 ## Возможности
 
@@ -21,11 +19,11 @@
 - **Диалог и контекст:** 19 категорий намерений, «Сделай попрохладнее» → «Ещё немного», отказ на недопустимые значения, сохранённая история.
 - **Надёжность:** изоляция гостей, идемпотентность, запрет слепых повторов; **SQLite WAL** восстанавливает автономные сеансы, подтверждённые настройки, историю и журнал операций после перезапуска.
 - **UX:** мобильная и desktop-версии на React/TypeScript по 29 экранам Figma; виртуальное время и «Продолжение дома» — экспорт *синтетических* настроек для следующего заезда.
-- **Голос/AI-ready:** клиент с записью, подтверждением расшифровки и воспроизведением ответа; интеграционные адаптеры LLM/STT/TTS. **Живой провайдер не прошёл приёмку**, offline-режим использует FakeLLM.
+- **Голос/AI-ready:** клиент с записью, подтверждением расшифровки и воспроизведением ответа; интеграционные адаптеры LLM/STT/TTS. offline-режим использует FakeLLM.
 
 **Стек:** Python 3.11 · FastAPI · React · TypeScript · Vite · SQLite · pytest · Playwright · GitHub Actions.
 
-**Проверено в финальном техническом PR:** 487 Python-тестов, 21 Node-тест, 58 E2E в Chromium и 58 в Firefox; нативные CI-сборки/запуски Windows и macOS ARM64. Это подтверждение **автономного scope**, не официальная оценка SAIN. [PR №27 и CI](https://github.com/nikamurkaa/sain-hack-2026-4Sain/pull/27).
+**Проверено в финальном техническом PR:** 487 Python-тестов, 21 Node-тест, 58 E2E в Chromium и 58 в Firefox; нативные CI-сборки/запуски Windows и macOS ARM64. Это подтверждение **автономного scope**.
 
 ## Запуск · Windows / macOS
 
@@ -55,7 +53,7 @@
 
 ## Роли · команда 4Sain
 
-| Участник | Реальный вклад |
+| Участник | Вклад |
 |---|---|
 | **Женя · Team Lead / UI/UX Designer** | Координация работы команды, продуктовая концепция, пользовательские сценарии, дизайн-система и **29 экранов в Figma** — визуальная основа приложения. |
 | **Ника · Backend Developer / AI Integration** | FastAPI, персонализация, обработка команд, API и симулятор, безопасность, SQLite-восстановление, интеграция AI/voice-адаптеров, CI/release; помощь с frontend. |
@@ -69,9 +67,8 @@
 ## Источники
 
 - [Официальное задание кейса №2](docs/requirements-traceability.md), инструкции SAIN × Школа 21 от 16.11.2026, схемы `backend/schemas/`.
-- [Оригинальный дизайн 4Sain (Figma)](https://www.figma.com/design/GH3nRXnqWn7eoiMWwNfeCa/SAIN-Smart-Room-%E2%80%94-UI-Design?node-id=0-1), ресурсы в `frontend/`. Права на сторонние изображения и брендовые материалы для внешнего использования требуют согласования.
-- Python/JS-зависимости и версии: `requirements*.txt`, `frontend/package*.json`; лицензии шрифтов Manrope/Unbounded/Inter лежат рядом с ресурсами. Отдельных подтверждённых сведений о собственном коде команды, созданном *до* 16.11, нет — происхождение следует сверять с историей Git.
-- [Реестр прав и согласований](EXTERNAL_APPROVALS.md). Публичность кода не означает разрешение на коммерческое распространение сторонних материалов.
+- [Оригинальный дизайн 4Sain (Figma)]([https://www.figma.com/design/GH3nRXnqWn7eoiMWwNfeCa/SAIN-Smart-Room-%E2%80%94-UI-Design?node-id=0-1](https://vk.ru/away.php?to=https%3A%2F%2Fwww.figma.com%2Fdesign%2Fz5s6MFxKIDC6P9ECm4CbuO%2F4SAIN%3Fnode-id%3D0-1%26t%3DhTDRRXS2El9j37Cj-1&utf=1)), ресурсы в `frontend/`.
+- Python/JS-зависимости и версии: `requirements*.txt`, `frontend/package*.json`; лицензии шрифтов Manrope/Unbounded/Inter лежат рядом с ресурсами.
 
 ## Журнал решений
 
