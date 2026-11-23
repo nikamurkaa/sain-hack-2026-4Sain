@@ -56,6 +56,9 @@ jobs:
         working-directory: frontend
         env:
           SAIN_BROWSER: firefox
+      - name: Actual Chromium reconnect after backend SIGKILL with SQLite
+        working-directory: frontend
+        run: node scripts/check_persistence_browser.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
