@@ -872,3 +872,105 @@
     outline-offset: 2px;
   }
 }
+
+/* Stage 4 / Phase 2: tighter hierarchy; the artwork's former 205px
+   rigid error box was mostly blank even when the message was one line. */
+.design-frame .design-widget.delivery-error {
+  height: auto !important;
+  min-height: 0;
+  max-height: 205px;
+  border-color: #9e7561;
+  background: linear-gradient(145deg, #302521, #211b19 90%);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, .14);
+}
+.design-frame .delivery-error-content {
+  height: auto;
+  max-height: 205px;
+  padding: 14px 15px;
+  gap: 7px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  font-size: 14px;
+  line-height: 1.48;
+}
+.delivery-error-title {
+  display: block;
+  color: #fff8f2;
+  font: 700 15px/1.35 Manrope, sans-serif;
+}
+.delivery-error-consequence {
+  color: #f3cfb8;
+  font-size: 12.5px;
+}
+.design-frame .delivery-error-content .delivery-dismiss {
+  min-width: 120px;
+  min-height: 44px;
+  color: #fff0e5;
+  background: transparent;
+  border: 1px solid #ad806a;
+}
+.design-frame .delivery-error-content :is(button, a):focus-visible {
+  outline: 2px solid #ffdbbc;
+  outline-offset: 2px;
+}
+
+/* Semantic form preview: these are proposed values, never confirmed device
+   state. Keep the original Figma geometry and peach CTA. */
+.design-frame .climate-edit-summary {
+  position: absolute;
+  left: 28px;
+  right: 28px;
+  top: 405px;
+  padding: 16px 18px;
+  border: 1px solid #574339;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #2b231f, #211b19);
+  color: #fff3e9;
+  font: 13px/1.45 Manrope, sans-serif;
+}
+.climate-edit-summary strong {
+  display: block;
+  font-size: 12px;
+  color: #ecd1bf;
+  font-weight: 650;
+}
+.climate-edit-summary p {
+  margin: 6px 0;
+  font: 700 24px/1.25 Unbounded, Manrope, sans-serif;
+}
+.climate-edit-summary small {
+  display: block;
+  color: #d9beb0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.design-frame .alarm-time-hint {
+  position: absolute;
+  top: 520px;
+  left: 27px;
+  right: 27px;
+  padding: 10px 13px;
+  border: 1px solid #58453a;
+  border-radius: 12px;
+  background: #241e1b;
+  color: #e9d2c3;
+  font: 12px/1.4 Manrope, sans-serif;
+}
+.design-frame .alarm-cancel + .alarm-time-hint { top: 582px; }
+
+/* Reduce typographic fragility in navigational captions and settings. */
+.design-frame .mode-caption { letter-spacing: .01em; }
+.design-widget .alarm-repeat-unavailable small { color: #e5cabc; font-size: 11px; }
+.design-frame .design-widget:focus-visible,
+.design-frame .design-hit:focus-visible {
+  outline: 3px solid #ffd9bb;
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .design-shell *, .design-shell *::before, .design-shell *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
