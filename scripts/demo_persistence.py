@@ -256,5 +256,15 @@ class DemoStore:
             # Recovery markers themselves are durable across another crash.
             self.save_session(token_hash, session)
 
+    def compact_simulator(self, app, sim):
+        """Discard synthetic room logs no longer referenced by valid guest tokens."""
+        active = {s.room.session["session_id"] for s in app.state.sessions.values()
+                  if s.solution is not None}
+        sim.sessions = {sid: record for sid, record in sim.sessions.items() if sid in active}
+        # Keep run IDs while any session is alive, avoiding reuse of room identities.
+        if not active:
+            sim.runs = []
+        self.save_simulator(sim)
+
     def close(self):
         self.db.close()
