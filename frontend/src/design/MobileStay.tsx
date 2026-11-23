@@ -373,7 +373,13 @@ export function MobileStay(p: Props) {
           className: "delivery-error",
           content: (
             <div className="delivery-error-content">
-              <p>{p.error}</p>
+              <strong className="delivery-error-title">
+                {p.blockedByRecovery ? "Результат команды не подтверждён" : "Не удалось выполнить запрос"}
+              </strong>
+              <p className="delivery-error-message">{p.error}</p>
+              {p.blockedByRecovery && (
+                <p className="delivery-error-consequence">Новые команды временно заблокированы, чтобы не повторить действие случайно.</p>
+              )}
               {p.retryAllowed && !p.blockedByRecovery ? (
                 <button type="button" onClick={p.retry} disabled={p.busy}>
                   Повторить
