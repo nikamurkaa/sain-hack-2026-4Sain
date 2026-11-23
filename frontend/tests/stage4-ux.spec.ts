@@ -126,6 +126,15 @@ test("Stage 4: uncertain transport error has no illustrative pseudo-Retry button
   const error = page.locator(".delivery-error");
   await expect(error).toBeVisible();
   await expect(error).toContainText("Перед повторной командой проверьте состояние номера.");
+  const close = error.getByRole("button", { name: "Закрыть" });
+  await expect(close).toBeVisible();
+  await expect(close).toBeInViewport();
+  const canHitClose = await close.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return !!top && (top === el || el.contains(top));
+  });
+  expect(canHitClose, "The safe recovery action must not hide under error text").toBe(true);
   await expect(error.getByRole("button", { name: "Повторить" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Отправить просьбу" })).toBeDisabled();
 });
