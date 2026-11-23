@@ -659,3 +659,130 @@
 .design-composer.recovery-blocked input {
   border-bottom: 1px solid rgba(248, 201, 171, .32);
 }
+
+/* Stage 4: important scenario warnings must not be hidden inside details. */
+.scenario-warnings {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border: 1px solid #b67b5f;
+  border-radius: 14px;
+  background: #2a211d;
+  color: #fff0e7;
+  font: 13px/1.5 Manrope, sans-serif;
+}
+.scenario-warnings strong {
+  display: block;
+  font-weight: 750;
+  margin-bottom: 5px;
+}
+.scenario-warnings ul {
+  margin: 0 0 6px;
+  padding-left: 18px;
+}
+.scenario-warnings li {
+  margin: 4px 0;
+  overflow-wrap: anywhere;
+}
+.scenario-warnings small {
+  color: #e9c7b4;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.design-frame .personal-plan .scenario-warnings {
+  margin: 10px 0;
+  padding: 10px 12px;
+  font-size: 12px;
+}
+.design-frame .personal-plan .scenario-warnings small {
+  font-size: 10px;
+}
+
+/* Replace imported illustrative Retry artwork with a genuine conditional
+   button; no false affordance when an uncertain POST forbids retry. */
+.design-frame .design-widget.delivery-error {
+  background: linear-gradient(145deg, #2b211e, #211a18);
+  border: 1px solid #785849;
+  border-radius: 22px;
+  overflow: hidden;
+}
+.delivery-error-content {
+  box-sizing: border-box;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  overflow: auto;
+  padding: 15px 14px;
+  font: 14px/1.4 Manrope, sans-serif;
+  color: #fff0e7;
+  overflow-wrap: anywhere;
+}
+.delivery-error-content p { margin: 0; }
+.delivery-error-content small { color: #d8bdac; font-size: 12px; }
+.design-frame .delivery-error-content button {
+  flex: 0 0 auto;
+  min-width: 130px;
+  min-height: 44px;
+  padding: 9px 18px;
+  border: 0;
+  border-radius: 100px;
+  color: #21150f;
+  background: #f9c7a7;
+  font: 700 14px/1.2 Manrope, sans-serif;
+}
+.design-frame .delivery-error-content button:focus-visible,
+.design-frame .mobile-climate-save:focus-visible {
+  outline: 3px solid #fff2e7;
+  outline-offset: 3px;
+}
+.design-frame .delivery-error-content button:disabled { opacity: 0.5; }
+
+/* Climate save is a real control, not the static Figma 'Applied' sticker.
+   The main app routes to chat and reports success only after API confirmation. */
+.design-frame .mobile-climate-save {
+  position: absolute;
+  z-index: 5;
+  left: 18px;
+  bottom: 42px;
+  width: 339px;
+  min-height: 56px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font: 750 16px/1.2 Manrope, sans-serif;
+  color: #21150f;
+  background: #f8c9ab;
+  cursor: pointer;
+}
+.design-frame .mobile-climate-save:disabled {
+  opacity: .48;
+  cursor: not-allowed;
+}
+.design-frame .design-widget.unavailable-option {
+  background: #28211e;
+  border: 1px solid #40332d;
+  border-radius: 16px;
+  overflow: hidden;
+}
+.alarm-repeat-unavailable {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+  padding: 6px 14px;
+  color: #f8e5d8;
+  gap: 3px;
+  font: 12px/1.25 Manrope, sans-serif;
+}
+.alarm-repeat-unavailable small { font-size: 10px; color: #d0b6a7; }
+@media (prefers-reduced-motion: reduce) {
+  .design-frame .mobile-climate-save,
+  .design-frame .delivery-error-content button {
+    transition: none !important;
+    animation: none !important;
+  }
+}
