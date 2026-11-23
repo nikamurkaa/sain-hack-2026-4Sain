@@ -86,6 +86,12 @@ jobs:
           curl -fsS http://127.0.0.1:8765/health >/dev/null
           curl -fsS http://127.0.0.1:4173/ >/dev/null
           bash STOP.command
+      - name: Native macOS crash-safe session and simulator persistence
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/SAIN macOS Native Test"
+          .venv/bin/python -m scripts.check_persistence_process
       - uses: actions/upload-artifact@v4
         if: success()
         with:
