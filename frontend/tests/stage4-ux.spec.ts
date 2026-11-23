@@ -64,6 +64,32 @@ test("Stage 4: climate uses confirmed-action Save instead of static Applied artw
   await expect(save).toBeEnabled();
 });
 
+test("Stage 4 Phase 2: climate preview never claims server confirmation", async ({ page }) => {
+  await connect(page);
+  await navigate(page, "Мой номер");
+  await page.getByRole("button", { name: "Климат", exact: true }).click();
+  const preview = page.locator(".climate-edit-summary");
+  await expect(preview).toBeVisible();
+  await expect(preview).toContainText("Текущая настройка");
+  await page.getByRole("spinbutton", { name: "Температура" }).fill("21");
+  await expect(preview).toContainText("Изменение климата");
+  await expect(preview).toContainText("только после подтверждения");
+  await expect(page.getByText(/Применено|Успешно сохранено/)).toHaveCount(0);
+});
+
+test("Stage 4 Phase 2: alarm draft has accessible signal and a real time control", async ({ page }) => {
+  await connect(page);
+  await navigate(page, "Мой номер");
+  await page.getByRole("button", { name: "Будильник", exact: true }).click();
+  const input = page.getByLabel("Время пробуждения");
+  await expect(input).toBeVisible();
+  await input.fill("07:45");
+  await expect(page.getByRole("status")).toContainText("07:45");
+  await expect(page.getByLabel("Сигнал")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Сохранить" })).toBeEnabled();
+  await expect(page.locator(".unavailable-option")).toContainText("Повтор недоступен");
+});
+
 test("Stage 4: core mobile controls remain scroll-reachable at 320x568", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 568 });
   await connect(page);
