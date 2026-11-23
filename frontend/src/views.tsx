@@ -363,7 +363,7 @@ export function Settings({
           if (name === "Сохранить")
             return {
               onClick: save,
-              disabled: !val,
+              disabled: !val || (id === "alarm" && !/^([01]\d|2[0-3]):[0-5]\d$/.test(val)),
               text:
                 id === "sound"
                   ? () =>
@@ -396,7 +396,7 @@ export function Settings({
                     <Hit
                       label="Уменьшить температуру"
                       box={[0, 0, 64, 62]}
-                      disabled={Number(val) <= (range?.minimum ?? 16)}
+                      disabled={!val.trim() || !Number.isFinite(Number(val)) || Number(val) <= (range?.minimum ?? 16)}
                       onClick={() =>
                         set(
                           String(
@@ -408,7 +408,7 @@ export function Settings({
                     <Hit
                       label="Увеличить температуру"
                       box={[193, 0, 64, 62]}
-                      disabled={Number(val) >= (range?.maximum ?? 26)}
+                      disabled={!val.trim() || !Number.isFinite(Number(val)) || Number(val) >= (range?.maximum ?? 26)}
                       onClick={() =>
                         set(
                           String(
@@ -421,15 +421,9 @@ export function Settings({
                 ),
               };
             if (name === "Ответ") {
-              if (w.box[1] > 420) return { hidden: true };
-              return {
-                text: () => "Сохранить",
-                onClick: save,
-                disabled:
-                  !val ||
-                  Number(val) < (range?.minimum ?? 16) ||
-                  Number(val) > (range?.maximum ?? 26),
-              };
+              // Figma drawings show "Applying" / "Applied" before there is
+              // any simulator receipt. Neither is a real application state.
+              return { hidden: true };
             }
           }
           if (id === "alarm") {
@@ -447,7 +441,16 @@ export function Settings({
               };
             if (name.startsWith("Timeline Card")) {
               if (w.texts[0].value === "Повтор")
-                return { text: () => "Повтор недоступен", level: null };
+                return {
+                  hideArt: true,
+                  className: "unavailable-option",
+                  content: (
+                    <div className="alarm-repeat-unavailable">
+                      <strong>Повтор недоступен</strong>
+                      <small>Симулятор не поддерживает эту настройку</small>
+                    </div>
+                  ),
+                };
               if (w.texts[0].value === "Звук")
                 return {
                   text: (v, i) => (i === 0 ? "Сигнал" : ""),
@@ -536,6 +539,36 @@ export function Settings({
         }}
       >
         <small className="mode-caption">{design.badge}</small>
+        {id === "climate" && (
+          <div className="climate-edit-summary" role="status">
+            <strong>{Number(val) === Number(values.temperature_c) ? "Текущая настройка" : "Изменение климата"}</strong>
+            <p>
+              {Number.isFinite(Number(val)) && val.trim() !== ""
+                ? Number(val) === Number(values.temperature_c)
+                  ? `${Number(val)} °C`
+                  : `${Number(values.temperature_c)} °C → ${Number(val)} °C`
+                : "Введите температуру"}
+            </p>
+            <small>Изменение вступит в силу только после подтверждения номером.</small>
+          </div>
+        )}
+        {id === "alarm" && (
+          <p className={"alarm-time-hint" + (values.at ? " has-cancel" : "")} role="status">
+            {val ? `Подъём в ${val} · сигнал: ${modes[alarmMode]}` : "Выберите время подъёма"}
+          </p>
+        )}
+        {id === "climate" && (
+          <button
+            type="button"
+            className="mobile-climate-save"
+            disabled={!val.trim() || !Number.isFinite(Number(val)) ||
+              Number(val) < (range?.minimum ?? 16) ||
+              Number(val) > (range?.maximum ?? 26)}
+            onClick={save}
+          >
+            Сохранить <span aria-hidden="true">→</span>
+          </button>
+        )}
         {id === "alarm" && values.at && (
           <button
             className="alarm-cancel"

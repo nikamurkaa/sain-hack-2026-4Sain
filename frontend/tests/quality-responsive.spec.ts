@@ -18,7 +18,7 @@ async function go(page:Page,name:string){await page.getByRole('button',{name:'М
 test('V08/V14/V13: important screens at mobile, tablet, desktop and 200% CSS zoom',async({page,request})=>{
   test.setTimeout(120000);await enter(page,request);
   const measures:object[]=[];
-  for(const [w,h] of [[375,812],[768,1024],[1024,768],[1440,900],[1920,1080]] as const){
+  for(const [w,h] of [[320,568],[375,812],[390,844],[768,1024],[1024,768],[1440,900],[1905,911],[1920,1080]] as const){
     await page.setViewportSize({width:w,height:h});
     for(const screen of ['Мой номер','Диалог','Виртуальное время','Профиль гостя']){
       await go(page,screen);
@@ -30,7 +30,31 @@ test('V08/V14/V13: important screens at mobile, tablet, desktop and 200% CSS zoo
           .filter(e=>e.offsetWidth>0&&e.offsetHeight>0)
           .filter(e=>parseFloat(getComputedStyle(e).fontSize)<11)
           .slice(0,15).map(e=>({text:(e.textContent||'').trim().slice(0,50),size:getComputedStyle(e).fontSize}))}));
-      measures.push({screen, ...m});
+      // Failing assertions, not passive JSON diagnostics. Allow one CSS pixel
+      // of viewport rounding; do not blanket-hide horizontal overflow.
+      expect(m.overflows, `${screen} at ${w}×${h}: document width ${m.docWidth}`).toBe(false);
+      expect(m.docWidth, `${screen} at ${w}×${h}: horizontal overflow`).toBeLessThanOrEqual(w + 1);
+      const interactive = page.getByRole('button',{name:'Меню',exact:true});
+      await expect(interactive).toBeVisible();
+      // The menu is the recovery/navigation entry point on all 29 screens.
+      // Test it is hit-testable, not merely reported visible by Playwright.
+      const hit = await interactive.evaluate((el) => {
+        const r = el.getBoundingClientRect();
+        const x = r.left + r.width / 2, y = r.top + r.height / 2;
+        const target = document.elementFromPoint(x,y);
+        return r.width >= 24 && r.height >= 24 &&
+          x >= 0 && x < innerWidth && y >= 0 && y < innerHeight &&
+          !!target && (el === target || el.contains(target));
+      });
+      expect(hit, `Menu target covered or too small on ${screen} ${w}×${h}`).toBe(true);
+      if (screen === 'Диалог' && w <= 390) {
+        const composer = page.getByRole('textbox',{name:'Просьба'});
+        await expect(composer).toBeVisible();
+        if (h < 741) await expect(composer).toBeInViewport();
+        const font = await composer.evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+        expect(font, 'Critical chat input text must stay readable').toBeGreaterThanOrEqual(13);
+      }
+      measures.push({screen, ...m, menuHitTest:hit});
       const file=shotFile('screen-'+screen.replaceAll(' ','_')+'-'+w+'.png');
       if(file)await page.screenshot({path:file,animations:'disabled'});
     }
@@ -40,11 +64,14 @@ test('V08/V14/V13: important screens at mobile, tablet, desktop and 200% CSS zoo
   await page.evaluate(()=>{document.documentElement.style.zoom='200%';});
   const mZoom=await page.evaluate(()=>({cssZoom:getComputedStyle(document.documentElement).zoom,
     scrollWidth:document.documentElement.scrollWidth,viewportWidth:innerWidth}));
+  expect(mZoom.cssZoom).toBe('2');
+  await expect(page.getByRole('button',{name:'Меню',exact:true})).toBeVisible();
   measures.push({screen:'room 200% CSS zoom',...mZoom});
   const mobile=shotFile('zoom-200-mobile.png');if(mobile)await page.screenshot({path:mobile,animations:'disabled'});
   await page.evaluate(()=>{document.documentElement.style.zoom='';});
   await page.setViewportSize({width:1440,height:900});
   await page.evaluate(()=>{document.documentElement.style.zoom='200%';});
+  await expect(page.getByRole('button',{name:'Меню',exact:true})).toBeVisible();
   const desktop=shotFile('zoom-200-desktop.png');if(desktop)await page.screenshot({path:desktop,animations:'disabled'});
   await page.evaluate(()=>{document.documentElement.style.zoom='';});
   await page.emulateMedia({reducedMotion:'reduce'});
@@ -54,7 +81,7 @@ test('V08/V14/V13: important screens at mobile, tablet, desktop and 200% CSS zoo
   await page.keyboard.press('Enter');await expect(page.getByRole('navigation')).toBeVisible();
   await page.keyboard.press('Escape');await expect(page.getByRole('navigation')).toHaveCount(0);
   const out=shotFile('a11y-zoom-responsive-metrics.json');if(out)writeFileSync(out,JSON.stringify(measures,null,2));
-  expect(measures).toHaveLength(22);
+  expect(measures).toHaveLength(34);
 });
 test('V04/C07: final read-only marker and keyboard route remain explicit',async({page,request})=>{
   await enter(page,request,'final');

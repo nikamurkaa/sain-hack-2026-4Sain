@@ -40,6 +40,8 @@ export type Binding = {
   className?: string;
   role?: string;
   hidden?: boolean;
+  /** Hide imported decorative SVG when it suggests an unavailable action. */
+  hideArt?: boolean;
   content?: ReactNode;
   children?: ReactNode;
 };
@@ -118,7 +120,7 @@ export function DesignWidget({
       className={"design-widget " + (bind.className ?? "")}
       style={rect(widget.box)}
     >
-      {widget.art && (
+      {widget.art && !bind.hideArt && (
         <svg
           aria-hidden="true"
           fill="none"
@@ -130,7 +132,7 @@ export function DesignWidget({
           <use href={`#s${screen}-${widget.art}`} />
         </svg>
       )}
-      {widget.controls?.map((c, i) => (
+      {!bind.hideArt && widget.controls?.map((c, i) => (
         <IndicatorView key={i} control={c} level={bind.level} />
       ))}
       {bind.content !== undefined

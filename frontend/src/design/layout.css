@@ -659,3 +659,468 @@
 .design-composer.recovery-blocked input {
   border-bottom: 1px solid rgba(248, 201, 171, .32);
 }
+
+/* Stage 4: important scenario warnings must not be hidden inside details. */
+.scenario-warnings {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border: 1px solid #b67b5f;
+  border-radius: 14px;
+  background: #2a211d;
+  color: #fff0e7;
+  font: 13px/1.5 Manrope, sans-serif;
+}
+.scenario-warnings strong {
+  display: block;
+  font-weight: 750;
+  margin-bottom: 5px;
+}
+.scenario-warnings ul {
+  margin: 0 0 6px;
+  padding-left: 18px;
+}
+.scenario-warnings li {
+  margin: 4px 0;
+  overflow-wrap: anywhere;
+}
+.scenario-warnings small {
+  color: #e9c7b4;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.design-frame .personal-plan .scenario-warnings {
+  margin: 10px 0;
+  padding: 10px 12px;
+  font-size: 12px;
+}
+.design-frame .personal-plan .scenario-warnings small {
+  font-size: 10px;
+}
+
+/* Replace imported illustrative Retry artwork with a genuine conditional
+   button; no false affordance when an uncertain POST forbids retry. */
+.design-frame .design-widget.delivery-error {
+  background: linear-gradient(145deg, #2b211e, #211a18);
+  border: 1px solid #785849;
+  border-radius: 22px;
+  overflow: hidden;
+}
+.delivery-error-content {
+  box-sizing: border-box;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  overflow: auto;
+  padding: 12px 14px;
+  font: 13px/1.4 Manrope, sans-serif;
+  color: #fff0e7;
+  overflow-wrap: anywhere;
+}
+.delivery-error-content p { margin: 0; }
+.delivery-error-content small { color: #d8bdac; font-size: 12px; }
+.design-frame .delivery-error-content button {
+  flex: 0 0 auto;
+  min-width: 130px;
+  min-height: 44px;
+  padding: 9px 18px;
+  border: 0;
+  border-radius: 100px;
+  color: #21150f;
+  background: #f9c7a7;
+  font: 700 14px/1.2 Manrope, sans-serif;
+}
+.design-frame .delivery-error-content button:focus-visible,
+.design-frame .mobile-climate-save:focus-visible {
+  outline: 3px solid #fff2e7;
+  outline-offset: 3px;
+}
+.design-frame .delivery-error-content button:disabled { opacity: 0.5; }
+
+/* Climate save is a real control, not the static Figma 'Applied' sticker.
+   The main app routes to chat and reports success only after API confirmation. */
+.design-frame .mobile-climate-save {
+  position: absolute;
+  z-index: 5;
+  left: 18px;
+  bottom: 42px;
+  width: 339px;
+  min-height: 56px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font: 750 16px/1.2 Manrope, sans-serif;
+  color: #21150f;
+  background: #f8c9ab;
+  cursor: pointer;
+}
+.design-frame .mobile-climate-save:disabled {
+  opacity: .48;
+  cursor: not-allowed;
+}
+.design-frame .design-widget.unavailable-option {
+  background: #28211e;
+  border: 1px solid #40332d;
+  border-radius: 16px;
+  overflow: hidden;
+}
+.alarm-repeat-unavailable {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+  padding: 6px 14px;
+  color: #f8e5d8;
+  gap: 3px;
+  font: 12px/1.25 Manrope, sans-serif;
+}
+.alarm-repeat-unavailable small { font-size: 10px; color: #d0b6a7; }
+@media (prefers-reduced-motion: reduce) {
+  .design-frame .mobile-climate-save,
+  .design-frame .delivery-error-content button {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+.design-frame .delivery-error-content .delivery-dismiss {
+  color: #ffe9d9;
+  background: transparent;
+  border: 1px solid #9f7664;
+  min-height: 44px;
+}
+
+/* On a 320x568 (or similarly short) viewport, a width-scaled 375x812
+   Figma canvas puts the composer below the fold. Keep the real input and
+   actions pinned without shrinking every label into unreadable text. */
+.compact-chat-dock { display: none; }
+@media (max-width: 649px) and (max-height: 740px) {
+  .design-frame .composer-widget,
+  .design-frame .suggestion-chip { display: none !important; }
+  .compact-chat-dock {
+    position: fixed;
+    z-index: 30;
+    display: block;
+    left: max(10px, env(safe-area-inset-left));
+    right: max(10px, env(safe-area-inset-right));
+    bottom: max(10px, env(safe-area-inset-bottom));
+    border-radius: 28px;
+    background: #28211e;
+    border: 1px solid #826354;
+    box-shadow: 0 -10px 36px rgba(0, 0, 0, .6);
+  }
+  .compact-chat-dock .compact-chat-form {
+    position: relative;
+    width: 100%;
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 5px 4px 13px;
+  }
+  .compact-chat-dock .compact-chat-form input {
+    position: static;
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto;
+    height: 44px;
+    border: 0;
+    background: transparent;
+    color: #fff4eb;
+    font: 13px/1.35 Manrope, sans-serif;
+    outline: none;
+  }
+  .compact-chat-dock .compact-chat-form input::placeholder { color: #cfb5a7; }
+  .compact-chat-dock .compact-chat-form input:focus-visible {
+    outline: 2px solid #f8c9ab;
+    outline-offset: -2px;
+    border-radius: 8px;
+  }
+  .compact-chat-dock .compact-chat-form button,
+  .compact-chat-dock .compact-chat-form button:last-child {
+    position: relative;
+    inset: auto;
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: transparent;
+  }
+  .compact-chat-dock .compact-chat-form button:last-child {
+    background: #f8c9ab;
+  }
+  .compact-chat-dock .compact-chat-form button img {
+    width: 20px;
+    height: 20px;
+    display: block;
+    filter: brightness(0) saturate(100%) invert(85%) sepia(22%) saturate(581%) hue-rotate(321deg);
+  }
+  .compact-chat-dock .compact-chat-form button:last-child img {
+    filter: brightness(0) saturate(100%);
+  }
+  .compact-chat-dock .compact-chat-form button:disabled { opacity: .45; }
+  .compact-chat-dock .compact-chat-form button:focus-visible {
+    outline: 2px solid #fff4e7;
+    outline-offset: 2px;
+  }
+}
+
+/* Stage 4 / Phase 2: tighter hierarchy; the artwork's former 205px
+   rigid error box was mostly blank even when the message was one line. */
+.design-frame .design-widget.delivery-error {
+  height: auto !important;
+  min-height: 0;
+  max-height: 205px;
+  border-color: #9e7561;
+  background: linear-gradient(145deg, #302521, #211b19 90%);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, .14);
+}
+.design-frame .delivery-error-content {
+  height: auto;
+  max-height: 205px;
+  padding: 14px 15px;
+  gap: 7px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  font-size: 14px;
+  line-height: 1.48;
+}
+.delivery-error-title {
+  display: block;
+  color: #fff8f2;
+  font: 700 15px/1.35 Manrope, sans-serif;
+}
+.delivery-error-consequence {
+  color: #f3cfb8;
+  font-size: 12.5px;
+}
+.design-frame .delivery-error-content .delivery-dismiss {
+  min-width: 120px;
+  min-height: 44px;
+  color: #fff0e5;
+  background: transparent;
+  border: 1px solid #ad806a;
+}
+.design-frame .delivery-error-content :is(button, a):focus-visible {
+  outline: 2px solid #ffdbbc;
+  outline-offset: 2px;
+}
+
+/* Semantic form preview: these are proposed values, never confirmed device
+   state. Keep the original Figma geometry and peach CTA. */
+.design-frame .climate-edit-summary {
+  position: absolute;
+  left: 28px;
+  right: 28px;
+  top: 405px;
+  padding: 16px 18px;
+  border: 1px solid #574339;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #2b231f, #211b19);
+  color: #fff3e9;
+  font: 13px/1.45 Manrope, sans-serif;
+}
+.climate-edit-summary strong {
+  display: block;
+  font-size: 12px;
+  color: #ecd1bf;
+  font-weight: 650;
+}
+.climate-edit-summary p {
+  margin: 6px 0;
+  font: 700 24px/1.25 Unbounded, Manrope, sans-serif;
+}
+.climate-edit-summary small {
+  display: block;
+  color: #d9beb0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.design-frame .alarm-time-hint {
+  position: absolute;
+  top: 520px;
+  left: 27px;
+  right: 27px;
+  padding: 10px 13px;
+  border: 1px solid #58453a;
+  border-radius: 12px;
+  background: #241e1b;
+  color: #e9d2c3;
+  font: 12px/1.4 Manrope, sans-serif;
+}
+.design-frame .alarm-cancel + .alarm-time-hint { top: 582px; }
+
+/* Reduce typographic fragility in navigational captions and settings. */
+.design-frame .mode-caption { letter-spacing: .01em; }
+.design-widget .alarm-repeat-unavailable small { color: #e5cabc; font-size: 11px; }
+.design-frame .design-widget:focus-visible,
+.design-frame .design-hit:focus-visible {
+  outline: 3px solid #ffd9bb;
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .design-shell *, .design-shell *::before, .design-shell *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Voice interaction is a real asynchronous state machine. Never imply a
+   recorded utterance has already been executed while it is only STT text. */
+.design-frame .voice-state {
+  position: absolute;
+  z-index: 4;
+  top: 223px;
+  left: 27px;
+  right: 27px;
+  padding: 10px 12px;
+  margin: 0;
+  border-radius: 12px;
+  background: rgba(39, 30, 26, .92);
+  border: 1px solid rgba(232, 185, 151, .38);
+  color: #f7e5d8;
+  font: 12px/1.5 Manrope, sans-serif;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.design-frame .voice-state-error {
+  color: #fff1e8;
+  background: #382821;
+  border-color: #b68569;
+  font-weight: 600;
+}
+@media (max-width: 649px) and (max-height: 620px) {
+  .compact-chat-dock { bottom: max(8px, env(safe-area-inset-bottom)); }
+}
+
+/* WCAG 2.5.8 pointer target improvement. SVG icons remain 24x24 at their
+   original coordinates while actual button hit rectangles expand to 44px. */
+.design-frame .design-widget:is(
+  [aria-label="Меню"],
+  [aria-label="Сведения о сеансе"],
+  [aria-label="Назад"],
+  [aria-label="Профиль гостя"]
+) {
+  width: 44px !important;
+  height: 44px !important;
+  transform: translate(-10px, -10px);
+  z-index: 9;
+}
+.design-frame .design-widget:is(
+  [aria-label="Меню"],
+  [aria-label="Сведения о сеансе"],
+  [aria-label="Назад"],
+  [aria-label="Профиль гостя"]
+) > .widget-art {
+  left: 10px;
+  top: 10px;
+  right: auto;
+  bottom: auto;
+  width: 24px;
+  height: 24px;
+}
+.design-frame .design-widget:is(
+  [aria-label="Меню"],
+  [aria-label="Сведения о сеансе"],
+  [aria-label="Назад"],
+  [aria-label="Профиль гостя"]
+)::after { display: none; }
+
+.design-frame .alarm-time-hint.has-cancel { top: 590px; }
+
+/* Refusals 15/27: no simulated successful device state, no oversized
+   decorative response art, real full-response history remains accessible. */
+.design-frame .design-widget.reply.refused.explicit-refusal {
+  box-sizing: border-box;
+  height: auto !important;
+  min-height: 70px;
+  max-height: 155px;
+  padding: 12px 13px;
+  overflow: auto;
+  border: 1px solid #825c4b;
+  border-radius: 17px;
+  background: linear-gradient(150deg, #31241f, #221a17);
+  color: #fff3ea;
+}
+.design-frame[data-frame="27"] .design-widget.explicit-refusal {
+  max-height: 116px;
+}
+.refusal-content {
+  display: grid;
+  gap: 6px;
+  font: 13px/1.4 Manrope, sans-serif;
+  overflow-wrap: anywhere;
+}
+.refusal-content strong {
+  font-size: 14px;
+  font-weight: 750;
+  color: #fff4e9;
+}
+.refusal-content small {
+  font-size: 11.5px;
+  color: #ebc7b2;
+}
+
+/* Phase 2 visual QA: the 205px response card must never cut off its safe
+   action. Keep the footer visible, scroll only the variable-length detail. */
+.design-frame .design-widget.delivery-error {
+  max-height: 205px;
+}
+.design-frame[data-frame="16"] .design-widget.delivery-error {
+  max-height: 276px;
+}
+.design-frame .delivery-error-content {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  height: 205px;
+  max-height: none;
+  overflow: hidden;
+  padding: 12px 14px;
+}
+.design-frame[data-frame="16"] .delivery-error-content {
+  height: 244px;
+}
+.design-frame .delivery-error-copy {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.design-frame .delivery-error-copy p { margin: 0 0 6px; }
+.design-frame .delivery-error-copy small {
+  display: block;
+  margin-bottom: 4px;
+}
+.design-frame .delivery-error-actions {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+.design-frame .delivery-error-actions button {
+  flex: 0 1 auto;
+  min-width: 0;
+  min-height: 42px;
+  padding: 8px 12px;
+}
+
+/* The exported peach Save artwork must communicate its REAL disabled state.
+   A disabled alarm with no wake-up time must not look ready to submit. */
+.design-frame:is([data-frame="22"], [data-frame="23"])
+  .design-widget[disabled] {
+  opacity: .48 !important;
+  cursor: not-allowed;
+  filter: saturate(.72);
+}

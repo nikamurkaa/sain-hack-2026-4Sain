@@ -24,6 +24,11 @@ import { DesignScreen, rect } from "./Layout";
 import type { Binding, Widget } from "./Layout";
 
 const media = matchMedia("(max-width: 649px)");
+const compactChatMedia = matchMedia("(max-width: 649px) and (max-height: 740px)");
+function subscribeCompactChat(listener: () => void) {
+  compactChatMedia.addEventListener("change", listener);
+  return () => compactChatMedia.removeEventListener("change", listener);
+}
 function subscribe(listener: () => void) {
   media.addEventListener("change", listener);
   return () => media.removeEventListener("change", listener);
@@ -138,9 +143,13 @@ export function deviceLevel(id: string, room: Room | undefined) {
 }
 export function MobileStay(p: Props) {
   const [historyOpen, setHistoryOpen] = useState(false);
+  const compactChat = useSyncExternalStore(
+    subscribeCompactChat, () => compactChatMedia.matches,
+  );
   const room = p.snapshot?.state,
     mode = periodIndex(periodAt(p.info.at));
   const last = p.info.history.at(-1);
+  const scenarioWarnings = p.prepared.explanations?.filter((item) => item.status === "warning") ?? [];
   const screen =
     p.page === "welcome"
       ? 11
@@ -204,6 +213,44 @@ export function MobileStay(p: Props) {
         ))}
       </div>
     </dialog>
+  );
+  // The same controlled composer powers both the Figma frame and the short-
+  // viewport dock; only one is visible/focusable at a time through CSS.
+  const renderComposer = (compact: boolean) => (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (p.canSubmit) p.send(p.draft);
+      }}
+      className={"design-composer" +
+        (p.blockedByRecovery ? " recovery-blocked" : "") +
+        (compact ? " compact-chat-form" : "")}
+    >
+      <input
+        aria-label="Просьба"
+        placeholder="Попросить номер..."
+        value={p.draft}
+        maxLength={2000}
+        disabled={p.busy || !!p.pending}
+        onChange={(e) => p.setDraft(e.target.value)}
+      />
+      <button
+        type="button"
+        aria-label="Голосовой ввод"
+        disabled={!!p.pending || !p.info.actions.includes("transcription")}
+        onClick={() => p.go("voice")}
+      >
+        {compact && <img alt="" src="/media/icons/microphone.svg" />}
+      </button>
+      <button
+        type="submit"
+        aria-label="Отправить просьбу"
+        aria-describedby={p.blockedByRecovery ? "sain-action-hint" : undefined}
+        disabled={!p.canSubmit}
+      >
+        {compact && <img alt="" src="/media/icons/send.svg" />}
+      </button>
+    </form>
   );
   function bind(w: Widget): Binding | undefined {
     const common = chrome(w, p.navigation, time(p.info.at));
@@ -298,11 +345,16 @@ export function MobileStay(p: Props) {
       if (value === titles[p.period])
         return { text: (s, i) => (i === 2 ? "(виртуальное время)" : s) };
     }
+    // In screen 16 the standalone Figma Wi-Fi icon overlaps the real
+    // text-first error card. It is decorative and must not mask the message.
+    if (p.page === "chat" && p.error && name === "wifi-off-01")
+      return { hidden: true };
     if (p.page !== "chat") return;
     if (name === "Сделай попрохладнее")
       return {
         // Never offer a new command in front of unresolved action evidence.
-        hidden: !p.allowed || !!p.actionIssue,
+        hidden: !p.allowed || !!p.actionIssue || compactChat,
+        className: "suggestion-chip",
         onClick: () => p.send("Сделай попрохладнее"),
       };
     if (name === "Запрос")
@@ -315,16 +367,51 @@ export function MobileStay(p: Props) {
       if (p.error)
         return {
           role: "alert",
+          // The exported screen includes a peach Retry illustration. A safe
+          // retry is only an actual button when the attempt is retryable.
+          hideArt: true,
           className: "delivery-error",
-          text: (s, i) => (i === 0 ? p.error : (p.retryAllowed ? s : "")),
-          children: p.retryAllowed ? (
-            <Hit
-              label="Повторить"
-              box={[w.texts[1].box[0] - 28, w.texts[1].box[1] - 15, 165, 49]}
-              onClick={p.retry}
-              disabled={p.busy}
-            />
-          ) : undefined,
+          content: (
+            <div className="delivery-error-content">
+              <strong className="delivery-error-title">
+                {p.blockedByRecovery ? "Результат команды не подтверждён" : "Не удалось выполнить запрос"}
+              </strong>
+              <div className="delivery-error-copy">
+                <p className="delivery-error-message">{p.error}</p>
+                {p.blockedByRecovery && (
+                  <p className="delivery-error-consequence">Новые команды заблокированы до проверки результата.</p>
+                )}
+                {!p.retryAllowed || p.blockedByRecovery ? (
+                  <small>Перед повторной командой проверьте состояние номера.</small>
+                ) : null}
+              </div>
+              <div className="delivery-error-actions">
+                {p.retryAllowed && !p.blockedByRecovery && (
+                  <button type="button" onClick={p.retry} disabled={p.busy}>
+                    Повторить
+                  </button>
+                )}
+                <button type="button" className="delivery-dismiss" onClick={p.dismiss} disabled={p.busy}>
+                  Закрыть
+                </button>
+              </div>
+            </div>
+          ),
+        };
+      if (!p.busy && !p.pending && last?.reply.response_class === "refused")
+        return {
+          hideArt: true,
+          onClick: () => setHistoryOpen(true),
+          label: "Команда отклонена. Открыть полный ответ",
+          description: last.reply.text,
+          className: "reply refused explicit-refusal",
+          content: (
+            <span className="refusal-content">
+              <strong>Команда отклонена</strong>
+              <span>{last.reply.text}</span>
+              <small>Подтверждения изменения настроек нет.</small>
+            </span>
+          ),
         };
       return {
         onClick: !p.busy && last ? () => setHistoryOpen(true) : undefined,
@@ -341,38 +428,9 @@ export function MobileStay(p: Props) {
       };
     if (name === "Поле ввода")
       return {
-        hidden: !p.allowed,
-        content: (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (p.canSubmit) p.send(p.draft);
-            }}
-            className={"design-composer" + (p.blockedByRecovery ? " recovery-blocked" : "")}
-          >
-            <input
-              aria-label="Просьба"
-              placeholder="Попросить номер..."
-              value={p.draft}
-              maxLength={2000}
-              disabled={p.busy || !!p.pending}
-              onChange={(e) => p.setDraft(e.target.value)}
-            />
-            <button
-              type="button"
-              aria-label="Голосовой ввод"
-              disabled={
-                !!p.pending || !p.info.actions.includes("transcription")
-              }
-              onClick={() => p.go("voice")}
-            />
-            <button
-              aria-label="Отправить просьбу"
-              aria-describedby={p.blockedByRecovery ? "sain-action-hint" : undefined}
-              disabled={!p.canSubmit}
-            />
-          </form>
-        ),
+        hidden: !p.allowed || compactChat,
+        className: "composer-widget",
+        content: renderComposer(false),
       };
   }
   return (
@@ -396,6 +454,15 @@ export function MobileStay(p: Props) {
       {p.page === "plan" && (
         <div className="personal-plan">
           {selectPeriod(false)}
+          {scenarioWarnings.length > 0 && (
+            <section className="scenario-warnings" role="alert" aria-label="Предупреждения сценария">
+              <strong>Внимание к настройкам сна</strong>
+              <ul>{scenarioWarnings.map((item, index) => (
+                <li key={item.device_id + "-" + index}>{item.reason}</li>
+              ))}</ul>
+              <small>Это предупреждения плана, а не подтверждение состояния устройств.</small>
+            </section>
+          )}
           <Plan steps={p.prepared.scenario.steps} period={p.period} />
            <details className="technical-details">
              <summary>Почему выбран этот сценарий</summary>
@@ -434,18 +501,14 @@ export function MobileStay(p: Props) {
       {p.page === "chat" && !p.allowed && (
         <p className="read-caption">Сеанс доступен только для просмотра.</p>
       )}
-      {p.page === "chat" && p.error && (
-        <button
-          className="dismiss-message"
-          disabled={p.busy}
-          onClick={p.dismiss}
-        >
-          Закрыть
-        </button>
-      )}
       {historyOpen && p.page === "chat" && history}
       {p.overlay}
       </DesignScreen>
+      {p.page === "chat" && p.allowed && compactChat && (
+        <div className="compact-chat-dock">
+          {renderComposer(true)}
+        </div>
+      )}
     </>
   );
 }
