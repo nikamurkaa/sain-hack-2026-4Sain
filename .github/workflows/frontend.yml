@@ -16,6 +16,8 @@ on:
       - 'docs/stage1/integration/**'
       - 'scripts/rehearse_client.py'
       - 'scripts/client_access.py'
+      - 'macos/**'
+      - 'scripts/build_macos_candidate.py'
       - '.github/workflows/frontend.yml'
   workflow_dispatch:
 permissions:
