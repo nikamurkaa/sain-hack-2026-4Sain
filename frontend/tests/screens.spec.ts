@@ -267,6 +267,9 @@ test("voice review and responsive profile after fresh verified session", async (
 });
 
 test("responsive room, chat, and authoritative 401 expiry", async ({ page }) => {
+  // Multiple real browser viewport screenshots are decoded in this scenario.
+  // Retain all assertions while giving CI enough time to render five sizes.
+  test.setTimeout(90000);
   const c = await fixture(page, "19:48");
   await start(page);
   await expect(page.getByText("Заселиться")).toBeVisible();
