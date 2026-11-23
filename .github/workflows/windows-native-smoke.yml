@@ -103,3 +103,31 @@ jobs:
           try { $tcp.Connect('127.0.0.1', 8765); throw 'LIVE without key started backend' }
           catch [System.Net.Sockets.SocketException] { }
           finally { $tcp.Dispose() }
+
+      - name: LIVE backend starts with a fake local-only key and stops without provider access
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dest = Join-Path $env:RUNNER_TEMP 'SAIN Live Native Test'
+          $env:LLM_API_KEY = 'CI-FAKE-KEY-NOT-REAL'
+          $env:LLM_MODEL = 'gpt-6-luna'
+          # Never make a request to the real organizer provider in CI.
+          $env:LLM_BASE_URL = 'http://127.0.0.1:9/v1'
+          try {
+            & (Join-Path $dest 'START.cmd') -SelectedMode 3 -NoBrowser -NonInteractive
+            if ($LASTEXITCODE -ne 0) { throw 'LIVE launcher failed with fake local config' }
+            $api = Invoke-WebRequest 'http://127.0.0.1:8765/health' -UseBasicParsing -TimeoutSec 10
+            if ($api.StatusCode -ne 200) { throw 'LIVE backend did not start' }
+          } finally {
+            & (Join-Path $dest 'STOP.cmd')
+            if ($LASTEXITCODE -ne 0) { throw 'LIVE stop failed' }
+            $env:LLM_API_KEY = ''
+            $env:LLM_BASE_URL = ''
+          }
+          Start-Sleep -Seconds 2
+          foreach ($port in @(4173,8765)) {
+            $tcp = New-Object System.Net.Sockets.TcpClient
+            try { $tcp.Connect('127.0.0.1', $port); throw "LIVE service left port $port open" }
+            catch [System.Net.Sockets.SocketException] { }
+            finally { $tcp.Dispose() }
+          }
