@@ -197,6 +197,7 @@ def build_rehearsal(*, live=False, persist_path=None):
             final.closed = True
             if store is not None:
                 store.restore_sessions(backend, dev, model, upstream)
+                store.compact_simulator(backend, dev)
             if live:
                 # Never use FakeModel for live user messages or microphone STT.
                 # Only the synthetic fixture bootstrap above is deterministic.
