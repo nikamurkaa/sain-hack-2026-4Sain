@@ -373,15 +373,9 @@ export function MobileStay(p: Props) {
               ) : (
                 <small>Перед повторной командой проверьте состояние номера.</small>
               )}
-              {p.blockedByRecovery ? (
-                <button type="button" className="delivery-dismiss" onClick={p.navigation.menu}>
-                  Меню сеанса
-                </button>
-              ) : (
-                <button type="button" className="delivery-dismiss" onClick={p.dismiss} disabled={p.busy}>
-                  Закрыть
-                </button>
-              )}
+              <button type="button" className="delivery-dismiss" onClick={p.dismiss} disabled={p.busy}>
+                Закрыть
+              </button>
             </div>
           ),
         };
