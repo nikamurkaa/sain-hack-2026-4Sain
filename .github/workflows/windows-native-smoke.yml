@@ -103,6 +103,9 @@ jobs:
           try { $tcp.Connect('127.0.0.1', 8765); throw 'LIVE without key started backend' }
           catch [System.Net.Sockets.SocketException] { }
           finally { $tcp.Dispose() }
+          # This failed native command was intentionally tested above. GitHub
+          # Actions' Windows PowerShell wrapper otherwise returns its exit code.
+          $global:LASTEXITCODE = 0
 
       - name: LIVE backend starts with a fake local-only key and stops without provider access
         shell: powershell
