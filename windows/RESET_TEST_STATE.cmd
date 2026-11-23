@@ -10,6 +10,10 @@ if errorlevel 2 (
   echo [SAIN] Reset cancelled. Data preserved.
   exit /b 0
 )
+if not errorlevel 1 (
+  echo [SAIN] Confirmation not received. Data preserved.
+  exit /b 0
+)
 if exist "%~dp0.sain-state" (
   powershell.exe -NoProfile -Command "Remove-Item -LiteralPath '%~dp0.sain-state' -Recurse -Force -ErrorAction Stop"
   if errorlevel 1 (
