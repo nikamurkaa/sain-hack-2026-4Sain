@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 import subprocess
 import zipfile
-from scripts.build_windows_candidate import ROOT, tracked
+from build_windows_candidate import ROOT, tracked
 
 NAME = "SAIN-Smart-Room-macOS.zip"
 ALIASES = {
