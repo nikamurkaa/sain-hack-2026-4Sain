@@ -1,18 +1,24 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import ts from "typescript";
+import { rolldown } from "rolldown";
 
 // Execute actual TSX with controlled React hooks, fetch().blob() and Audio.play().
 // No real credentials, external services, or microphone are required.
 const here = path.dirname(fileURLToPath(import.meta.url));
-const original = readFileSync(path.resolve(here, "../src/SpeechReply.tsx"), "utf8");
-const js = ts.transpileModule(original, {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 },
-}).outputText;
+const componentFile = path.resolve(here, "../src/SpeechReply.tsx");
+// Use the same TSX transform/bundler toolchain as Vite 8. TypeScript 7 does not
+// expose the legacy transpileModule JavaScript compiler API.
+const bundle = await rolldown({
+  input: componentFile,
+  external: ["react", "react/jsx-runtime"],
+});
+const build = await bundle.generate({ format: "cjs" });
+const js = build.output.find((entry) => entry.type === "chunk")?.code;
+await bundle.close();
+assert.ok(js, "SpeechReply TSX must compile to a CommonJS test fixture");
 
 function deferred<T>() {
   let resolve!: (value: T) => void, reject!: (error: Error) => void;
