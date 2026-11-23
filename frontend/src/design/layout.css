@@ -1037,3 +1037,36 @@
 )::after { display: none; }
 
 .design-frame .alarm-time-hint.has-cancel { top: 590px; }
+
+/* Refusals 15/27: no simulated successful device state, no oversized
+   decorative response art, real full-response history remains accessible. */
+.design-frame .design-widget.reply.refused.explicit-refusal {
+  box-sizing: border-box;
+  height: auto !important;
+  min-height: 70px;
+  max-height: 155px;
+  padding: 12px 13px;
+  overflow: auto;
+  border: 1px solid #825c4b;
+  border-radius: 17px;
+  background: linear-gradient(150deg, #31241f, #221a17);
+  color: #fff3ea;
+}
+.design-frame[data-frame="27"] .design-widget.explicit-refusal {
+  max-height: 116px;
+}
+.refusal-content {
+  display: grid;
+  gap: 6px;
+  font: 13px/1.4 Manrope, sans-serif;
+  overflow-wrap: anywhere;
+}
+.refusal-content strong {
+  font-size: 14px;
+  font-weight: 750;
+  color: #fff4e9;
+}
+.refusal-content small {
+  font-size: 11.5px;
+  color: #ebc7b2;
+}
