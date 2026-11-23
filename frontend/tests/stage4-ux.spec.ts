@@ -82,11 +82,14 @@ test("Stage 4 Phase 2: alarm draft has accessible signal and a real time control
   await navigate(page, "Мой номер");
   await page.getByRole("button", { name: "Будильник", exact: true }).click();
   const input = page.getByLabel("Время пробуждения");
+  const save = page.getByRole("button", { name: "Сохранить" });
   await expect(input).toBeVisible();
+  await expect(save).toBeDisabled();
+  await expect(save).toHaveCSS("opacity", "0.48");
   await input.fill("07:45");
   await expect(page.getByRole("status")).toContainText("07:45");
   await expect(page.getByLabel("Сигнал")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Сохранить" })).toBeEnabled();
+  await expect(save).toBeEnabled();
   await expect(page.locator(".unavailable-option")).toContainText("Повтор недоступен");
 });
 
