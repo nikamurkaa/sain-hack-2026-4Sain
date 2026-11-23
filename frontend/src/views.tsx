@@ -363,7 +363,7 @@ export function Settings({
           if (name === "Сохранить")
             return {
               onClick: save,
-              disabled: !val || (id === "alarm" && !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(val)),
+              disabled: !val || (id === "alarm" && !/^([01]\d|2[0-3]):[0-5]\d$/.test(val)),
               text:
                 id === "sound"
                   ? () =>
