@@ -387,3 +387,17 @@ test("profile translates known default preference identifiers", async ({ page, r
   await expect(page.locator(".shell")).not.toContainText("temperature, tracks, volume, timer, alarm_mode");
   await expect(page.locator(".shell")).toContainText("Температура");
 });
+
+test("synthetic home continuation only shows confirmed state and ends local guest session", async ({page, request}) => {
+  const token = await connect(page, request);
+  await go(page, "После проживания");
+  await expect(page.getByRole("heading", {name: "Продолжение дома"})).toBeVisible();
+  await expect(page.getByText("Это не реальное выселение", {exact: false})).toBeVisible();
+  await expect(page.getByRole("button", {name: "Скопировать настройки для следующего заезда"})).toBeEnabled();
+  await page.getByRole("button", {name: "Завершить демосеанс"}).click();
+  await expect(page.getByLabel("Временный токен гостя")).toBeVisible();
+  const expiredSession = await request.get("http://127.0.0.1:8765/api/v1/session", {
+    headers: {Authorization: "Bearer " + token},
+  });
+  expect(expiredSession.status()).toBe(401);
+});
