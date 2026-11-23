@@ -54,10 +54,12 @@ def _message_from_json(entry):
 
 class DemoStore:
     def __init__(self, path):
-        self.path = Path(path).expanduser().resolve()
-        self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        if self.path.is_symlink():
+        selected = Path(path).expanduser().absolute()
+        if selected.is_symlink():
             raise RuntimeError("Refusing symlink database path")
+        self.path = selected.resolve()
+        parent_was_missing = not self.path.parent.exists()
+        self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         if self.path.exists() and not self.path.is_file():
             raise RuntimeError("Database must be a regular file")
         self._lock = threading.RLock()
@@ -82,7 +84,10 @@ class DemoStore:
             if check != "ok":
                 raise RuntimeError("Demo DB integrity check failed")
             if os.name != "nt":
-                os.chmod(self.path.parent, 0o700)
+                # Never chmod an arbitrary existing parent (e.g. /tmp) when
+                # an operator supplies a custom SAIN_DEMO_STATE_DB path.
+                if parent_was_missing:
+                    os.chmod(self.path.parent, 0o700)
                 os.chmod(self.path, stat.S_IRUSR | stat.S_IWUSR)
             self.prune()
         except (sqlite3.DatabaseError, OSError) as exc:
