@@ -111,6 +111,7 @@ def build_rehearsal(*, live=False, persist_path=None):
     final.data["stays"][0]["user_id"] = final.data["users"][0]["user_id"] = "final_test"
     faults = {"mode": None, "fail_state_reads": 0, "rejections": 0, "injected": 0}
     model = RehearsalModel(faults)
+    store = None  # shared by dispatch and wrapper lifespan for synchronous commits
 
     class SyntheticCancellationHTTP(httpx.AsyncClient):
         """Only loopback MockTransport: inject actual asyncio.CancelledError
@@ -174,6 +175,7 @@ def build_rehearsal(*, live=False, persist_path=None):
 
     @asynccontextmanager
     async def lifespan(app):
+        nonlocal store
         async with backend.router.lifespan_context(backend), SyntheticCancellationHTTP(
             transport=httpx.MockTransport(dispatch)
         ) as upstream, httpx.AsyncClient(
