@@ -1035,3 +1035,5 @@
   [aria-label="Назад"],
   [aria-label="Профиль гостя"]
 )::after { display: none; }
+
+.design-frame .alarm-time-hint.has-cancel { top: 590px; }
