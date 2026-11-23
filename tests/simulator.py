@@ -63,6 +63,11 @@ class Simulator:
             saved['entries'].append({'kind':operation, 'steps':steps})
             self.actions += int(operation == 'action')
             if self.persist_hook is not None: self.persist_hook(self)
+            # Subprocess-only fault, after the synthetic action is fsynced.
+            # No official/real provider is ever involved.
+            import os
+            if operation == "action" and os.getenv("SAIN_DEMO_CRASH_PROBE") == "after_post":
+                os._exit(74)
             return httpx.Response(200, json={})
         if operation == 'state' and request.method == 'GET':
             at = moment(request.url.params['at'])
