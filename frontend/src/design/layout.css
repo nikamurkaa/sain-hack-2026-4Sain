@@ -793,3 +793,82 @@
   border: 1px solid #9f7664;
   min-height: 44px;
 }
+
+/* On a 320x568 (or similarly short) viewport, a width-scaled 375x812
+   Figma canvas puts the composer below the fold. Keep the real input and
+   actions pinned without shrinking every label into unreadable text. */
+.compact-chat-dock { display: none; }
+@media (max-width: 649px) and (max-height: 740px) {
+  .design-frame .composer-widget,
+  .design-frame .suggestion-chip { display: none !important; }
+  .compact-chat-dock {
+    position: fixed;
+    z-index: 30;
+    display: block;
+    left: max(10px, env(safe-area-inset-left));
+    right: max(10px, env(safe-area-inset-right));
+    bottom: max(10px, env(safe-area-inset-bottom));
+    border-radius: 28px;
+    background: #28211e;
+    border: 1px solid #826354;
+    box-shadow: 0 -10px 36px rgba(0, 0, 0, .6);
+  }
+  .compact-chat-dock .compact-chat-form {
+    position: relative;
+    width: 100%;
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 5px 4px 13px;
+  }
+  .compact-chat-dock .compact-chat-form input {
+    position: static;
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto;
+    height: 44px;
+    border: 0;
+    background: transparent;
+    color: #fff4eb;
+    font: 13px/1.35 Manrope, sans-serif;
+    outline: none;
+  }
+  .compact-chat-dock .compact-chat-form input::placeholder { color: #cfb5a7; }
+  .compact-chat-dock .compact-chat-form input:focus-visible {
+    outline: 2px solid #f8c9ab;
+    outline-offset: -2px;
+    border-radius: 8px;
+  }
+  .compact-chat-dock .compact-chat-form button,
+  .compact-chat-dock .compact-chat-form button:last-child {
+    position: relative;
+    inset: auto;
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: transparent;
+  }
+  .compact-chat-dock .compact-chat-form button:last-child {
+    background: #f8c9ab;
+  }
+  .compact-chat-dock .compact-chat-form button img {
+    width: 20px;
+    height: 20px;
+    display: block;
+    filter: brightness(0) saturate(100%) invert(85%) sepia(22%) saturate(581%) hue-rotate(321deg);
+  }
+  .compact-chat-dock .compact-chat-form button:last-child img {
+    filter: brightness(0) saturate(100%);
+  }
+  .compact-chat-dock .compact-chat-form button:disabled { opacity: .45; }
+  .compact-chat-dock .compact-chat-form button:focus-visible {
+    outline: 2px solid #fff4e7;
+    outline-offset: 2px;
+  }
+}
