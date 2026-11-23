@@ -18,6 +18,7 @@ class Simulator:
         self.actions = 0
         self.reads = 0
         self.auth = []
+        self.persist_hook = None  # Synthetic loopback only; fsync before HTTP success.
 
     def __call__(self, request):
         self.auth.append(request.headers.get('Authorization'))
@@ -31,6 +32,7 @@ class Simulator:
                 return httpx.Response(400)
             run_id = 'test-run' if not self.runs else f'test-run-{len(self.runs)+1}'
             self.runs.append(run_id)
+            if self.persist_hook is not None: self.persist_hook(self)
             return httpx.Response(201, json={'run_id':run_id})
         if path == '/room/session' and request.method == 'POST':
             rid = body['record_id']
@@ -45,6 +47,7 @@ class Simulator:
                     initial = deepcopy(record['initial_state'])
                 session = {'session_id':sid,'kind':body['kind'],'record_id':rid,'initial_state':initial,'from':AT,'until':self.until}
                 self.sessions[sid] = {'session':session,'entries':[]}
+                if self.persist_hook is not None: self.persist_hook(self)
             return httpx.Response(201,json=self.sessions[sid]['session'])
         parts = path.split('/')
         if len(parts) != 4 or parts[2] not in self.sessions:
@@ -59,6 +62,7 @@ class Simulator:
             steps = body['steps'] if operation == 'scenario' else [body]
             saved['entries'].append({'kind':operation, 'steps':steps})
             self.actions += int(operation == 'action')
+            if self.persist_hook is not None: self.persist_hook(self)
             return httpx.Response(200, json={})
         if operation == 'state' and request.method == 'GET':
             at = moment(request.url.params['at'])
