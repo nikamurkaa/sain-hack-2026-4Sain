@@ -1115,3 +1115,12 @@
   min-height: 42px;
   padding: 8px 12px;
 }
+
+/* The exported peach Save artwork must communicate its REAL disabled state.
+   A disabled alarm with no wake-up time must not look ready to submit. */
+.design-frame:is([data-frame="22"], [data-frame="23"])
+  .design-widget[disabled] {
+  opacity: .48 !important;
+  cursor: not-allowed;
+  filter: saturate(.72);
+}
