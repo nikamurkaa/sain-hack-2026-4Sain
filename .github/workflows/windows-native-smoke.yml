@@ -89,8 +89,16 @@ jobs:
         run: |
           $dest = Join-Path $env:RUNNER_TEMP 'SAIN Live Native Test'
           $env:LLM_API_KEY = ''
-          & (Join-Path $dest 'START.cmd') -SelectedMode 3 -NoBrowser -NonInteractive
-          if ($LASTEXITCODE -eq 0) { throw 'LIVE launch succeeded without provider key' }
+          # An expected failed native process writes to stderr. In Windows
+          # PowerShell 5.1 -ErrorActionPreference Stop that is surfaced as a
+          # NativeCommandError before we can assert the exit code.
+          $original = $ErrorActionPreference
+          try {
+            $ErrorActionPreference = 'Continue'
+            & (Join-Path $dest 'START.cmd') -SelectedMode 3 -NoBrowser -NonInteractive 2>$null
+            $exit = $LASTEXITCODE
+          } finally { $ErrorActionPreference = $original }
+          if ($exit -eq 0) { throw 'LIVE launch succeeded without provider key' }
           $tcp = New-Object System.Net.Sockets.TcpClient
           try { $tcp.Connect('127.0.0.1', 8765); throw 'LIVE without key started backend' }
           catch [System.Net.Sockets.SocketException] { }
