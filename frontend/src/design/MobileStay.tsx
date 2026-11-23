@@ -206,6 +206,44 @@ export function MobileStay(p: Props) {
       </div>
     </dialog>
   );
+  // The same controlled composer powers both the Figma frame and the short-
+  // viewport dock; only one is visible/focusable at a time through CSS.
+  const renderComposer = (compact: boolean) => (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (p.canSubmit) p.send(p.draft);
+      }}
+      className={"design-composer" +
+        (p.blockedByRecovery ? " recovery-blocked" : "") +
+        (compact ? " compact-chat-form" : "")}
+    >
+      <input
+        aria-label="Просьба"
+        placeholder="Попросить номер..."
+        value={p.draft}
+        maxLength={2000}
+        disabled={p.busy || !!p.pending}
+        onChange={(e) => p.setDraft(e.target.value)}
+      />
+      <button
+        type="button"
+        aria-label="Голосовой ввод"
+        disabled={!!p.pending || !p.info.actions.includes("transcription")}
+        onClick={() => p.go("voice")}
+      >
+        {compact && <img alt="" src="/media/icons/microphone.svg" />}
+      </button>
+      <button
+        type="submit"
+        aria-label="Отправить просьбу"
+        aria-describedby={p.blockedByRecovery ? "sain-action-hint" : undefined}
+        disabled={!p.canSubmit}
+      >
+        {compact && <img alt="" src="/media/icons/send.svg" />}
+      </button>
+    </form>
+  );
   function bind(w: Widget): Binding | undefined {
     const common = chrome(w, p.navigation, time(p.info.at));
     if (common) return common;
@@ -308,6 +346,7 @@ export function MobileStay(p: Props) {
       return {
         // Never offer a new command in front of unresolved action evidence.
         hidden: !p.allowed || !!p.actionIssue,
+        className: "suggestion-chip",
         onClick: () => p.send("Сделай попрохладнее"),
       };
     if (name === "Запрос")
@@ -362,37 +401,8 @@ export function MobileStay(p: Props) {
     if (name === "Поле ввода")
       return {
         hidden: !p.allowed,
-        content: (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (p.canSubmit) p.send(p.draft);
-            }}
-            className={"design-composer" + (p.blockedByRecovery ? " recovery-blocked" : "")}
-          >
-            <input
-              aria-label="Просьба"
-              placeholder="Попросить номер..."
-              value={p.draft}
-              maxLength={2000}
-              disabled={p.busy || !!p.pending}
-              onChange={(e) => p.setDraft(e.target.value)}
-            />
-            <button
-              type="button"
-              aria-label="Голосовой ввод"
-              disabled={
-                !!p.pending || !p.info.actions.includes("transcription")
-              }
-              onClick={() => p.go("voice")}
-            />
-            <button
-              aria-label="Отправить просьбу"
-              aria-describedby={p.blockedByRecovery ? "sain-action-hint" : undefined}
-              disabled={!p.canSubmit}
-            />
-          </form>
-        ),
+        className: "composer-widget",
+        content: renderComposer(false),
       };
   }
   return (
@@ -466,6 +476,11 @@ export function MobileStay(p: Props) {
       {historyOpen && p.page === "chat" && history}
       {p.overlay}
       </DesignScreen>
+      {p.page === "chat" && p.allowed && (
+        <div className="compact-chat-dock">
+          {renderComposer(true)}
+        </div>
+      )}
     </>
   );
 }
