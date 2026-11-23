@@ -105,6 +105,18 @@ test("Stage 4: core mobile controls remain scroll-reachable at 320x568", async (
   expect(width).toBeLessThanOrEqual(321);
 });
 
+test("Stage 4 Phase 2: refused commands never look like applied settings", async ({ page }) => {
+  await connect(page);
+  await navigate(page, "Диалог");
+  await page.getByRole("textbox", { name: "Просьба" }).fill("Поставь 35 градусов");
+  await page.getByRole("button", { name: "Отправить просьбу" }).click();
+  const refusal = page.locator(".explicit-refusal");
+  await expect(refusal).toBeVisible();
+  await expect(refusal).toContainText("Команда отклонена");
+  await expect(refusal).toContainText("Подтверждения изменения настроек нет.");
+  await expect(refusal).not.toContainText("Успешно");
+});
+
 test("Stage 4: uncertain transport error has no illustrative pseudo-Retry button", async ({ page }) => {
   await page.route("**/api/v1/messages", (route) => route.abort("failed"));
   await connect(page);
