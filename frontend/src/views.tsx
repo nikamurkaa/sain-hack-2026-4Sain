@@ -363,7 +363,7 @@ export function Settings({
           if (name === "Сохранить")
             return {
               onClick: save,
-              disabled: !val,
+              disabled: !val || (id === "alarm" && !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(val)),
               text:
                 id === "sound"
                   ? () =>
@@ -396,7 +396,7 @@ export function Settings({
                     <Hit
                       label="Уменьшить температуру"
                       box={[0, 0, 64, 62]}
-                      disabled={Number(val) <= (range?.minimum ?? 16)}
+                      disabled={!val.trim() || !Number.isFinite(Number(val)) || Number(val) <= (range?.minimum ?? 16)}
                       onClick={() =>
                         set(
                           String(
@@ -408,7 +408,7 @@ export function Settings({
                     <Hit
                       label="Увеличить температуру"
                       box={[193, 0, 64, 62]}
-                      disabled={Number(val) >= (range?.maximum ?? 26)}
+                      disabled={!val.trim() || !Number.isFinite(Number(val)) || Number(val) >= (range?.maximum ?? 26)}
                       onClick={() =>
                         set(
                           String(
@@ -539,6 +539,22 @@ export function Settings({
         }}
       >
         <small className="mode-caption">{design.badge}</small>
+        {id === "climate" && (
+          <div className="climate-edit-summary" role="status">
+            <strong>{Number(val) === Number(values.temperature_c) ? "Текущая настройка" : "Изменение климата"}</strong>
+            <p>
+              {Number.isFinite(Number(val)) && val.trim() !== ""
+                ? `${Number(values.temperature_c)} °C → ${Number(val)} °C`
+                : "Введите температуру"}
+            </p>
+            <small>Изменение вступит в силу только после подтверждения номером.</small>
+          </div>
+        )}
+        {id === "alarm" && (
+          <p className="alarm-time-hint" role="status">
+            {val ? `Подъём в ${val} · сигнал: ${modes[alarmMode]}` : "Выберите время подъёма"}
+          </p>
+        )}
         {id === "climate" && (
           <button
             type="button"
