@@ -33,6 +33,10 @@ __pycache__/
 .coverage
 htmlcov/
 .runtime/
+.sain-state/
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
 *.pid
 *.log
 # Frontend generated outputs

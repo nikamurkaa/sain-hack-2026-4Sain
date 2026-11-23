@@ -6,6 +6,8 @@ on:
       - 'frontend/**'
       - 'windows/**'
       - 'scripts/build_windows_candidate.py'
+      - 'macos/**'
+      - 'scripts/build_macos_candidate.py'
       - 'docs/WINDOWS_ACCEPTANCE_GUIDE_RU.md'
       - 'docs/stage1/integration/**'
       - '.github/workflows/windows-package.yml'

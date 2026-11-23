@@ -30,7 +30,8 @@ type Page =
   | "virtual"
   | "settings"
   | "voice"
-  | "profile";
+  | "profile"
+  | "home";
 type Attempt = { text: string; at: string; key: string };
 const pageNames = {
   welcome: "Заселение",
@@ -39,6 +40,7 @@ const pageNames = {
   chat: "Диалог",
   virtual: "Виртуальное время",
   profile: "Профиль гостя",
+  home: "После проживания",
 };
 const problem = (e: unknown) =>
   e instanceof ApiError
@@ -110,6 +112,8 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
   const [actionIssue, setActionIssue] = useState<ActionIssue | null>(null);
   const [aiProof, setAiProof] = useState<{ mode: string; model: string; successful_calls: { chat: number; stt: number; tts: number } } | null>(null);
   const [proofRevision, refreshProof] = useState(0);
+  const [homeCopied, setHomeCopied] = useState(false),
+    [homeError, setHomeError] = useState("");
   // A dropped HTTP reply is NOT evidence that an upstream POST was rejected.
   // Fail closed until the authenticated session reveals a pending operation,
   // or a completed response can be independently verified.
@@ -262,6 +266,7 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
         "chat",
         "virtual",
         "profile",
+        "home",
         "settings",
         "voice",
       ];
@@ -970,6 +975,46 @@ function Stay({ token, leave }: { token: string; leave: () => void }) {
           <button className="primary bottom" onClick={() => go("plan")}>
             Заселиться <Icon name="arrow-right" />
           </button>
+        </section>
+      )}
+      {page === "home" && (
+        <section className="home-summary">
+          <h1>Продолжение дома</h1>
+          <p>Сводка синтетического проживания. Это не реальное выселение из отеля и не подключение к домашним устройствам.</p>
+          <h2>Что учитывать при следующем заезде</h2>
+          <Detail data={prepared.guest.preferences} catalog={catalog} />
+          <h2>Последние подтверждённые настройки номера</h2>
+          {snapshot && !stale && !actionIssue && !blockedByRecovery ? (
+            <>
+              <Detail data={snapshot.state} catalog={catalog} />
+              <button type="button" className="primary" onClick={async () => {
+                setHomeCopied(false);
+                setHomeError("");
+                try {
+                  await navigator.clipboard.writeText(JSON.stringify({
+                    format: "sain-local-demo-settings/v1", synthetic: true,
+                    devices: snapshot.state,
+                  }, null, 2));
+                  setHomeCopied(true);
+                } catch {
+                  setHomeError("Копирование недоступно. Данные не были сохранены.");
+                }
+              }}>Скопировать настройки для следующего заезда</button>
+            </>
+          ) : (
+            <p role="status">Нет надёжного подтверждения состояния. Экспорт настроек недоступен до сверки номера.</p>
+          )}
+          {homeCopied && <p role="status">Настройки скопированы только в буфер обмена. Передача в отель не выполнялась.</p>}
+          {homeError && <p role="alert">{homeError}</p>}
+          <button type="button" onClick={async () => {
+            try {
+              await api<void>("session", { method: "DELETE" });
+              leave();
+            } catch (e) {
+              if (expiredError(e)) leave();
+              else setHomeError(problem(e));
+            }
+          }}>Завершить демосеанс</button>
         </section>
       )}
       {page === "profile" && (

@@ -4,6 +4,14 @@ on:
     paths:
       - 'windows/**'
       - 'scripts/build_windows_candidate.py'
+      - 'macos/**'
+      - 'scripts/build_macos_candidate.py'
+      - 'scripts/check_persistence_process.py'
+      - 'scripts/demo_persistence.py'
+      - 'scripts/rehearse_client.py'
+      - 'backend/**'
+      - 'main.py'
+      - 'frontend/**'
       - '.github/workflows/windows-native-smoke.yml'
   workflow_dispatch:
 permissions:
@@ -86,6 +94,13 @@ jobs:
             catch [System.Net.Sockets.SocketException] { }
             finally { $tcp.Dispose() }
           }
+      - name: Native Windows crash-safe guest restart and idempotency
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dest = Join-Path $env:RUNNER_TEMP 'SAIN Live Native Test'
+          & (Join-Path $dest '.venv\Scripts\python.exe') -m scripts.check_persistence_process
+          if ($LASTEXITCODE -ne 0) { throw 'Native SQLite process acceptance failed' }
       - name: LIVE without key fails closed (no fake fallback)
         shell: powershell
         run: |

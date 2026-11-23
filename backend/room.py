@@ -26,6 +26,8 @@ class Room:
         # In-memory, per-upstream-session diagnostic journal. Restart durability
         # is intentionally NOT promised until an authorized persistent contract.
         self.operations = {}
+        self.request_key = None  # Associated guest idempotency key, not a credential.
+        self.persist_hook = None # Synthetic demo only; all other clients remain in-memory.
         # Serializes read -> POST -> full-state reconciliation per Room instance.
         self._execute_lock = asyncio.Lock()
 
@@ -86,7 +88,12 @@ class Room:
                             "Выполнение прервано. Результат неизвестен; "
                             "проверьте состояние номера без повторной отправки.", 409,
                         )
+                        self.checkpoint()
                 raise
+
+    def checkpoint(self):
+        if self.persist_hook is not None:
+            self.persist_hook()
 
     async def _execute_locked(self, commands, at, operation_id=None):
         """Safely execute an ordered saga, never pretending upstream is atomic.
@@ -135,12 +142,16 @@ class Room:
             "confirmed_devices": [],
             "state": None,
             "requested_steps": len(commands),
+            "request_key": self.request_key,
         }
         self.operations[operation_id] = record
+        # Write-ahead journal: a crash after POST must not allow a new replay.
+        self.checkpoint()
 
         def fail(code, status, message):
             record["status"] = status
             record["error"] = ("action", code, message, 409)
+            self.checkpoint()
             raise ActionFailure(code, message, operation_id, record["confirmed_devices"],
                                 record["attempted_at"], record["mutation_possible"])
 
@@ -150,6 +161,7 @@ class Room:
             # No POST has happened, but the completed read is not confirmed.
             record["status"] = "uncertain"
             record["error"] = ("service", exc.code, exc.message, exc.status)
+            self.checkpoint()
             raise
 
         for command in commands:
@@ -163,8 +175,17 @@ class Room:
             try:
                 # This frontier is irreversible even if the POST response is lost.
                 record["mutation_possible"] = True
+                self.checkpoint()
                 await self.client.request("POST", self.path + "/action", body=command)
             except ServiceError as exc:
+                if exc.code == "STORAGE_UNAVAILABLE":
+                    # The synthetic device might already have mutated in RAM
+                    # even when its durable simulator checkpoint failed.
+                    # Never report this as a definitive upstream rejection.
+                    record["storage_failed"] = True
+                    fail("ACTION_UNCERTAIN", "uncertain",
+                         "Локальное хранилище не подтвердило операцию. "
+                         "Сеанс заблокирован; изменение не повторялось.")
                 if exc.code != "UPSTREAM_UNCERTAIN":
                     if record["confirmed_devices"]:
                         names = ", ".join(record["confirmed_devices"])
@@ -176,6 +197,7 @@ class Room:
                     # outcomes which may have committed are action-uncertain.
                     record["status"] = "failed"
                     record["error"] = ("service", exc.code, exc.message, exc.status)
+                    self.checkpoint()
                     raise
                 # The external POST might already have committed: do not retry.
                 uncertain_post = True
@@ -200,7 +222,9 @@ class Room:
 
             record["confirmed_devices"].append(device)
             record["state"] = deepcopy(actual)
+            self.checkpoint()
             expected = actual
 
         record["status"] = "done"
+        self.checkpoint()
         return deepcopy(expected)

@@ -40,6 +40,7 @@ async def lifespan(app):
         app.state.run_lock = asyncio.Lock()
         app.state.run_cache = {}
         app.state.sessions = {}
+        app.state.demo_store = None  # Enabled only by local synthetic demo wrapper.
         app.state.create_lock = asyncio.Lock()
         app.state.final_session = None
         app.state.speech_lock = asyncio.Lock()
@@ -222,11 +223,20 @@ class ClientSession:
     action_issues: dict = field(default_factory=dict)
 
 
-def client_session(token=Depends(bearer)):
+def checkpoint(session):
+    hook = getattr(session, 'persist_hook', None)
+    if hook is not None:
+        hook()
+
+
+async def client_session(token=Depends(bearer)):
     key = hashlib.sha256(token.encode()).hexdigest()
     session = app.state.sessions.get(key)
     outdated = session and session.presentation and session.presentation is not app.state.final_session
     if not session or outdated or session.expires <= time.monotonic():
+        store = getattr(app.state, 'demo_store', None)
+        if store is not None and session is not None:
+            store.delete_session(key)
         app.state.sessions.pop(key, None)
         raise ServiceError('SESSION_EXPIRED', 'Сеанс не найден или истёк. Создайте новый.', 401)
     return session
@@ -239,6 +249,9 @@ async def create_session(body: SessionInput, token=Depends(bearer)):
     if not expected or not hmac.compare_digest(token, expected):
         raise ServiceError('ACCESS_DENIED', 'Создание демонстрационного сеанса доступно команде.', 403)
     async with app.state.create_lock:
+        store = getattr(app.state, 'demo_store', None)
+        if store is not None:
+            store.prune()
         app.state.sessions = {k: s for k, s in app.state.sessions.items() if s.expires > time.monotonic()}
         if len(app.state.sessions) >= 8:
             raise ServiceError('SESSION_LIMIT', 'Достигнут лимит активных сеансов.', 429)
@@ -267,7 +280,11 @@ async def create_session(body: SessionInput, token=Depends(bearer)):
         if remaining <= 0:
             raise ServiceError('SESSION_EXPIRED', 'Прогон истёк во время подготовки номера.', 409)
         key = secrets.token_urlsafe(32)
-        app.state.sessions[hashlib.sha256(key.encode()).hexdigest()] = session
+        token_hash = hashlib.sha256(key.encode()).hexdigest()
+        if store is not None:
+            store.attach(token_hash, session)
+            checkpoint(session)  # Never issue a browser token before it is durable.
+        app.state.sessions[token_hash] = session
         return {'session_token': key, **session_info(session)}
 
 
@@ -377,6 +394,7 @@ async def state(at: str | None = None, session=Depends(client_session)):
             # A default read at the older last-done clock cannot downgrade a
             # T2 recovery snapshot, even after explicit reconciliation.
             session.last_confirmed = snapshot
+        checkpoint(session)
         return snapshot
 
 
@@ -387,6 +405,7 @@ def note_upstream_error(session, exc):
         session.connection_status = 'rate_limited'
     else:
         session.connection_status = 'unavailable'
+    checkpoint(session)
 
 
 def require_writable(session):
@@ -412,6 +431,10 @@ def ensure_safe_action_time(session, at):
 def register_action_failure(session, error, attempted_at):
     if not isinstance(error, ActionFailure):
         return
+    if getattr(session.room, 'operations', {}).get(error.operation_id, {}).get('storage_failed'):
+        # An in-memory simulator write without a durable receipt cannot be
+        # safely continued; manual reset is required. GET remains available.
+        session.read_only = True
     # The trusted request instant is checked against the Room journal; the
     # consumer cannot choose or forge reconciliation time via a query string.
     if not error.attempted_at or moment(error.attempted_at) != moment(attempted_at):
@@ -502,6 +525,7 @@ async def reconciliation(operation_id: str, session=Depends(client_session)):
                 or moment(at) >= moment(session.last_confirmed['at'])):
             session.last_confirmed = snapshot
         session.connection_status = 'available'
+        checkpoint(session)
         next_at = session.at
         if session.mutation_floor and moment(session.mutation_floor) > moment(next_at):
             next_at = session.mutation_floor
@@ -534,6 +558,8 @@ async def message(body: MessageInput, idempotency_key: str = Header(min_length=8
         ensure_safe_action_time(session, body.at)
         uncertain = ServiceError('MESSAGE_UNCERTAIN', 'Результат не подтверждён. Проверьте состояние комнаты.', 409)
         session.messages[idempotency_key] = (fingerprint, uncertain)
+        session.room.request_key = idempotency_key
+        checkpoint(session)  # Durable reservation BEFORE parsing or any POST.
         known_operations = set(getattr(session.room, 'operations', {}))
         try:
             texts = [body.text]
@@ -545,20 +571,25 @@ async def message(body: MessageInput, idempotency_key: str = Header(min_length=8
             session.at = body.at
             session.history.append({'at': body.at, 'utterances': texts, 'reply': reply})
             session.messages[idempotency_key] = (fingerprint, result)
+            checkpoint(session)
             return result
         except asyncio.CancelledError:
             # NO await: preserve id/time/confirmed devices and mutation frontier
             # while session.lock is held, then propagate genuine cancellation.
             record_cancelled_action(session, known_operations, fingerprint,
                                     idempotency_key, body.at)
+            checkpoint(session)
             raise
         except ServiceError as exc:
             register_action_failure(session, exc, body.at)
+            if exc.code == 'STORAGE_UNAVAILABLE':
+                session.read_only = True
             if exc.code.startswith(('UPSTREAM_', 'RUN_')):
                 note_upstream_error(session, exc)
                 if exc.status == 409:
                     session.read_only = True
             session.messages[idempotency_key] = (fingerprint, exc)
+            checkpoint(session)
             raise
 
 
@@ -596,10 +627,12 @@ async def set_device(body: DeviceInput, idempotency_key: str = Header(min_length
                 # replays identical 422; a different payload conflicts.
                 error = ServiceError('INVALID_TIME', str(exc), 422)
                 session.messages[idempotency_key] = (fingerprint, error)
+                checkpoint(session)
                 raise error from None
             except (ValueError, KeyError, OverflowError):
                 error = ServiceError('INVALID_TIME', 'Укажите допустимое время пробуждения.', 422)
                 session.messages[idempotency_key] = (fingerprint, error)
+                checkpoint(session)
                 raise error from None
         try:
             check_values(session.solution.data['devices'], body.device_id, changes)
@@ -607,6 +640,8 @@ async def set_device(body: DeviceInput, idempotency_key: str = Header(min_length
             raise ServiceError('INVALID_VALUE', 'Значение не соответствует настройкам устройства.', 422) from None
         uncertain = ServiceError('ACTION_UNCERTAIN', 'Результат не подтверждён. Проверьте состояние номера.', 409)
         session.messages[idempotency_key] = (fingerprint, uncertain)
+        session.room.request_key = idempotency_key
+        checkpoint(session)  # Idempotency reservation survives a crash.
         command = {'device_id': body.device_id, 'values': changes, 'at': body.at}
         known_operations = set(getattr(session.room, 'operations', {}))
         try:
@@ -614,14 +649,18 @@ async def set_device(body: DeviceInput, idempotency_key: str = Header(min_length
         except asyncio.CancelledError:
             record_cancelled_action(session, known_operations, fingerprint,
                                     idempotency_key, body.at)
+            checkpoint(session)
             raise
         except ServiceError as exc:
             register_action_failure(session, exc, body.at)
+            if exc.code == 'STORAGE_UNAVAILABLE':
+                session.read_only = True
             if exc.code.startswith(('UPSTREAM_', 'RUN_')):
                 note_upstream_error(session, exc)
                 if exc.status == 409:
                     session.read_only = True
             session.messages[idempotency_key] = (fingerprint, exc)
+            checkpoint(session)
             raise
         reply = {'role': 'agent', 'at': body.at,
                  'text': success_text([command], session.solution.data['tracks']), 'response_class': 'done'}
@@ -632,12 +671,17 @@ async def set_device(body: DeviceInput, idempotency_key: str = Header(min_length
         session.history.append({'at': body.at, 'utterances': ['Ручная настройка: ' + body.device_id],
                                 'reply': reply})
         session.messages[idempotency_key] = (fingerprint, result)
+        checkpoint(session)
         return result
 
 
 @app.delete('/api/v1/session', status_code=204)
 async def close_session(token=Depends(bearer)):
-    app.state.sessions.pop(hashlib.sha256(token.encode()).hexdigest(), None)
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    store = getattr(app.state, 'demo_store', None)
+    if store is not None:
+        store.delete_session(token_hash)
+    app.state.sessions.pop(token_hash, None)
 
 
 
