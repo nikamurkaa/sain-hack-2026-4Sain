@@ -974,3 +974,31 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Voice interaction is a real asynchronous state machine. Never imply a
+   recorded utterance has already been executed while it is only STT text. */
+.design-frame .voice-state {
+  position: absolute;
+  z-index: 4;
+  top: 223px;
+  left: 27px;
+  right: 27px;
+  padding: 10px 12px;
+  margin: 0;
+  border-radius: 12px;
+  background: rgba(39, 30, 26, .92);
+  border: 1px solid rgba(232, 185, 151, .38);
+  color: #f7e5d8;
+  font: 12px/1.5 Manrope, sans-serif;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.design-frame .voice-state-error {
+  color: #fff1e8;
+  background: #382821;
+  border-color: #b68569;
+  font-weight: 600;
+}
+@media (max-width: 649px) and (max-height: 620px) {
+  .compact-chat-dock { bottom: max(8px, env(safe-area-inset-bottom)); }
+}
